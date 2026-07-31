@@ -13,6 +13,22 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 
+function isValidPublishableKey(key: string | null): boolean {
+  if (!key) return false;
+  const singleKey = Deno.env.get('SUPABASE_PUBLISHABLE_KEY');
+  if (singleKey && key === singleKey) return true;
+
+  try {
+    const configured = JSON.parse(Deno.env.get('SUPABASE_PUBLISHABLE_KEYS') ?? '{}');
+    return Object.values(configured).some((value) => {
+      if (typeof value === 'string') return value === key;
+      return value && typeof value === 'object' && value.key === key;
+    });
+  } catch {
+    return false;
+  }
+}
+
 function validatePublicUrl(value: unknown): URL {
   if (typeof value !== 'string' || value.length > 2048) throw new Error('Invalid URL.');
   const url = new URL(value);
@@ -162,6 +178,9 @@ async function structureWithAI(text: string, sourceUrl: string) {
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (request.method !== 'POST') return json({ message: 'Method not allowed.' }, 405);
+  if (!isValidPublishableKey(request.headers.get('apikey'))) {
+    return json({ message: 'Unauthorized.' }, 401);
+  }
 
   try {
     const contentLength = Number(request.headers.get('content-length') ?? 0);

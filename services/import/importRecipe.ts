@@ -39,12 +39,14 @@ async function importFromBackend(url: string, suppliedText?: string): Promise<Re
 
   let response: Response;
   try {
-    const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+    const publishableKey =
+      process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
+      process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
     response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(anonKey ? { Authorization: `Bearer ${anonKey}`, apikey: anonKey } : {}),
+        ...(publishableKey ? { apikey: publishableKey } : {}),
       },
       body: JSON.stringify({ url, suppliedText }),
     });

@@ -37,7 +37,7 @@ Supabase Edge Function in `supabase/functions/import-recipe`.
 supabase secrets set OPENAI_API_KEY=... OPENAI_MODEL=gpt-5-mini ALLOWED_ORIGIN=*
 ```
 
-3. Deploy and copy `.env.example` to `.env`, then fill in the function URL and anon key.
+3. Deploy and copy `.env.example` to `.env.local`, then fill in the function URL and publishable key.
 
 ```bash
 supabase functions deploy import-recipe
