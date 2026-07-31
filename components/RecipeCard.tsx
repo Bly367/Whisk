@@ -27,6 +27,8 @@ export function RecipeCard({ recipe, onPress, variant = 'grid' }: RecipeCardProp
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${recipe.title}, ${sourceLabels[recipe.source]}`}
       style={({ pressed }) => [
         styles.card,
         isHero && styles.heroCard,

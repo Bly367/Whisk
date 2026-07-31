@@ -1,5 +1,6 @@
 import { Stack } from 'expo-router';
 import { useEffect } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { colors } from '../constants/theme';
@@ -10,6 +11,7 @@ export default function RootLayout() {
   const initialize = useAuthStore((state) => state.initialize);
   const userId = useAuthStore((state) => state.user?.id);
   const connectSync = useRecipeStore((state) => state.connectSync);
+  const syncToCloud = useRecipeStore((state) => state.syncToCloud);
 
   useEffect(() => {
     void initialize();
@@ -25,6 +27,19 @@ export default function RootLayout() {
     }
     return useRecipeStore.persist.onFinishHydration(connect);
   }, [userId, connectSync]);
+
+  useEffect(() => {
+    if (!userId) return;
+    const retryIfPending = (nextState: AppStateStatus) => {
+      if (nextState !== 'active') return;
+      const { syncPending, syncStatus } = useRecipeStore.getState();
+      if (syncPending || syncStatus === 'error') {
+        void syncToCloud(userId);
+      }
+    };
+    const subscription = AppState.addEventListener('change', retryIfPending);
+    return () => subscription.remove();
+  }, [userId, syncToCloud]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

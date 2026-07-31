@@ -35,11 +35,12 @@ export default function PlanScreen() {
   const removeMealPlanRecipe = useRecipeStore((state) => state.removeMealPlanRecipe);
   const [weekOffset, setWeekOffset] = useState(0);
   const [picker, setPicker] = useState<PickerTarget>();
+  const [selectedServings, setSelectedServings] = useState(2);
   const dates = useMemo(() => weekDates(weekOffset), [weekOffset]);
   const dateIds = useMemo(() => new Set(dates.map(dateKey)), [dates]);
   const plannedCount = mealPlan.filter((slot) => dateIds.has(slot.date)).length;
 
-  const assignRecipe = (recipeId: string, servings: number) => {
+  const assignRecipe = (recipeId: string, servings = selectedServings) => {
     if (!picker) return;
     setMealPlanRecipe(picker.date, picker.mealType, recipeId, servings);
     setPicker(undefined);
@@ -103,9 +104,10 @@ export default function PlanScreen() {
                     return (
                       <Pressable
                         key={meal.type}
-                        onPress={() =>
-                          setPicker({ date: id, mealType: meal.type, label: meal.label })
-                        }
+                        onPress={() => {
+                          setSelectedServings(2);
+                          setPicker({ date: id, mealType: meal.type, label: meal.label });
+                        }}
                         onLongPress={() => removeMealPlanRecipe(id, meal.type)}
                         style={[styles.mealSlot, recipe && styles.mealSlotFilled]}
                         accessibilityLabel={`${meal.label} on ${id}${
@@ -144,19 +146,48 @@ export default function PlanScreen() {
             <Text style={styles.modalTitle}>
               {picker ? `${picker.label} · ${picker.date}` : 'Pick a recipe'}
             </Text>
+            <View style={styles.servingsRow}>
+              <Text style={styles.servingsLabel}>Servings for this meal</Text>
+              <View style={styles.stepper}>
+                <Pressable
+                  onPress={() => setSelectedServings((value) => Math.max(1, value - 1))}
+                  style={styles.stepBtn}
+                  accessibilityLabel="Decrease servings"
+                >
+                  <Ionicons name="remove" size={16} color={colors.text} />
+                </Pressable>
+                <Text style={styles.servingsCount}>{selectedServings}</Text>
+                <Pressable
+                  onPress={() => setSelectedServings((value) => value + 1)}
+                  style={styles.stepBtn}
+                  accessibilityLabel="Increase servings"
+                >
+                  <Ionicons name="add" size={16} color={colors.text} />
+                </Pressable>
+              </View>
+            </View>
             <ScrollView style={styles.modalList}>
               {recipes.length ? (
                 recipes.map((recipe) => (
                   <Pressable
                     key={recipe.id}
-                    onPress={() => assignRecipe(recipe.id, recipe.servings)}
+                    onPress={() => assignRecipe(recipe.id, selectedServings)}
                     style={styles.modalRow}
+                    accessibilityLabel={`Plan ${recipe.title} for ${selectedServings} servings`}
                   >
                     <View style={styles.modalRecipeCopy}>
                       <Text style={styles.modalRecipe}>{recipe.title}</Text>
-                      <Text style={styles.modalMeta}>{recipe.servings} servings</Text>
+                      <Text style={styles.modalMeta}>
+                        Uses {selectedServings} servings · recipe default {recipe.servings}
+                      </Text>
                     </View>
-                    <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                    <Pressable
+                      onPress={() => setSelectedServings(recipe.servings)}
+                      hitSlop={8}
+                      accessibilityLabel={`Use recipe default of ${recipe.servings} servings`}
+                    >
+                      <Ionicons name="refresh" size={16} color={colors.textMuted} />
+                    </Pressable>
                   </Pressable>
                 ))
               ) : (
@@ -268,6 +299,37 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   modalTitle: { ...typography.subtitle, color: colors.text },
+  servingsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  servingsLabel: { ...typography.caption, color: colors.textSecondary, flex: 1 },
+  stepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.bg,
+    borderRadius: radius.full,
+    padding: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  stepBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.full,
+    backgroundColor: colors.surfaceRaised,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  servingsCount: {
+    ...typography.subtitle,
+    color: colors.text,
+    minWidth: 20,
+    textAlign: 'center',
+  },
   modalList: { maxHeight: 390 },
   modalRow: {
     flexDirection: 'row',

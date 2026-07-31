@@ -19,13 +19,17 @@ export default function ListsScreen() {
   const addManualGroceryItem = useRecipeStore((state) => state.addManualGroceryItem);
   const deleteManualGroceryItem = useRecipeStore((state) => state.deleteManualGroceryItem);
   const [newItem, setNewItem] = useState('');
+  const [amount, setAmount] = useState('');
+  const [unit, setUnit] = useState('');
   const items = getGroceryList();
   const checkedCount = items.filter((item) => item.checked).length;
 
   const addItem = () => {
     if (!newItem.trim()) return;
-    addManualGroceryItem(newItem.trim());
+    addManualGroceryItem(newItem.trim(), amount.trim() || undefined, unit.trim() || undefined);
     setNewItem('');
+    setAmount('');
+    setUnit('');
   };
 
   return (
@@ -35,25 +39,45 @@ export default function ListsScreen() {
         subtitle="Merged and scaled from your meal plan."
       />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <View style={styles.addRow}>
-          <TextInput
-            value={newItem}
-            onChangeText={setNewItem}
-            onSubmitEditing={addItem}
-            placeholder="Add grocery item"
-            placeholderTextColor={colors.textMuted}
-            style={styles.input}
-            returnKeyType="done"
-            accessibilityLabel="New grocery item"
-          />
-          <Pressable
-            onPress={addItem}
-            disabled={!newItem.trim()}
-            style={[styles.addButton, !newItem.trim() && styles.disabled]}
-            accessibilityLabel="Add grocery item"
-          >
-            <Ionicons name="add" size={22} color="#fff" />
-          </Pressable>
+        <View style={styles.addBlock}>
+          <View style={styles.addRow}>
+            <TextInput
+              value={newItem}
+              onChangeText={setNewItem}
+              onSubmitEditing={addItem}
+              placeholder="Add grocery item"
+              placeholderTextColor={colors.textMuted}
+              style={styles.input}
+              returnKeyType="done"
+              accessibilityLabel="New grocery item"
+            />
+            <Pressable
+              onPress={addItem}
+              disabled={!newItem.trim()}
+              style={[styles.addButton, !newItem.trim() && styles.disabled]}
+              accessibilityLabel="Add grocery item"
+            >
+              <Ionicons name="add" size={22} color="#fff" />
+            </Pressable>
+          </View>
+          <View style={styles.qtyRow}>
+            <TextInput
+              value={amount}
+              onChangeText={setAmount}
+              placeholder="Amount"
+              placeholderTextColor={colors.textMuted}
+              style={[styles.input, styles.qtyInput]}
+              accessibilityLabel="Amount"
+            />
+            <TextInput
+              value={unit}
+              onChangeText={setUnit}
+              placeholder="Unit"
+              placeholderTextColor={colors.textMuted}
+              style={[styles.input, styles.qtyInput]}
+              accessibilityLabel="Unit"
+            />
+          </View>
         </View>
 
         <View style={styles.listCard}>
@@ -110,7 +134,10 @@ export default function ListsScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
   content: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl, gap: spacing.md },
+  addBlock: { gap: spacing.sm },
   addRow: { flexDirection: 'row', gap: spacing.sm },
+  qtyRow: { flexDirection: 'row', gap: spacing.sm },
+  qtyInput: { flex: 1 },
   input: {
     flex: 1,
     backgroundColor: colors.surface,

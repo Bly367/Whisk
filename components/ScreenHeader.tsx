@@ -14,21 +14,33 @@ export function ScreenHeader({ title, subtitle, onBack, rightAction }: ScreenHea
     <View style={styles.container}>
       <View style={styles.row}>
         {onBack ? (
-          <Pressable onPress={onBack} style={styles.iconBtn}>
+          <Pressable
+            onPress={onBack}
+            style={styles.iconBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
             <Ionicons name="chevron-back" size={22} color={colors.text} />
           </Pressable>
         ) : (
           <View style={styles.iconSpacer} />
         )}
         {rightAction ? (
-          <Pressable onPress={rightAction.onPress} style={styles.iconBtn}>
+          <Pressable
+            onPress={rightAction.onPress}
+            style={styles.iconBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Header action"
+          >
             <Ionicons name={rightAction.icon} size={20} color={colors.text} />
           </Pressable>
         ) : (
           <View style={styles.iconSpacer} />
         )}
       </View>
-      <Text style={styles.title}>{title}</Text>
+      <Text style={styles.title} accessibilityRole="header">
+        {title}
+      </Text>
       {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
     </View>
   );

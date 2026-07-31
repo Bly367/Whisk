@@ -11,6 +11,7 @@ import {
   pullUserData,
   pushUserData,
 } from '../services/sync/recipeSync';
+import { mergeCloudData as mergeCloudSnapshot } from '../services/sync/merge';
 import { useImportHistoryStore } from './importHistoryStore';
 import {
   Folder,
@@ -25,6 +26,7 @@ import {
   RecipeTombstone,
 } from '../types/recipe';
 import { aggregateIngredients } from '../services/grocery/aggregateIngredients';
+import { analytics } from '../services/observability/analytics';
 
 interface RecipeStore {
   recipes: Recipe[];
@@ -96,93 +98,22 @@ const scheduleSync = (get: () => RecipeStore, userId = get().syncUserId ?? undef
 };
 
 const timestamp = () => new Date().toISOString();
-const parsedTime = (value?: string) => {
-  const parsed = value ? Date.parse(value) : 0;
-  return Number.isFinite(parsed) ? parsed : 0;
-};
-
-function mergeEntities<T extends { id: string; updatedAt?: string }>(
-  local: T[],
-  cloud: T[],
-  fallbackTime: (entity: T) => string | undefined = () => undefined,
-): T[] {
-  const merged = new Map<string, T>();
-  for (const entity of [...cloud, ...local]) {
-    const existing = merged.get(entity.id);
-    const entityTime = parsedTime(entity.updatedAt ?? fallbackTime(entity));
-    const existingTime = existing
-      ? parsedTime(existing.updatedAt ?? fallbackTime(existing))
-      : -1;
-    if (!existing || entityTime >= existingTime) merged.set(entity.id, entity);
-  }
-  return Array.from(merged.values());
-}
-
-function mergeTombstones(
-  local: RecipeTombstone[],
-  cloud: RecipeTombstone[],
-): RecipeTombstone[] {
-  const merged = new Map<string, RecipeTombstone>();
-  for (const tombstone of [...cloud, ...local]) {
-    const existing = merged.get(tombstone.id);
-    if (!existing || parsedTime(tombstone.deletedAt) >= parsedTime(existing.deletedAt)) {
-      merged.set(tombstone.id, tombstone);
-    }
-  }
-  return Array.from(merged.values());
-}
 
 function mergeCloudData(state: RecipeStore, cloud: CloudUserData) {
-  const tombstones = mergeTombstones(state.recipeTombstones, cloud.recipeTombstones);
-  const tombstoneById = new Map(tombstones.map((item) => [item.id, item]));
-  const recipes = mergeEntities(
-    withoutSeedRecipes(state.recipes),
-    withoutSeedRecipes(cloud.recipes),
-    (recipe) => recipe.createdAt,
-  ).filter((recipe) => {
-    const deleted = tombstoneById.get(recipe.id);
-    return !deleted || parsedTime(recipe.updatedAt ?? recipe.createdAt) > parsedTime(deleted.deletedAt);
-  });
-  const activeIds = new Set(recipes.map((recipe) => recipe.id));
-  const folderTombstones = mergeTombstones(
-    state.folderTombstones,
-    cloud.folderTombstones,
-  ) as FolderTombstone[];
-  const folderTombstoneById = new Map(
-    folderTombstones.map((item) => [item.id, item]),
+  return mergeCloudSnapshot(
+    {
+      recipes: state.recipes,
+      recipeTombstones: state.recipeTombstones,
+      folders: state.folders,
+      folderTombstones: state.folderTombstones,
+      mealPlan: state.mealPlan,
+      mealPlanUpdatedAt: state.mealPlanUpdatedAt,
+      groceryCheckedIds: state.groceryCheckedIds,
+      manualGroceryItems: state.manualGroceryItems,
+      groceryUpdatedAt: state.groceryUpdatedAt,
+    },
+    cloud,
   );
-  const folders = mergeEntities(state.folders, cloud.folders).filter((folder) => {
-    const deleted = folderTombstoneById.get(folder.id);
-    return !deleted || parsedTime(folder.updatedAt) > parsedTime(deleted.deletedAt);
-  });
-  const activeFolderIds = new Set(folders.map((folder) => folder.id));
-
-  const cloudPlanIsNewer =
-    parsedTime(cloud.mealPlanUpdatedAt) > parsedTime(state.mealPlanUpdatedAt);
-  const cloudGroceryIsNewer =
-    parsedTime(cloud.groceryUpdatedAt) > parsedTime(state.groceryUpdatedAt);
-
-  return {
-    recipes,
-    recipeTombstones: tombstones.filter((item) => !activeIds.has(item.id)),
-    folders,
-    folderTombstones: folderTombstones.filter(
-      (item) => !activeFolderIds.has(item.id),
-    ),
-    mealPlan: cloudPlanIsNewer ? cloud.mealPlan : state.mealPlan,
-    mealPlanUpdatedAt: cloudPlanIsNewer
-      ? cloud.mealPlanUpdatedAt
-      : state.mealPlanUpdatedAt,
-    groceryCheckedIds: cloudGroceryIsNewer
-      ? cloud.groceryCheckedIds
-      : state.groceryCheckedIds,
-    manualGroceryItems: cloudGroceryIsNewer
-      ? cloud.manualGroceryItems
-      : state.manualGroceryItems,
-    groceryUpdatedAt: cloudGroceryIsNewer
-      ? cloud.groceryUpdatedAt
-      : state.groceryUpdatedAt,
-  };
 }
 
 export const useRecipeStore = create<RecipeStore>()(
@@ -618,6 +549,9 @@ export const useRecipeStore = create<RecipeStore>()(
           set({
             syncStatus: ok ? 'idle' : 'error',
             syncPending: !ok || changedDuringSync,
+          });
+          analytics.track(ok ? 'sync_succeeded' : 'sync_failed', {
+            pending: !ok || changedDuringSync,
           });
           if (ok && changedDuringSync) scheduleSync(get, userId);
           return ok;

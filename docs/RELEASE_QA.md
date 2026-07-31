@@ -20,9 +20,11 @@ Run this checklist on a current iPhone and Android device using a preview build:
 - [ ] **Camera:** Start a photo import, grant camera permission, capture a page, and reach review. Deny permission once and confirm the app recovers without crashing.
 - [ ] **Gallery:** Select a screenshot and a cookbook photo, confirm each reaches review, then cancel the picker and confirm no import is created.
 - [ ] **Deep links:** Open `whisk://` and `whisk://import/url` from the platform link-testing tool. Confirm the app launches and routes correctly from both terminated and background states.
-- [ ] **Authentication:** Create an account, sign out, sign back in, test invalid credentials, and relaunch to verify session restoration.
-- [ ] **Sync:** Import a unique recipe, sync it, sign in on a second device, and confirm recipes, folders, meal plan, and grocery checks arrive. Confirm a new/empty account never receives demo recipes.
-- [ ] **Imports:** Exercise a schema.org recipe URL, manual entry, shared URL/text, and social fallback. Confirm duplicate canonical URLs are not saved twice and failed imports show a recoverable error.
+- [ ] **Authentication:** Create an account, sign out, sign back in, reset password, export library, delete account, test invalid credentials, and relaunch to verify session restoration.
+- [ ] **Sync:** Import a unique recipe, sync it, sign in on a second device, and confirm recipes, folders, meal plan, and grocery checks arrive. Confirm a new/empty account never receives demo recipes. Background the app offline, make a change, reconnect, and confirm pending sync recovers.
+- [ ] **Images:** Confirm imported and edited images display after reinstall/second device via private storage paths.
+- [ ] **Imports:** Exercise a schema.org recipe URL, manual entry, shared URL/text, photo import, and social fallback. Confirm duplicate canonical URLs are not saved twice and failed imports show a recoverable error.
+- [ ] **Accessibility:** VoiceOver/TalkBack can navigate tabs, recipe cards, account actions, grocery checkboxes, and meal plan slots.
 - [ ] **Release smoke test:** Relaunch offline, background/foreground the app, verify persisted data, then reconnect and sync without data loss or duplicate records.
 
 Record the OS versions, build URLs/IDs, account used, and any failures in the release ticket.

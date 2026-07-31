@@ -37,6 +37,8 @@ export default function EditRecipeScreen() {
   const [prepTime, setPrepTime] = useState(String(recipe?.prepTime ?? ''));
   const [cookTime, setCookTime] = useState(String(recipe?.cookTime ?? ''));
   const [tags, setTags] = useState(recipe?.tags.join(', ') ?? '');
+  const [sourceUrl, setSourceUrl] = useState(recipe?.sourceUrl ?? '');
+  const [sourceAttribution, setSourceAttribution] = useState(recipe?.sourceAttribution ?? '');
   const [imageUrl, setImageUrl] = useState(recipe?.imageUrl ?? '');
   const [calories, setCalories] = useState(String(recipe?.nutrition?.calories ?? ''));
   const [protein, setProtein] = useState(String(recipe?.nutrition?.protein ?? ''));
@@ -114,6 +116,13 @@ export default function EditRecipeScreen() {
             await removeRecipeImage(recipe.imageStoragePath, user.id).catch(() => undefined);
           }
           imageStoragePath = nextPath;
+        } else if (imageUrl.trim() && !user && /^(file|content):/i.test(imageUrl.trim())) {
+          Alert.alert(
+            'Sign in required',
+            'Local photos can only be cloud-backed while signed in. Keep the current image or sign in first.',
+          );
+          setSaving(false);
+          return;
         } else {
           if (user && recipe.imageStoragePath) {
             setSavingLabel('Removing old image…');
@@ -128,6 +137,8 @@ export default function EditRecipeScreen() {
         description: description.trim() || undefined,
         imageUrl: imageUrl.trim() || undefined,
         imageStoragePath,
+        sourceUrl: sourceUrl.trim() || undefined,
+        sourceAttribution: sourceAttribution.trim() || undefined,
         servings: Math.max(1, Number(servings) || 1),
         prepTime: prepTime.trim() ? Math.max(0, Number(prepTime) || 0) : undefined,
         cookTime: cookTime.trim() ? Math.max(0, Number(cookTime) || 0) : undefined,
@@ -194,6 +205,12 @@ export default function EditRecipeScreen() {
           </View>
 
           <Field label="Tags (comma separated)" value={tags} onChangeText={setTags} />
+          <Field label="Source URL" value={sourceUrl} onChangeText={setSourceUrl} />
+          <Field
+            label="Source attribution"
+            value={sourceAttribution}
+            onChangeText={setSourceAttribution}
+          />
 
           <Text style={styles.sectionLabel}>Nutrition per serving</Text>
           <View style={styles.fieldGrid}>

@@ -12,52 +12,35 @@ Scan the QR code with Expo Go on your phone, or press `w` for web.
 
 ## What's built
 
-- **Library** — browse recipes in a grid with folder filters and search
-- **Import** — local schema.org recipe extraction, editable review, and manual entry
-- **Mobile sharing** — incoming iOS/Android text and URL shares via Expo Sharing
-- **Recipe detail** — ingredients, steps, macro breakdown, serving scaler
+- **Library** — browse, search, folder filters, and folder management
+- **Import** — website JSON-LD, authenticated social/AI fallback, photo OCR, review screen
+- **Meal Plan** — dated weeks with breakfast/lunch/dinner and servings
+- **Grocery Lists** — merged quantities from the plan plus manual items
+- **Accounts** — email auth, sync, export, password reset, and account deletion
 - **Cook Mode** — full-screen step-by-step cooking flow
-- **Meal Plan & Grocery Lists** — UI placeholders for v2
 
 ## Stack
 
 - Expo 57 + React Native
 - Expo Router (file-based navigation)
 - Zustand + AsyncStorage (local persistence)
+- Supabase Auth, Database, Storage, and Edge Functions
 
-## Social import backend
+## Setup
 
-Ordinary recipe sites are parsed locally first. Social links and unstructured pages use the
-Supabase Edge Function in `supabase/functions/import-recipe`.
-
-1. Create a Supabase project and install the Supabase CLI.
-2. Set function secrets:
-
-```bash
-supabase secrets set OPENAI_API_KEY=... OPENAI_MODEL=gpt-5-mini ALLOWED_ORIGIN=*
-```
-
-3. Deploy and copy `.env.example` to `.env.local`, then fill in the function URL and publishable key.
+1. Copy `.env.example` to `.env.local` and fill in Supabase values.
+2. Apply migrations: `npx supabase db push`
+3. Deploy functions:
 
 ```bash
-supabase functions deploy import-recipe
+npx supabase functions deploy import-recipe --use-api
+npx supabase functions deploy import-recipe-image --use-api
+npx supabase functions deploy store-recipe-image --use-api
 ```
 
-The social fallback intentionally does not scrape or download protected media. If a public
-post does not expose enough permitted recipe information, Whisk asks the user for its caption,
-screenshots, or a media file they own.
+4. Set Edge Function secrets for OpenAI and publishable keys as needed.
 
-## Native Share Sheet
-
-Incoming sharing changes native configuration, so use an Expo development build rather than
-Expo Go:
-
-```bash
-npx expo prebuild
-npx expo run:android
-```
-
-Use an EAS iOS development build to validate the share extension on a physical iPhone.
+See [privacy policy](docs/PRIVACY.md) and the [release QA checklist](docs/RELEASE_QA.md).
 
 ## Verification
 
@@ -66,11 +49,11 @@ npm run typecheck
 npm test
 ```
 
-Before producing EAS builds, follow the [release setup and physical-device QA checklist](docs/RELEASE_QA.md).
+## Native Share Sheet
 
-## Next steps
+Incoming sharing changes native configuration, so use an Expo development/preview build rather than Expo Go:
 
-1. Photo and cookbook OCR import
-2. User-supplied video transcription and on-screen text extraction
-3. Meal planning + smart grocery lists
-4. Premium subscription (RevenueCat)
+```bash
+npx expo prebuild
+eas build --profile preview --platform all
+```
