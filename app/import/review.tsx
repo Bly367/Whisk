@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Linking,
   Pressable,
   ScrollView,
@@ -13,6 +14,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScreenHeader } from '../../components/ScreenHeader';
 import { colors, radius, spacing, typography } from '../../constants/theme';
+import { persistRecipeImage } from '../../services/media/recipeImages';
+import { useAuthStore } from '../../store/authStore';
 import { useRecipeStore } from '../../store/recipeStore';
 import { Ingredient } from '../../types/recipe';
 
@@ -20,7 +23,10 @@ export default function ImportReviewScreen() {
   const draft = useRecipeStore((state) => state.currentImport?.draft);
   const updateDraft = useRecipeStore((state) => state.updateDraft);
   const saveDraft = useRecipeStore((state) => state.saveDraft);
+  const updateRecipe = useRecipeStore((state) => state.updateRecipe);
+  const syncToCloud = useRecipeStore((state) => state.syncToCloud);
   const clearImport = useRecipeStore((state) => state.clearImport);
+  const user = useAuthStore((state) => state.user);
   const [title, setTitle] = useState(draft?.title ?? '');
   const [description, setDescription] = useState(draft?.description ?? '');
   const [servings, setServings] = useState(String(draft?.servings ?? 1));
@@ -28,6 +34,11 @@ export default function ImportReviewScreen() {
     draft?.ingredients.map(formatIngredient).join('\n') ?? '',
   );
   const [steps, setSteps] = useState(draft?.steps.join('\n') ?? '');
+  const [savedRecipeId, setSavedRecipeId] = useState<string>();
+  const [savedStoragePath, setSavedStoragePath] = useState<string>();
+  const [imageStatus, setImageStatus] = useState<'idle' | 'saving' | 'error'>('idle');
+  const [imageError, setImageError] = useState<string>();
+  const [imageProgress, setImageProgress] = useState('Preparing image…');
 
   const canSave = title.trim() && ingredients.trim() && steps.trim();
   const parsedIngredients = useMemo(
@@ -65,10 +76,75 @@ export default function ImportReviewScreen() {
       .filter(Boolean),
   });
 
-  const handleSave = () => {
-    if (!canSave) return;
-    const id = saveDraft(buildDraft());
+  const finish = (id: string) => {
+    clearImport();
     router.replace(`/recipe/${id}`);
+  };
+
+  const handleSave = async () => {
+    if (!canSave || imageStatus === 'saving') return;
+    const id = savedRecipeId ?? saveDraft(buildDraft());
+    if (!savedRecipeId) setSavedRecipeId(id);
+
+    const existingStoragePath = savedStoragePath ?? draft.imageStoragePath;
+    if (!draft.imageUrl || existingStoragePath) {
+      if (existingStoragePath && !draft.imageStoragePath) {
+        updateRecipe(id, { imageStoragePath: existingStoragePath });
+      }
+      if (user && !(await syncToCloud(user.id))) {
+        setImageStatus('error');
+        setImageError('The recipe is saved on this device, but cloud sync is not available yet.');
+        return;
+      }
+      finish(id);
+      return;
+    }
+
+    if (!user) {
+      setImageStatus('error');
+      setImageError(
+        'The recipe and its original image are saved on this device. Sign in to back up the image to the cloud.',
+      );
+      return;
+    }
+
+    setImageStatus('saving');
+    setImageError(undefined);
+    setImageProgress('Preparing image…');
+    try {
+      const storagePath = await persistRecipeImage(draft.imageUrl, user.id, id, {
+        onProgress: (progress) => {
+          if (progress.stage === 'copying') {
+            setImageProgress('Copying image securely…');
+          } else if (progress.stage === 'reading') {
+            setImageProgress('Preparing image…');
+          } else if (progress.stage === 'uploading') {
+            setImageProgress(
+              progress.totalBytes > 0
+                ? `Uploading image… ${Math.round(progress.fraction * 100)}%`
+                : 'Uploading image…',
+            );
+          }
+        },
+      });
+      setSavedStoragePath(storagePath);
+      updateRecipe(id, { imageStoragePath: storagePath });
+      if (!(await syncToCloud(user.id))) {
+        setImageStatus('error');
+        setImageError(
+          'The image is backed up, but the updated recipe has not synced yet. Retry to finish.',
+        );
+        return;
+      }
+      finish(id);
+    } catch (error) {
+      setImageStatus('error');
+      setImageError(
+        error instanceof Error
+          ? `${error.message} The original image is still attached, but it is not cloud-backed yet.`
+          : 'The original image is still attached, but it is not cloud-backed yet.',
+      );
+    }
   };
 
   return (
@@ -137,21 +213,51 @@ export default function ImportReviewScreen() {
           </Pressable>
         ) : null}
 
+        {imageStatus !== 'idle' ? (
+          <View style={[styles.mediaStatus, imageStatus === 'error' && styles.mediaStatusError]}>
+            {imageStatus === 'saving' ? (
+              <ActivityIndicator color={colors.accent} />
+            ) : (
+              <Ionicons name="cloud-offline-outline" size={20} color={colors.accentAlt} />
+            )}
+            <Text style={styles.mediaStatusText}>
+              {imageStatus === 'saving'
+                ? `Recipe saved. ${imageProgress}`
+                : imageError}
+            </Text>
+          </View>
+        ) : null}
+
         <Pressable
-          onPress={handleSave}
-          disabled={!canSave}
-          style={[styles.primaryButton, !canSave && styles.disabled]}
+          onPress={() => void handleSave()}
+          disabled={!canSave || imageStatus === 'saving'}
+          style={[
+            styles.primaryButton,
+            (!canSave || imageStatus === 'saving') && styles.disabled,
+          ]}
         >
-          <Text style={styles.primaryText}>Save to Library</Text>
+          <Text style={styles.primaryText}>
+            {imageStatus === 'error' ? 'Retry cloud backup' : 'Save to Library'}
+          </Text>
         </Pressable>
-        <Pressable
-          onPress={() => {
-            clearImport();
-            router.replace('/(tabs)/import');
-          }}
-        >
-          <Text style={styles.cancelText}>Discard draft</Text>
-        </Pressable>
+        {savedRecipeId && imageStatus === 'error' ? (
+          <Pressable
+            onPress={() => finish(savedRecipeId)}
+            style={styles.continueButton}
+          >
+            <Text style={styles.continueText}>Continue with original image</Text>
+          </Pressable>
+        ) : null}
+        {!savedRecipeId ? (
+          <Pressable
+            onPress={() => {
+              clearImport();
+              router.replace('/(tabs)/import');
+            }}
+          >
+            <Text style={styles.cancelText}>Discard draft</Text>
+          </Pressable>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -250,6 +356,21 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   sourceText: { ...typography.caption, color: colors.accent, flex: 1 },
+  mediaStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: 'rgba(94, 169, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(94, 169, 255, 0.2)',
+  },
+  mediaStatusError: {
+    backgroundColor: 'rgba(255, 179, 71, 0.08)',
+    borderColor: 'rgba(255, 179, 71, 0.3)',
+  },
+  mediaStatusText: { ...typography.caption, color: colors.textSecondary, flex: 1 },
   primaryButton: {
     alignItems: 'center',
     paddingVertical: spacing.md,
@@ -258,5 +379,7 @@ const styles = StyleSheet.create({
   },
   primaryText: { ...typography.subtitle, color: '#fff' },
   disabled: { opacity: 0.45 },
+  continueButton: { alignItems: 'center', paddingVertical: spacing.sm },
+  continueText: { ...typography.caption, color: colors.accent },
   cancelText: { ...typography.caption, color: colors.textMuted, textAlign: 'center' },
 });

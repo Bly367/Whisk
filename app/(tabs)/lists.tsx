@@ -1,64 +1,135 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useState } from 'react';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScreenHeader } from '../../components/ScreenHeader';
 import { colors, radius, spacing, typography } from '../../constants/theme';
-import { useAuthStore } from '../../store/authStore';
 import { useRecipeStore } from '../../store/recipeStore';
 
 export default function ListsScreen() {
   const getGroceryList = useRecipeStore((state) => state.getGroceryList);
   const toggleGroceryItem = useRecipeStore((state) => state.toggleGroceryItem);
-  const syncToCloud = useRecipeStore((state) => state.syncToCloud);
-  const user = useAuthStore((state) => state.user);
+  const addManualGroceryItem = useRecipeStore((state) => state.addManualGroceryItem);
+  const deleteManualGroceryItem = useRecipeStore((state) => state.deleteManualGroceryItem);
+  const [newItem, setNewItem] = useState('');
   const items = getGroceryList();
   const checkedCount = items.filter((item) => item.checked).length;
 
-  const handleToggle = (id: string) => {
-    toggleGroceryItem(id);
-    if (user) void syncToCloud(user.id);
+  const addItem = () => {
+    if (!newItem.trim()) return;
+    addManualGroceryItem(newItem.trim());
+    setNewItem('');
   };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScreenHeader
         title="Grocery Lists"
-        subtitle="Merged from recipes on your meal plan."
+        subtitle="Merged and scaled from your meal plan."
       />
-      <View style={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <View style={styles.addRow}>
+          <TextInput
+            value={newItem}
+            onChangeText={setNewItem}
+            onSubmitEditing={addItem}
+            placeholder="Add grocery item"
+            placeholderTextColor={colors.textMuted}
+            style={styles.input}
+            returnKeyType="done"
+            accessibilityLabel="New grocery item"
+          />
+          <Pressable
+            onPress={addItem}
+            disabled={!newItem.trim()}
+            style={[styles.addButton, !newItem.trim() && styles.disabled]}
+            accessibilityLabel="Add grocery item"
+          >
+            <Ionicons name="add" size={22} color="#fff" />
+          </Pressable>
+        </View>
+
         <View style={styles.listCard}>
-          <Text style={styles.listTitle}>This Week</Text>
+          <Text style={styles.listTitle}>Planned meals</Text>
           <Text style={styles.listMeta}>
             {items.length} items · {checkedCount} checked
           </Text>
           {items.length ? (
-            items.map((item) => (
-              <Pressable key={item.id} onPress={() => handleToggle(item.id)} style={styles.row}>
-                <View style={[styles.checkbox, item.checked && styles.checkboxChecked]} />
-                <Text style={[styles.itemName, item.checked && styles.itemChecked]}>
-                  {item.name}
-                </Text>
-                <Text style={styles.qty}>
-                  {[item.amount, item.unit].filter(Boolean).join(' ')}
-                </Text>
-              </Pressable>
-            ))
+            items.map((item) => {
+              const manual = item.id.startsWith('manual-');
+              return (
+                <Pressable
+                  key={item.id}
+                  onPress={() => toggleGroceryItem(item.id)}
+                  onLongPress={() => {
+                    if (manual) deleteManualGroceryItem(item.id);
+                  }}
+                  style={styles.row}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: item.checked }}
+                  accessibilityLabel={`${item.name}, ${[item.amount, item.unit]
+                    .filter(Boolean)
+                    .join(' ')}`}
+                >
+                  <View style={[styles.checkbox, item.checked && styles.checkboxChecked]}>
+                    {item.checked ? (
+                      <Ionicons name="checkmark" size={15} color="#fff" />
+                    ) : null}
+                  </View>
+                  <Text style={[styles.itemName, item.checked && styles.itemChecked]}>
+                    {item.name}
+                  </Text>
+                  {manual ? <Text style={styles.manualBadge}>Manual</Text> : null}
+                  <Text style={styles.qty}>
+                    {[item.amount, item.unit].filter(Boolean).join(' ')}
+                  </Text>
+                </Pressable>
+              );
+            })
           ) : (
             <Text style={styles.empty}>
-              Add recipes to your meal plan to generate a grocery list.
+              Plan recipes or add an item above to start your grocery list.
             </Text>
           )}
         </View>
         <Text style={styles.note}>
-          Duplicate ingredients are merged. Tap to check items off while you shop.
+          Compatible quantities are combined automatically. Long-press a manual item to delete it.
         </Text>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
-  content: { paddingHorizontal: spacing.lg, gap: spacing.md },
+  content: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl, gap: spacing.md },
+  addRow: { flexDirection: 'row', gap: spacing.sm },
+  input: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.md,
+    color: colors.text,
+    ...typography.body,
+  },
+  addButton: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.full,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  disabled: { opacity: 0.45 },
   listCard: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
@@ -81,13 +152,17 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     borderWidth: 2,
     borderColor: colors.borderStrong,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  checkboxChecked: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
-  },
+  checkboxChecked: { backgroundColor: colors.accent, borderColor: colors.accent },
   itemName: { ...typography.body, color: colors.text, flex: 1 },
   itemChecked: { color: colors.textMuted, textDecorationLine: 'line-through' },
+  manualBadge: {
+    ...typography.label,
+    color: colors.textMuted,
+    fontSize: 8,
+  },
   qty: { ...typography.caption, color: colors.textSecondary },
   empty: { ...typography.body, color: colors.textMuted, lineHeight: 22 },
   note: {

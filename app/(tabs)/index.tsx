@@ -68,6 +68,10 @@ export default function LibraryScreen() {
               }
             />
           ))}
+          <Pressable onPress={() => router.push('/folders')} style={styles.manageFolders}>
+            <Ionicons name="settings-outline" size={15} color={colors.textSecondary} />
+            <Text style={styles.manageFoldersText}>Manage</Text>
+          </Pressable>
         </ScrollView>
 
         {featured ? (
@@ -144,6 +148,17 @@ const styles = StyleSheet.create({
   },
   folderRow: {
     paddingVertical: spacing.xs,
+  },
+  manageFolders: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  manageFoldersText: {
+    ...typography.caption,
+    color: colors.textSecondary,
   },
   section: {
     gap: spacing.md,

@@ -1,77 +1,129 @@
-import { Folder, GroceryItem, MealPlanSlot, Recipe } from '../../types/recipe';
+import {
+  Folder,
+  FolderTombstone,
+  GroceryItem,
+  MealPlanSlot,
+  Recipe,
+  RecipeTombstone,
+} from '../../types/recipe';
 import { supabase, supabaseConfigured } from '../../lib/supabase';
+import { normalizeMealPlan } from '../mealPlan/dates';
 
-const emptyMealPlan = (): MealPlanSlot[] =>
-  Array.from({ length: 7 }, (_, dayIndex) => ({ dayIndex, recipeId: null }));
+const emptyMealPlan = (): MealPlanSlot[] => [];
 
-export async function pullUserData(userId: string): Promise<{
+const epoch = '1970-01-01T00:00:00.000Z';
+
+export interface CloudUserData {
   recipes: Recipe[];
+  recipeTombstones: RecipeTombstone[];
   folders: Folder[];
+  folderTombstones: FolderTombstone[];
   mealPlan: MealPlanSlot[];
+  mealPlanUpdatedAt: string;
   groceryCheckedIds: string[];
-} | null> {
+  manualGroceryItems: GroceryItem[];
+  groceryUpdatedAt: string;
+}
+
+interface CloudEntityRow {
+  id: string;
+  data: unknown;
+  updated_at: string;
+  deleted_at?: string | null;
+}
+
+export async function pullUserData(userId: string): Promise<CloudUserData | null> {
   if (!supabase) return null;
 
   const [recipesRes, foldersRes, planRes, groceryRes] = await Promise.all([
-    supabase.from('user_recipes').select('data').eq('user_id', userId),
-    supabase.from('user_folders').select('data').eq('user_id', userId),
-    supabase.from('user_meal_plan').select('slots').eq('user_id', userId).maybeSingle(),
-    supabase.from('user_grocery_state').select('checked_ids').eq('user_id', userId).maybeSingle(),
+    supabase
+      .from('user_recipes')
+      .select('id,data,updated_at,deleted_at')
+      .eq('user_id', userId),
+    supabase
+      .from('user_folders')
+      .select('id,data,updated_at,deleted_at')
+      .eq('user_id', userId),
+    supabase
+      .from('user_meal_plan')
+      .select('slots,updated_at')
+      .eq('user_id', userId)
+      .maybeSingle(),
+    supabase
+      .from('user_grocery_state')
+      .select('checked_ids,manual_items,updated_at')
+      .eq('user_id', userId)
+      .maybeSingle(),
   ]);
 
-  if (recipesRes.error || foldersRes.error) return null;
+  if (recipesRes.error || foldersRes.error || planRes.error || groceryRes.error) return null;
+
+  const recipeRows = (recipesRes.data ?? []) as CloudEntityRow[];
+  const folderRows = (foldersRes.data ?? []) as CloudEntityRow[];
+  const recipes = recipeRows
+    .filter((row) => !row.deleted_at)
+    .map((row) => ({ ...(row.data as Recipe), id: row.id, updatedAt: row.updated_at }));
+  const recipeTombstones = recipeRows
+    .filter((row) => Boolean(row.deleted_at))
+    .map((row) => ({ id: row.id, deletedAt: row.deleted_at! }));
+  const folders = folderRows
+    .filter((row) => !row.deleted_at)
+    .map((row) => ({ ...(row.data as Folder), id: row.id, updatedAt: row.updated_at }));
+  const folderTombstones = folderRows
+    .filter((row) => Boolean(row.deleted_at))
+    .map((row) => ({ id: row.id, deletedAt: row.deleted_at! }));
 
   return {
-    recipes: (recipesRes.data ?? []).map((row) => row.data as Recipe),
-    folders: (foldersRes.data ?? []).map((row) => row.data as Folder),
-    mealPlan: (planRes.data?.slots as MealPlanSlot[] | undefined) ?? emptyMealPlan(),
+    recipes,
+    recipeTombstones,
+    folders,
+    folderTombstones,
+    mealPlan: normalizeMealPlan(planRes.data?.slots ?? emptyMealPlan()),
+    mealPlanUpdatedAt: planRes.data?.updated_at ?? epoch,
     groceryCheckedIds: (groceryRes.data?.checked_ids as string[] | undefined) ?? [],
+    manualGroceryItems:
+      (groceryRes.data?.manual_items as GroceryItem[] | undefined) ?? [],
+    groceryUpdatedAt: groceryRes.data?.updated_at ?? epoch,
   };
 }
 
 export async function pushUserData(
-  userId: string,
+  _userId: string,
   data: {
     recipes: Recipe[];
+    recipeTombstones: RecipeTombstone[];
     folders: Folder[];
+    folderTombstones: FolderTombstone[];
     mealPlan: MealPlanSlot[];
+    mealPlanUpdatedAt: string;
     groceryCheckedIds: string[];
+    manualGroceryItems: GroceryItem[];
+    groceryUpdatedAt: string;
   },
 ): Promise<boolean> {
   if (!supabase) return false;
 
-  const recipeRows = data.recipes.map((recipe) => ({
-    id: recipe.id,
-    user_id: userId,
-    data: recipe,
-    updated_at: new Date().toISOString(),
-  }));
-  const folderRows = data.folders.map((folder) => ({
-    id: folder.id,
-    user_id: userId,
-    data: folder,
-    updated_at: new Date().toISOString(),
-  }));
-
-  const { error: recipeError } = await supabase.from('user_recipes').upsert(recipeRows);
-  const { error: folderError } = await supabase.from('user_folders').upsert(folderRows);
-  const { error: planError } = await supabase.from('user_meal_plan').upsert({
-    user_id: userId,
-    slots: data.mealPlan,
-    updated_at: new Date().toISOString(),
+  const { error: stateError } = await supabase.rpc('sync_user_state', {
+    p_recipes: data.recipes,
+    p_recipe_tombstones: data.recipeTombstones,
+    p_folders: data.folders,
+    p_plan: data.mealPlan,
+    p_plan_updated_at: data.mealPlanUpdatedAt,
+    p_grocery_checked_ids: data.groceryCheckedIds,
+    p_grocery_updated_at: data.groceryUpdatedAt,
   });
-  const { error: groceryError } = await supabase.from('user_grocery_state').upsert({
-    user_id: userId,
-    checked_ids: data.groceryCheckedIds,
-    updated_at: new Date().toISOString(),
+  if (stateError) return false;
+
+  const { error: folderError } = await supabase.rpc('sync_folder_tombstones', {
+    p_tombstones: data.folderTombstones,
   });
+  if (folderError) return false;
 
-  return !(recipeError || folderError || planError || groceryError);
-}
-
-export async function deleteRecipeRemote(userId: string, recipeId: string) {
-  if (!supabase) return;
-  await supabase.from('user_recipes').delete().eq('user_id', userId).eq('id', recipeId);
+  const { error: groceryError } = await supabase.rpc('sync_manual_grocery_items', {
+    p_items: data.manualGroceryItems,
+    p_updated_at: data.groceryUpdatedAt,
+  });
+  return !groceryError;
 }
 
 export function isSyncAvailable() {

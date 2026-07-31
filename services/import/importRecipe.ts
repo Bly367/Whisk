@@ -1,21 +1,15 @@
 import { RecipeDraft } from '../../types/recipe';
+import { createAuthenticatedImportHeaders } from './authenticatedRequest';
+import {
+  mapAuthenticatedRequestError,
+  mapImportResponseError,
+  RecipeImportError,
+} from './errors';
 import { extractPageMetadata, extractRecipeJsonLd } from './jsonLd';
 import { recipeDraftResponseSchema } from './schema';
 import { canonicalizeUrl, detectSource, isSocialSource } from './url';
 
-export class RecipeImportError extends Error {
-  constructor(
-    message: string,
-    public readonly code:
-      | 'invalid_url'
-      | 'network'
-      | 'needs_input'
-      | 'unsupported'
-      | 'backend_unavailable',
-  ) {
-    super(message);
-  }
-}
+export { RecipeImportError } from './errors';
 
 function withIds(draft: Omit<RecipeDraft, 'id'> & { id?: string }): RecipeDraft {
   return {
@@ -37,17 +31,18 @@ async function importFromBackend(url: string, suppliedText?: string): Promise<Re
     );
   }
 
+  let headers: Record<string, string>;
+  try {
+    headers = await createAuthenticatedImportHeaders();
+  } catch (error) {
+    throw mapAuthenticatedRequestError(error);
+  }
+
   let response: Response;
   try {
-    const publishableKey =
-      process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
-      process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
     response = await fetch(endpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(publishableKey ? { apikey: publishableKey } : {}),
-      },
+      headers,
       body: JSON.stringify({ url, suppliedText }),
     });
   } catch {
@@ -56,16 +51,15 @@ async function importFromBackend(url: string, suppliedText?: string): Promise<Re
 
   const body = await response.json().catch(() => null);
   if (!response.ok) {
-    const message =
-      body && typeof body.message === 'string'
-        ? body.message
-        : 'This source could not be imported automatically.';
-    throw new RecipeImportError(message, response.status === 422 ? 'needs_input' : 'network');
+    throw mapImportResponseError(response.status, body, 'recipe');
   }
 
   const parsed = recipeDraftResponseSchema.safeParse(body);
   if (!parsed.success) {
-    throw new RecipeImportError('The import service returned an invalid recipe.', 'network');
+    throw new RecipeImportError(
+      'The import service returned an invalid recipe. Please try again.',
+      'invalid_response',
+    );
   }
 
   return withIds({

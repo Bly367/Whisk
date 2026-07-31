@@ -35,6 +35,7 @@ export function RecipeCard({ recipe, onPress, variant = 'grid' }: RecipeCardProp
     >
       <RecipeImage
         imageUrl={recipe.imageUrl}
+        imageStoragePath={recipe.imageStoragePath}
         gradient={recipe.imageGradient}
         style={[styles.image, isHero && styles.heroImage]}
       >

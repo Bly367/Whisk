@@ -66,6 +66,8 @@ npm run typecheck
 npm test
 ```
 
+Before producing EAS builds, follow the [release setup and physical-device QA checklist](docs/RELEASE_QA.md).
+
 ## Next steps
 
 1. Photo and cookbook OCR import

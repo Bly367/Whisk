@@ -3,3 +3,6 @@ verify_jwt = false
 
 [functions.import-recipe-image]
 verify_jwt = false
+
+[functions.store-recipe-image]
+verify_jwt = false

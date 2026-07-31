@@ -1,3 +1,5 @@
+import { RecipeImportErrorCode } from './import';
+
 export type RecipeSource =
   | 'url'
   | 'instagram'
@@ -57,6 +59,7 @@ export interface Recipe {
   description?: string;
   imageGradient: [string, string];
   imageUrl?: string;
+  imageStoragePath?: string;
   source: RecipeSource;
   sourceUrl?: string;
   canonicalUrl?: string;
@@ -70,6 +73,7 @@ export interface Recipe {
   nutrition?: Nutrition;
   tags: string[];
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface RecipeDraft {
@@ -77,6 +81,7 @@ export interface RecipeDraft {
   title: string;
   description?: string;
   imageUrl?: string;
+  imageStoragePath?: string;
   imageGradient: [string, string];
   source: RecipeSource;
   sourceUrl?: string;
@@ -100,6 +105,7 @@ export interface ImportJob {
   input: string;
   draft?: RecipeDraft;
   error?: string;
+  errorCode?: RecipeImportErrorCode;
 }
 
 export interface Folder {
@@ -107,11 +113,27 @@ export interface Folder {
   name: string;
   emoji: string;
   color: string;
+  updatedAt?: string;
 }
 
+export interface RecipeTombstone {
+  id: string;
+  deletedAt: string;
+}
+
+export interface FolderTombstone {
+  id: string;
+  deletedAt: string;
+}
+
+export type MealType = 'breakfast' | 'lunch' | 'dinner';
+
 export interface MealPlanSlot {
-  dayIndex: number;
-  recipeId: string | null;
+  id: string;
+  date: string;
+  mealType: MealType;
+  recipeId: string;
+  servings: number;
 }
 
 export interface GroceryItem {

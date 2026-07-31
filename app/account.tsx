@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -25,7 +25,6 @@ export default function AccountScreen() {
   const signIn = useAuthStore((state) => state.signIn);
   const signUp = useAuthStore((state) => state.signUp);
   const signOut = useAuthStore((state) => state.signOut);
-  const loadFromCloud = useRecipeStore((state) => state.loadFromCloud);
   const syncToCloud = useRecipeStore((state) => state.syncToCloud);
   const syncStatus = useRecipeStore((state) => state.syncStatus);
 
@@ -34,12 +33,6 @@ export default function AccountScreen() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    if (user) {
-      void loadFromCloud(user.id);
-    }
-  }, [user?.id]);
 
   const handleSubmit = async () => {
     setBusy(true);

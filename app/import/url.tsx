@@ -39,10 +39,17 @@ export default function ImportUrlScreen() {
     currentImport?.status === 'extracting' ||
     currentImport?.status === 'structuring';
 
+  const recoveryCode = currentImport?.errorCode;
+  const showRecovery =
+    currentImport?.status === 'failed' &&
+    (recoveryCode === 'auth_required' ||
+      recoveryCode === 'quota_exceeded' ||
+      recoveryCode === 'network');
   const showAssist =
-    isSocial ||
-    currentImport?.status === 'needs_input' ||
-    currentImport?.status === 'failed';
+    !showRecovery &&
+    (isSocial ||
+      currentImport?.status === 'needs_input' ||
+      currentImport?.status === 'failed');
 
   const handleImport = async () => {
     if (!url.trim()) return;
@@ -82,6 +89,31 @@ export default function ImportUrlScreen() {
             <Text style={styles.hintTitle}>Works with</Text>
             <Text style={styles.hint}>Instagram · TikTok · Facebook · Safari · Recipe blogs</Text>
           </View>
+
+          {showRecovery ? (
+            <View style={styles.assistCard}>
+              <Text style={styles.assistTitle}>
+                {recoveryCode === 'auth_required'
+                  ? 'Sign in to continue'
+                  : recoveryCode === 'quota_exceeded'
+                    ? 'Import limit reached'
+                    : 'Check your connection'}
+              </Text>
+              <Text style={styles.assistBody}>{currentImport.error}</Text>
+              <Pressable
+                onPress={
+                  recoveryCode === 'auth_required'
+                    ? () => router.push('/account')
+                    : handleImport
+                }
+                style={styles.recoveryButton}
+              >
+                <Text style={styles.recoveryButtonText}>
+                  {recoveryCode === 'auth_required' ? 'Sign in' : 'Try again'}
+                </Text>
+              </Pressable>
+            </View>
+          ) : null}
 
           {showAssist ? (
             <View style={styles.assistCard}>
@@ -185,6 +217,14 @@ const styles = StyleSheet.create({
   assistTitle: { ...typography.subtitle, color: colors.text },
   assistBody: { ...typography.body, color: colors.textSecondary, fontSize: 14 },
   captionInput: { minHeight: 120 },
+  recoveryButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.accentSoft,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  recoveryButtonText: { ...typography.caption, color: colors.accent },
   importBtn: {
     backgroundColor: colors.accent,
     borderRadius: radius.full,

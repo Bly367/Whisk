@@ -14,8 +14,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { FolderPill } from '../../components/FolderPill';
 import { RecipeImage } from '../../components/RecipeImage';
 import { colors, radius, spacing, typography } from '../../constants/theme';
+import { removeRecipeImage } from '../../services/media/recipeImages';
 import { useAuthStore } from '../../store/authStore';
-import { deleteRecipeRemote, scaleIngredient, useRecipeStore } from '../../store/recipeStore';
+import { scaleIngredient, useRecipeStore } from '../../store/recipeStore';
 
 export default function RecipeDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -23,7 +24,6 @@ export default function RecipeDetailScreen() {
   const folders = useRecipeStore((state) => state.folders);
   const toggleFolder = useRecipeStore((state) => state.toggleFolder);
   const deleteRecipe = useRecipeStore((state) => state.deleteRecipe);
-  const syncToCloud = useRecipeStore((state) => state.syncToCloud);
   const user = useAuthStore((state) => state.user);
   const [servings, setServings] = useState(recipe?.servings ?? 2);
 
@@ -45,11 +45,12 @@ export default function RecipeDetailScreen() {
         text: 'Delete',
         style: 'destructive',
         onPress: () => {
+          const imageRemoval =
+            user && recipe.imageStoragePath
+              ? removeRecipeImage(recipe.imageStoragePath, user.id).catch(() => undefined)
+              : Promise.resolve();
           deleteRecipe(recipe.id);
-          if (user) {
-            void deleteRecipeRemote(user.id, recipe.id);
-            void syncToCloud(user.id);
-          }
+          void imageRemoval;
           router.back();
         },
       },
@@ -60,6 +61,7 @@ export default function RecipeDetailScreen() {
     <View style={styles.container}>
       <RecipeImage
         imageUrl={recipe.imageUrl}
+        imageStoragePath={recipe.imageStoragePath}
         gradient={recipe.imageGradient}
         style={styles.hero}
       >

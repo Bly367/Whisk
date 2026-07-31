@@ -21,19 +21,28 @@ export default function ImportPhotoScreen() {
   const currentImport = useRecipeStore((state) => state.currentImport);
   const clearImport = useRecipeStore((state) => state.clearImport);
   const [loading, setLoading] = useState(false);
+  const [lastAsset, setLastAsset] = useState<{ uri: string; mimeType: string } | null>(null);
 
-  const runImport = async (result: ImagePicker.ImagePickerResult) => {
-    if (result.canceled || !result.assets[0]) return;
-    const asset = result.assets[0];
+  const importAsset = async (asset: { uri: string; mimeType: string }) => {
     setLoading(true);
     try {
-      await startImageImport(asset.uri, asset.mimeType ?? 'image/jpeg');
+      await startImageImport(asset.uri, asset.mimeType);
       router.push('/import/review');
     } catch {
       // Error shown via currentImport state
     } finally {
       setLoading(false);
     }
+  };
+
+  const runImport = async (result: ImagePicker.ImagePickerResult) => {
+    if (result.canceled || !result.assets[0]) return;
+    const asset = {
+      uri: result.assets[0].uri,
+      mimeType: result.assets[0].mimeType ?? 'image/jpeg',
+    };
+    setLastAsset(asset);
+    await importAsset(asset);
   };
 
   const pickFromLibrary = async () => {
@@ -84,8 +93,25 @@ export default function ImportPhotoScreen() {
 
         {currentImport?.status === 'failed' ? (
           <View style={styles.errorCard}>
-            <Text style={styles.errorTitle}>Import failed</Text>
+            <Text style={styles.errorTitle}>
+              {currentImport.errorCode === 'auth_required'
+                ? 'Sign in to continue'
+                : currentImport.errorCode === 'quota_exceeded'
+                  ? 'Import limit reached'
+                  : 'Import failed'}
+            </Text>
             <Text style={styles.errorBody}>{currentImport.error}</Text>
+            {currentImport.errorCode === 'auth_required' ? (
+              <Pressable onPress={() => router.push('/account')} style={styles.errorAction}>
+                <Text style={styles.errorActionText}>Sign in</Text>
+              </Pressable>
+            ) : (currentImport.errorCode === 'network' ||
+                currentImport.errorCode === 'quota_exceeded') &&
+              lastAsset ? (
+              <Pressable onPress={() => importAsset(lastAsset)} style={styles.errorAction}>
+                <Text style={styles.errorActionText}>Try again</Text>
+              </Pressable>
+            ) : null}
           </View>
         ) : null}
 
@@ -134,6 +160,14 @@ const styles = StyleSheet.create({
   },
   errorTitle: { ...typography.subtitle, color: colors.danger },
   errorBody: { ...typography.body, color: colors.textSecondary, fontSize: 14 },
+  errorAction: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.accentSoft,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  errorActionText: { ...typography.caption, color: colors.accent },
   note: { ...typography.caption, color: colors.textMuted, textAlign: 'center', lineHeight: 18 },
   loadingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
   loadingText: { ...typography.caption, color: colors.textSecondary },

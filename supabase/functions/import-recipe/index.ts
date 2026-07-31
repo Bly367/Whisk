@@ -1,33 +1,23 @@
 // @ts-nocheck — Supabase Edge Functions run in Deno, outside the Expo TypeScript runtime.
+import { authenticateRequest, AuthenticationError } from '../_shared/auth.ts';
+import {
+  completeImportEvent,
+  consumeImportQuota,
+  recordImportFailure,
+  UsageServiceError,
+} from '../_shared/import-usage.ts';
+
 const allowedOrigin = Deno.env.get('ALLOWED_ORIGIN') ?? '*';
 const corsHeaders = {
   'Access-Control-Allow-Origin': allowedOrigin,
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
-const recentRequests = new Map<string, number[]>();
-
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
-
-function isValidPublishableKey(key: string | null): boolean {
-  if (!key) return false;
-  const singleKey = Deno.env.get('SUPABASE_PUBLISHABLE_KEY');
-  if (singleKey && key === singleKey) return true;
-
-  try {
-    const configured = JSON.parse(Deno.env.get('SUPABASE_PUBLISHABLE_KEYS') ?? '{}');
-    return Object.values(configured).some((value) => {
-      if (typeof value === 'string') return value === key;
-      return value && typeof value === 'object' && value.key === key;
-    });
-  } catch {
-    return false;
-  }
-}
 
 function validatePublicUrl(value: unknown): URL {
   if (typeof value !== 'string' || value.length > 2048) throw new Error('Invalid URL.');
@@ -218,27 +208,46 @@ async function structureWithAI(text: string, sourceUrl: string) {
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (request.method !== 'POST') return json({ message: 'Method not allowed.' }, 405);
-  if (!isValidPublishableKey(request.headers.get('apikey'))) {
-    return json({ message: 'Unauthorized.' }, 401);
+
+  const startedAt = Date.now();
+  let userId: string;
+  try {
+    ({ userId } = await authenticateRequest(request));
+  } catch (error) {
+    if (error instanceof AuthenticationError) {
+      return json({ message: error.message, code: 'authentication_required' }, 401);
+    }
+    return json({ message: 'Authentication service is unavailable.', code: 'auth_unavailable' }, 503);
   }
 
+  let eventId: number | undefined;
+  let sourceCategory = 'url';
   try {
     const contentLength = Number(request.headers.get('content-length') ?? 0);
-    if (contentLength > 64_000) return json({ message: 'Request is too large.' }, 413);
-    const clientId =
-      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
-      request.headers.get('authorization')?.slice(-16) ??
-      'anonymous';
-    const now = Date.now();
-    const active = (recentRequests.get(clientId) ?? []).filter((time) => now - time < 60_000);
-    if (active.length >= 20) return json({ message: 'Too many imports. Try again shortly.' }, 429);
-    recentRequests.set(clientId, [...active, now]);
+    if (contentLength > 64_000) {
+      await recordImportFailure(userId, 'url', sourceCategory, 413, 'request_too_large', startedAt);
+      return json({ message: 'Request is too large.', code: 'request_too_large' }, 413);
+    }
 
     const body = await request.json();
     const url = validatePublicUrl(body.url);
     const source = sourceFor(url);
+    sourceCategory = source;
     const suppliedText =
       typeof body.suppliedText === 'string' ? body.suppliedText.trim().slice(0, 50_000) : '';
+
+    const quota = await consumeImportQuota(userId, 'url', source);
+    eventId = quota.eventId;
+    if (!quota.allowed) {
+      return json(
+        {
+          message: 'Daily import limit reached. Try again after the quota resets.',
+          code: 'daily_quota_exceeded',
+          retryAt: quota.resetAt,
+        },
+        429,
+      );
+    }
 
     let evidenceText = suppliedText;
     let evidenceKind = 'user-text';
@@ -266,10 +275,19 @@ Deno.serve(async (request) => {
     }
 
     if (!evidenceText && source !== 'url') {
+      await completeImportEvent(
+        eventId,
+        userId,
+        'failed',
+        422,
+        'insufficient_source_data',
+        startedAt,
+      );
       return json(
         {
           message:
             'This social post does not expose enough permitted recipe data. Paste its caption, add screenshots, or share a media file you own.',
+          code: 'insufficient_source_data',
         },
         422,
       );
@@ -283,7 +301,21 @@ Deno.serve(async (request) => {
       evidenceKind = 'page-text';
     }
     if (evidenceText.length < 40) {
-      return json({ message: 'Not enough recipe information was found.' }, 422);
+      await completeImportEvent(
+        eventId,
+        userId,
+        'failed',
+        422,
+        'insufficient_recipe_data',
+        startedAt,
+      );
+      return json(
+        {
+          message: 'Not enough recipe information was found.',
+          code: 'insufficient_recipe_data',
+        },
+        422,
+      );
     }
 
     const recipe = await structureWithAI(evidenceText, url.toString());
@@ -303,7 +335,7 @@ Deno.serve(async (request) => {
       });
     }
 
-    return json({
+    const responseBody = {
       ...recipe,
       description: recipe.description ?? undefined,
       imageUrl,
@@ -318,9 +350,42 @@ Deno.serve(async (request) => {
         steps: recipe.steps?.length ? 'medium' : 'unknown',
         servings: recipe.servings > 1 ? 'medium' : 'low',
       },
-    });
+    };
+    await completeImportEvent(eventId, userId, 'succeeded', 200, null, startedAt);
+    return json(responseBody);
   } catch (error) {
+    if (error instanceof UsageServiceError) {
+      return json({ message: error.message, code: 'usage_service_unavailable' }, 503);
+    }
     const message = error instanceof Error ? error.message : 'Import failed.';
-    return json({ message }, message.includes('Invalid') ? 400 : 502);
+    const status = message.includes('Invalid') ? 400 : 502;
+    const errorCode = status === 400 ? 'invalid_request' : 'import_failed';
+    if (eventId !== undefined) {
+      try {
+        await completeImportEvent(eventId, userId, 'failed', status, errorCode, startedAt);
+      } catch {
+        return json(
+          { message: 'Import usage service is unavailable.', code: 'usage_service_unavailable' },
+          503,
+        );
+      }
+    } else {
+      try {
+        await recordImportFailure(
+          userId,
+          'url',
+          sourceCategory,
+          status,
+          errorCode,
+          startedAt,
+        );
+      } catch {
+        return json(
+          { message: 'Import usage service is unavailable.', code: 'usage_service_unavailable' },
+          503,
+        );
+      }
+    }
+    return json({ message, code: errorCode }, status);
   }
 });

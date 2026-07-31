@@ -4,13 +4,27 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { colors } from '../constants/theme';
 import { useAuthStore } from '../store/authStore';
+import { useRecipeStore } from '../store/recipeStore';
 
 export default function RootLayout() {
   const initialize = useAuthStore((state) => state.initialize);
+  const userId = useAuthStore((state) => state.user?.id);
+  const connectSync = useRecipeStore((state) => state.connectSync);
 
   useEffect(() => {
     void initialize();
   }, []);
+
+  useEffect(() => {
+    const connect = () => {
+      void connectSync(userId ?? null);
+    };
+    if (useRecipeStore.persist.hasHydrated()) {
+      connect();
+      return;
+    }
+    return useRecipeStore.persist.onFinishHydration(connect);
+  }, [userId, connectSync]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -32,6 +46,7 @@ export default function RootLayout() {
         <Stack.Screen name="import/shared" />
         <Stack.Screen name="import/review" />
         <Stack.Screen name="account" />
+        <Stack.Screen name="folders" />
       </Stack>
     </GestureHandlerRootView>
   );
