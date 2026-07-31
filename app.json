@@ -19,7 +19,10 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "package": "com.whisk.app",
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -58,6 +61,30 @@
           "cameraPermission": "Whisk needs camera access to snap cookbook pages."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "targetName": "expo-sharing-extension",
+                  "bundleIdentifier": "com.whisk.app.expo-sharing-extension",
+                  "entitlements": {
+                    "com.apple.security.application-groups": [
+                      "group.com.whisk.app"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "projectId": "91ce0701-d346-4cbd-a029-c4da1786b1df"
+      }
+    },
+    "owner": "bly367"
   }
 }
