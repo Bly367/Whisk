@@ -2,18 +2,25 @@
 
 ## One-time EAS setup
 
-1. Run `npm ci`, sign in with EAS CLI, and run `eas init` to link the app to the correct Expo account. This adds the account-specific EAS project ID; no account ID is committed yet.
-2. Configure `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in the EAS `development`, `preview`, and `production` environments. Values embedded with `EXPO_PUBLIC_` are readable in the app and must not be privileged service-role credentials.
-3. Let EAS manage Android and iOS signing credentials, or have the release owner provide the existing store credentials when prompted.
-4. Build internal device artifacts with `eas build --platform all --profile preview`. Build store artifacts with `eas build --platform all --profile production`.
+1. [x] Run `npm ci`, sign in with EAS CLI, and run `eas init` to link the app. Project: `@bly367/whisk` (`91ce0701-d346-4cbd-a029-c4da1786b1df`).
+2. [x] Configure `EXPO_PUBLIC_*` secrets in EAS `development`, `preview`, and `production` environments (Supabase URL/key, import APIs, password-reset deep link).
+3. [x] Android signing: EAS generated a cloud-managed keystore for internal/preview builds.
+4. [ ] iOS signing: run interactively once (Apple Developer account required for ad-hoc/internal distribution + share extension profile):
+   ```powershell
+   npx eas-cli@latest build -p ios -e preview
+   ```
+5. [x] Android preview build started for physical-device QA:
+   https://expo.dev/accounts/bly367/projects/whisk/builds/86c1663e-346f-4b68-a1fb-3ecf5bcefb37
+6. [ ] Production store builds after QA passes:
+   ```powershell
+   npx eas-cli@latest build -p all -e production
+   ```
 
 The `development` profile is an internal physical-device build and explicitly enables demo recipes. Local development only enables them when both Expo development mode and `EXPO_PUBLIC_ENABLE_DEMO_DATA=true` are present. Preview and production explicitly disable demo recipes.
 
-The project does not currently depend on `expo-dev-client`. If that dependency is added later, set `developmentClient: true` on the development profile to turn it into a development-client build.
-
 ## Physical-device QA
 
-Run this checklist on a current iPhone and Android device using a preview build:
+Install the preview build on a current Android device (and iOS after the interactive credential setup). Check each item on-device:
 
 - [ ] **Clean install:** App opens to an empty recipe library with starter folders and no demo recipes.
 - [ ] **Share sheet:** With Whisk closed and open, share a recipe URL and plain text from Safari/Chrome and another app. Confirm Whisk appears as a target, opens the import flow, and preserves the shared content.
@@ -28,3 +35,7 @@ Run this checklist on a current iPhone and Android device using a preview build:
 - [ ] **Release smoke test:** Relaunch offline, background/foreground the app, verify persisted data, then reconnect and sync without data loss or duplicate records.
 
 Record the OS versions, build URLs/IDs, account used, and any failures in the release ticket.
+
+### Agent coverage note
+
+Automated release setup (EAS link, env vars, Android credentials, Android preview build kickoff, encryption/version config) can be done without a handset. Camera, share sheet, VoiceOver/TalkBack, and true multi-device sync still require installing the preview build on your phone/tablet.
