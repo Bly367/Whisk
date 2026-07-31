@@ -21,9 +21,20 @@ import {
   persistRecipeImage,
   removeRecipeImage,
 } from '../../../services/media/recipeImages';
+import { estimateNutritionFromIngredients, resolveRecipeNutrition } from '../../../services/nutrition/estimateFromIngredients';
 import { useAuthStore } from '../../../store/authStore';
 import { useRecipeStore } from '../../../store/recipeStore';
-import { Ingredient } from '../../../types/recipe';
+import { Ingredient, Recipe } from '../../../types/recipe';
+
+function initialMacroFields(recipe: Recipe) {
+  const resolved = resolveRecipeNutrition(recipe)?.nutrition;
+  return {
+    calories: resolved ? String(Math.round(resolved.calories)) : '',
+    protein: resolved ? String(Math.round(resolved.protein)) : '',
+    carbs: resolved ? String(Math.round(resolved.carbs)) : '',
+    fat: resolved ? String(Math.round(resolved.fat)) : '',
+  };
+}
 
 export default function EditRecipeScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -31,6 +42,7 @@ export default function EditRecipeScreen() {
   const updateRecipe = useRecipeStore((state) => state.updateRecipe);
   const user = useAuthStore((state) => state.user);
 
+  const starterMacros = recipe ? initialMacroFields(recipe) : { calories: '', protein: '', carbs: '', fat: '' };
   const [title, setTitle] = useState(recipe?.title ?? '');
   const [description, setDescription] = useState(recipe?.description ?? '');
   const [servings, setServings] = useState(String(recipe?.servings ?? 2));
@@ -40,10 +52,10 @@ export default function EditRecipeScreen() {
   const [sourceUrl, setSourceUrl] = useState(recipe?.sourceUrl ?? '');
   const [sourceAttribution, setSourceAttribution] = useState(recipe?.sourceAttribution ?? '');
   const [imageUrl, setImageUrl] = useState(recipe?.imageUrl ?? '');
-  const [calories, setCalories] = useState(String(recipe?.nutrition?.calories ?? ''));
-  const [protein, setProtein] = useState(String(recipe?.nutrition?.protein ?? ''));
-  const [carbs, setCarbs] = useState(String(recipe?.nutrition?.carbs ?? ''));
-  const [fat, setFat] = useState(String(recipe?.nutrition?.fat ?? ''));
+  const [calories, setCalories] = useState(starterMacros.calories);
+  const [protein, setProtein] = useState(starterMacros.protein);
+  const [carbs, setCarbs] = useState(starterMacros.carbs);
+  const [fat, setFat] = useState(starterMacros.fat);
   const [ingredients, setIngredients] = useState(
     recipe?.ingredients.map(formatIngredient).join('\n') ?? '',
   );
@@ -92,6 +104,16 @@ export default function EditRecipeScreen() {
     setSavingLabel('Saving…');
     try {
       const hasNutrition = [calories, protein, carbs, fat].some((value) => value.trim());
+      const nextServings = Math.max(1, Number(servings) || 1);
+      const nextIngredients = parsedIngredients;
+      const nutrition = hasNutrition
+        ? {
+            calories: Math.max(0, Number(calories) || 0),
+            protein: Math.max(0, Number(protein) || 0),
+            carbs: Math.max(0, Number(carbs) || 0),
+            fat: Math.max(0, Number(fat) || 0),
+          }
+        : estimateNutritionFromIngredients(nextIngredients, nextServings)?.nutrition;
       const imageChanged = imageUrl.trim() !== (recipe.imageUrl ?? '');
       let imageStoragePath = recipe.imageStoragePath;
 
@@ -139,22 +161,15 @@ export default function EditRecipeScreen() {
         imageStoragePath,
         sourceUrl: sourceUrl.trim() || undefined,
         sourceAttribution: sourceAttribution.trim() || undefined,
-        servings: Math.max(1, Number(servings) || 1),
+        servings: nextServings,
         prepTime: prepTime.trim() ? Math.max(0, Number(prepTime) || 0) : undefined,
         cookTime: cookTime.trim() ? Math.max(0, Number(cookTime) || 0) : undefined,
         tags: tags
           .split(',')
           .map((tag) => tag.trim().toLowerCase())
           .filter(Boolean),
-        nutrition: hasNutrition
-          ? {
-              calories: Math.max(0, Number(calories) || 0),
-              protein: Math.max(0, Number(protein) || 0),
-              carbs: Math.max(0, Number(carbs) || 0),
-              fat: Math.max(0, Number(fat) || 0),
-            }
-          : undefined,
-        ingredients: parsedIngredients,
+        nutrition,
+        ingredients: nextIngredients,
         steps: steps
           .split('\n')
           .map((step) => step.trim())
@@ -213,6 +228,9 @@ export default function EditRecipeScreen() {
           />
 
           <Text style={styles.sectionLabel}>Nutrition per serving</Text>
+          <Text style={styles.helper}>
+            Edit these anytime. Leave blank to estimate from ingredients on save.
+          </Text>
           <View style={styles.fieldGrid}>
             <Field label="Calories" value={calories} onChangeText={setCalories} keyboardType="number-pad" compact />
             <Field label="Protein g" value={protein} onChangeText={setProtein} keyboardType="number-pad" compact />
@@ -221,6 +239,25 @@ export default function EditRecipeScreen() {
             <Field label="Carbs g" value={carbs} onChangeText={setCarbs} keyboardType="number-pad" compact />
             <Field label="Fat g" value={fat} onChangeText={setFat} keyboardType="number-pad" compact />
           </View>
+          <Pressable
+            onPress={() => {
+              const estimated = estimateNutritionFromIngredients(
+                parsedIngredients,
+                Math.max(1, Number(servings) || 1),
+              )?.nutrition;
+              if (!estimated) {
+                Alert.alert('No estimate available', 'Add clearer ingredient amounts first.');
+                return;
+              }
+              setCalories(String(estimated.calories));
+              setProtein(String(estimated.protein));
+              setCarbs(String(estimated.carbs));
+              setFat(String(estimated.fat));
+            }}
+            style={styles.estimateBtn}
+          >
+            <Text style={styles.estimateBtnText}>Fill from ingredient estimate</Text>
+          </Pressable>
 
           <Field
             label="Ingredients (one per line)"
@@ -302,6 +339,9 @@ const styles = StyleSheet.create({
   compactField: { flex: 1 },
   fieldGrid: { flexDirection: 'row', gap: spacing.sm },
   sectionLabel: { ...typography.label, color: colors.textMuted },
+  helper: { ...typography.caption, color: colors.textMuted, marginTop: -spacing.sm },
+  estimateBtn: { alignItems: 'center', paddingVertical: spacing.xs },
+  estimateBtnText: { ...typography.caption, color: colors.accent, fontWeight: '600' },
   label: { ...typography.label, color: colors.textMuted },
   input: {
     backgroundColor: colors.surface,

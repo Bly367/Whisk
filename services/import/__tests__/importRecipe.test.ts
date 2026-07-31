@@ -67,4 +67,36 @@ describe('recipe import orchestration', () => {
       message: expect.stringContaining('invalid recipe'),
     } satisfies Partial<RecipeImportError>);
   });
+
+  it('accepts slightly messy backend payloads instead of failing import', async () => {
+    process.env.EXPO_PUBLIC_IMPORT_API_URL = 'https://example.test/import';
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            title: 'Creator Pasta',
+            description: null,
+            imageUrl: '',
+            servings: 2,
+            ingredients: [{ amount: '1', unit: 'cup', name: 'pasta' }],
+            steps: ['Boil.', 'Eat.'],
+            tags: [],
+            evidence: [],
+            warnings: [],
+            confidence: {},
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          },
+        ),
+      ),
+    );
+
+    const draft = await importRecipe('https://instagram.com/reel/example/');
+    expect(draft.title).toBe('Creator Pasta');
+    expect(draft.imageUrl).toBeUndefined();
+    expect(draft.ingredients[0].name).toBe('pasta');
+  });
 });

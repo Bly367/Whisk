@@ -27,6 +27,7 @@ import {
 } from '../types/recipe';
 import { aggregateIngredients } from '../services/grocery/aggregateIngredients';
 import { analytics } from '../services/observability/analytics';
+import { estimateNutritionFromIngredients } from '../services/nutrition/estimateFromIngredients';
 
 interface RecipeStore {
   recipes: Recipe[];
@@ -163,6 +164,9 @@ export const useRecipeStore = create<RecipeStore>()(
       },
 
       saveDraft: (draft) => {
+        const nutrition =
+          draft.nutrition ??
+          estimateNutritionFromIngredients(draft.ingredients, draft.servings)?.nutrition;
         const id = get().addRecipe({
           title: draft.title,
           description: draft.description,
@@ -179,7 +183,7 @@ export const useRecipeStore = create<RecipeStore>()(
           servings: draft.servings,
           ingredients: draft.ingredients,
           steps: draft.steps,
-          nutrition: draft.nutrition,
+          nutrition,
           tags: draft.tags,
         });
         return id;

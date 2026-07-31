@@ -6,7 +6,7 @@ import {
   RecipeImportError,
 } from './errors';
 import { extractPageMetadata, extractRecipeJsonLd } from './jsonLd';
-import { recipeDraftResponseSchema } from './schema';
+import { parseRecipeDraftResponse } from './schema';
 import { canonicalizeUrl, detectSource, isSocialSource } from './url';
 
 export { RecipeImportError } from './errors';
@@ -54,7 +54,7 @@ async function importFromBackend(url: string, suppliedText?: string): Promise<Re
     throw mapImportResponseError(response.status, body, 'recipe');
   }
 
-  const parsed = recipeDraftResponseSchema.safeParse(body);
+  const parsed = parseRecipeDraftResponse(body);
   if (!parsed.success) {
     throw new RecipeImportError(
       'The import service returned an invalid recipe. Please try again.',

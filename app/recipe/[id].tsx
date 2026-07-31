@@ -4,19 +4,27 @@ import { useState } from 'react';
 import {
   Alert,
   Linking,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FolderPill } from '../../components/FolderPill';
+import { MacroStrip, scaleNutrition } from '../../components/MacroStrip';
 import { RecipeImage } from '../../components/RecipeImage';
 import { colors, radius, spacing, typography } from '../../constants/theme';
 import { removeRecipeImage } from '../../services/media/recipeImages';
+import {
+  estimateNutritionFromIngredients,
+  resolveRecipeNutrition,
+} from '../../services/nutrition/estimateFromIngredients';
 import { useAuthStore } from '../../store/authStore';
 import { scaleIngredient, useRecipeStore } from '../../store/recipeStore';
+import { Nutrition } from '../../types/recipe';
 
 export default function RecipeDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -24,8 +32,14 @@ export default function RecipeDetailScreen() {
   const folders = useRecipeStore((state) => state.folders);
   const toggleFolder = useRecipeStore((state) => state.toggleFolder);
   const deleteRecipe = useRecipeStore((state) => state.deleteRecipe);
+  const updateRecipe = useRecipeStore((state) => state.updateRecipe);
   const user = useAuthStore((state) => state.user);
   const [servings, setServings] = useState(recipe?.servings ?? 2);
+  const [editingMacros, setEditingMacros] = useState(false);
+  const [calories, setCalories] = useState('');
+  const [protein, setProtein] = useState('');
+  const [carbs, setCarbs] = useState('');
+  const [fat, setFat] = useState('');
 
   if (!recipe) {
     return (
@@ -35,8 +49,46 @@ export default function RecipeDetailScreen() {
     );
   }
 
-  const factor = servings / recipe.servings;
+  const ingredientFactor = servings / recipe.servings;
   const totalTime = (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0);
+  const resolvedNutrition = resolveRecipeNutrition(recipe);
+  const estimate = estimateNutritionFromIngredients(recipe.ingredients, recipe.servings);
+
+  const openMacroEditor = () => {
+    const perServing = resolvedNutrition?.nutrition;
+    setCalories(perServing ? String(Math.round(perServing.calories)) : '');
+    setProtein(perServing ? String(Math.round(perServing.protein)) : '');
+    setCarbs(perServing ? String(Math.round(perServing.carbs)) : '');
+    setFat(perServing ? String(Math.round(perServing.fat)) : '');
+    setEditingMacros(true);
+  };
+
+  const saveMacros = () => {
+    const next: Nutrition = {
+      calories: Math.max(0, Number(calories) || 0),
+      protein: Math.max(0, Number(protein) || 0),
+      carbs: Math.max(0, Number(carbs) || 0),
+      fat: Math.max(0, Number(fat) || 0),
+    };
+    updateRecipe(recipe.id, { nutrition: next });
+    setEditingMacros(false);
+  };
+
+  const useEstimate = () => {
+    if (!estimate) {
+      Alert.alert('No estimate available', 'Add clearer ingredient amounts to estimate macros.');
+      return;
+    }
+    setCalories(String(estimate.nutrition.calories));
+    setProtein(String(estimate.nutrition.protein));
+    setCarbs(String(estimate.nutrition.carbs));
+    setFat(String(estimate.nutrition.fat));
+  };
+
+  const clearMacros = () => {
+    updateRecipe(recipe.id, { nutrition: undefined });
+    setEditingMacros(false);
+  };
 
   const handleDelete = () => {
     Alert.alert('Delete recipe?', `Remove "${recipe.title}" from your library?`, [
@@ -114,27 +166,6 @@ export default function RecipeDetailScreen() {
           </Pressable>
         ) : null}
 
-        {recipe.nutrition ? (
-          <View style={styles.macroCard}>
-            <MacroBar label="Calories" value={`${Math.round(recipe.nutrition.calories * factor)}`} />
-            <MacroBar
-              label="Protein"
-              value={`${Math.round(recipe.nutrition.protein * factor)}g`}
-              color={colors.success}
-            />
-            <MacroBar
-              label="Carbs"
-              value={`${Math.round(recipe.nutrition.carbs * factor)}g`}
-              color={colors.accentAlt}
-            />
-            <MacroBar
-              label="Fat"
-              value={`${Math.round(recipe.nutrition.fat * factor)}g`}
-              color={colors.accent}
-            />
-          </View>
-        ) : null}
-
         <View style={styles.servingControl}>
           <Text style={styles.sectionTitle}>Servings</Text>
           <View style={styles.stepper}>
@@ -151,11 +182,29 @@ export default function RecipeDetailScreen() {
           </View>
         </View>
 
+        {resolvedNutrition ? (
+          <MacroStrip
+            nutrition={scaleNutrition(resolvedNutrition.nutrition, servings)}
+            showBars
+            onEdit={openMacroEditor}
+            label={
+              resolvedNutrition.estimated
+                ? `Estimated macros for ${servings} serving${servings === 1 ? '' : 's'}`
+                : `Macros for ${servings} serving${servings === 1 ? '' : 's'}`
+            }
+          />
+        ) : (
+          <Pressable onPress={openMacroEditor} style={styles.addMacrosBtn}>
+            <Ionicons name="nutrition-outline" size={18} color={colors.accent} />
+            <Text style={styles.addMacrosText}>Add macros</Text>
+          </Pressable>
+        )}
+
         <Text style={styles.sectionTitle}>Ingredients</Text>
         {recipe.ingredients.map((ingredient) => (
           <View key={ingredient.id} style={styles.ingredientRow}>
             <View style={styles.bullet} />
-            <Text style={styles.ingredientText}>{scaleIngredient(ingredient, factor)}</Text>
+            <Text style={styles.ingredientText}>{scaleIngredient(ingredient, ingredientFactor)}</Text>
           </View>
         ))}
 
@@ -181,23 +230,65 @@ export default function RecipeDetailScreen() {
           ))}
         </ScrollView>
       </ScrollView>
+
+      <Modal visible={editingMacros} transparent animationType="slide">
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Edit macros</Text>
+            <Text style={styles.modalHint}>
+              Values are per serving. Displayed totals scale with the servings stepper.
+            </Text>
+            <View style={styles.macroGrid}>
+              <MacroField label="Calories" value={calories} onChangeText={setCalories} />
+              <MacroField label="Protein g" value={protein} onChangeText={setProtein} />
+              <MacroField label="Carbs g" value={carbs} onChangeText={setCarbs} />
+              <MacroField label="Fat g" value={fat} onChangeText={setFat} />
+            </View>
+            {estimate ? (
+              <Pressable onPress={useEstimate} style={styles.secondaryBtn}>
+                <Text style={styles.secondaryBtnText}>Fill from ingredient estimate</Text>
+              </Pressable>
+            ) : null}
+            <Pressable onPress={saveMacros} style={styles.primaryBtn}>
+              <Text style={styles.primaryBtnText}>Save macros</Text>
+            </Pressable>
+            {recipe.nutrition ? (
+              <Pressable onPress={clearMacros} style={styles.secondaryBtn}>
+                <Text style={[styles.secondaryBtnText, { color: colors.danger }]}>
+                  Clear and use estimate
+                </Text>
+              </Pressable>
+            ) : null}
+            <Pressable onPress={() => setEditingMacros(false)} style={styles.secondaryBtn}>
+              <Text style={[styles.secondaryBtnText, { color: colors.textMuted }]}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
-function MacroBar({
+function MacroField({
   label,
   value,
-  color = colors.text,
+  onChangeText,
 }: {
   label: string;
   value: string;
-  color?: string;
+  onChangeText: (text: string) => void;
 }) {
   return (
-    <View style={styles.macroItem}>
-      <Text style={styles.macroLabel}>{label}</Text>
-      <Text style={[styles.macroValue, { color }]}>{value}</Text>
+    <View style={styles.macroField}>
+      <Text style={styles.macroFieldLabel}>{label}</Text>
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        keyboardType="decimal-pad"
+        placeholder="0"
+        placeholderTextColor={colors.textMuted}
+        style={styles.macroInput}
+      />
     </View>
   );
 }
@@ -289,28 +380,6 @@ const styles = StyleSheet.create({
     color: colors.accent,
     flex: 1,
   },
-  macroCard: {
-    flexDirection: 'row',
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  macroItem: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 4,
-  },
-  macroLabel: {
-    ...typography.label,
-    color: colors.textMuted,
-    fontSize: 9,
-  },
-  macroValue: {
-    ...typography.subtitle,
-    color: colors.text,
-  },
   servingControl: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -344,6 +413,23 @@ const styles = StyleSheet.create({
     color: colors.text,
     minWidth: 24,
     textAlign: 'center',
+  },
+  addMacrosBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderStyle: 'dashed',
+  },
+  addMacrosText: {
+    ...typography.caption,
+    color: colors.accent,
+    fontWeight: '700',
   },
   ingredientRow: {
     flexDirection: 'row',
@@ -380,5 +466,70 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.text,
     flex: 1,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  modalTitle: {
+    ...typography.subtitle,
+    color: colors.text,
+  },
+  modalHint: {
+    ...typography.caption,
+    color: colors.textMuted,
+    lineHeight: 18,
+  },
+  macroGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  macroField: {
+    width: '48%',
+    flexGrow: 1,
+    gap: spacing.xs,
+  },
+  macroFieldLabel: {
+    ...typography.label,
+    color: colors.textMuted,
+  },
+  macroInput: {
+    backgroundColor: colors.bg,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    color: colors.text,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    ...typography.body,
+  },
+  primaryBtn: {
+    backgroundColor: colors.accent,
+    borderRadius: radius.full,
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+  },
+  primaryBtnText: {
+    ...typography.caption,
+    color: '#fff',
+    fontWeight: '700',
+  },
+  secondaryBtn: {
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+  },
+  secondaryBtnText: {
+    ...typography.caption,
+    color: colors.accent,
+    fontWeight: '600',
   },
 });

@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, radius, spacing, typography } from '../constants/theme';
+import { resolveRecipeNutrition } from '../services/nutrition/estimateFromIngredients';
 import { Recipe } from '../types/recipe';
 import { RecipeImage } from './RecipeImage';
 
@@ -23,6 +24,9 @@ interface RecipeCardProps {
 export function RecipeCard({ recipe, onPress, variant = 'grid' }: RecipeCardProps) {
   const isHero = variant === 'hero';
   const totalTime = (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0);
+  const resolved = resolveRecipeNutrition(recipe);
+  const nutrition = resolved?.nutrition;
+  const estimated = resolved?.estimated ?? false;
 
   return (
     <Pressable
@@ -41,8 +45,17 @@ export function RecipeCard({ recipe, onPress, variant = 'grid' }: RecipeCardProp
         gradient={recipe.imageGradient}
         style={[styles.image, isHero && styles.heroImage]}
       >
-        <View style={styles.sourceBadge}>
-          <Text style={styles.sourceText}>{sourceLabels[recipe.source]}</Text>
+        <View style={styles.imageOverlay}>
+          <View style={styles.sourceBadge}>
+            <Text style={styles.sourceText}>{sourceLabels[recipe.source]}</Text>
+          </View>
+          {nutrition ? (
+            <View style={styles.calBadge}>
+              <Text style={styles.calText}>
+                {Math.round(nutrition.calories)} cal/serving{estimated ? ' · est.' : ''}
+              </Text>
+            </View>
+          ) : null}
         </View>
       </RecipeImage>
 
@@ -56,12 +69,22 @@ export function RecipeCard({ recipe, onPress, variant = 'grid' }: RecipeCardProp
           </Text>
         ) : null}
         <View style={styles.metaRow}>
-          {totalTime > 0 && <Text style={styles.meta}>{totalTime} min</Text>}
-          {recipe.nutrition?.calories ? (
-            <Text style={styles.meta}>{recipe.nutrition.calories} cal</Text>
-          ) : null}
+          {totalTime > 0 ? <Text style={styles.meta}>{totalTime} min</Text> : null}
           <Text style={styles.meta}>{recipe.servings} servings</Text>
         </View>
+        {nutrition ? (
+          <View style={styles.macroRow}>
+            <Text style={[styles.macroChip, styles.protein]}>
+              P {Math.round(nutrition.protein)}g
+            </Text>
+            <Text style={[styles.macroChip, styles.carbs]}>
+              C {Math.round(nutrition.carbs)}g
+            </Text>
+            <Text style={[styles.macroChip, styles.fat]}>
+              F {Math.round(nutrition.fat)}g
+            </Text>
+          </View>
+        ) : null}
       </View>
     </Pressable>
   );
@@ -90,6 +113,11 @@ const styles = StyleSheet.create({
   heroImage: {
     height: 180,
   },
+  imageOverlay: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
   sourceBadge: {
     alignSelf: 'flex-start',
     backgroundColor: 'rgba(0,0,0,0.45)',
@@ -98,6 +126,17 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
   },
   sourceText: {
+    ...typography.label,
+    color: colors.text,
+    fontSize: 10,
+  },
+  calBadge: {
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radius.full,
+  },
+  calText: {
     ...typography.label,
     color: colors.text,
     fontSize: 10,
@@ -127,4 +166,18 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textMuted,
   },
+  macroRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+  },
+  macroChip: {
+    ...typography.caption,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  protein: { color: colors.success },
+  carbs: { color: colors.accentAlt },
+  fat: { color: colors.accent },
 });

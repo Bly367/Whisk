@@ -7,7 +7,7 @@ import {
   mapImportResponseError,
   RecipeImportError,
 } from './errors';
-import { recipeDraftResponseSchema } from './schema';
+import { parseRecipeDraftResponse } from './schema';
 
 export const MAX_IMAGE_BASE64_LENGTH = 6_000_000;
 export const MAX_IMAGE_BYTES = Math.floor(MAX_IMAGE_BASE64_LENGTH / 4) * 3;
@@ -145,7 +145,7 @@ export async function importRecipeFromImage(
     throw mapImportResponseError(response.status, body, 'photo');
   }
 
-  const parsed = recipeDraftResponseSchema.safeParse(body);
+  const parsed = parseRecipeDraftResponse(body);
   if (!parsed.success) {
     throw new RecipeImportError(
       'The photo import service returned an invalid recipe. Please try again.',
