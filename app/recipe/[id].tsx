@@ -1,18 +1,30 @@
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Alert,
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FolderPill } from '../../components/FolderPill';
+import { RecipeImage } from '../../components/RecipeImage';
 import { colors, radius, spacing, typography } from '../../constants/theme';
-import { scaleIngredient, useRecipeStore } from '../../store/recipeStore';
+import { useAuthStore } from '../../store/authStore';
+import { deleteRecipeRemote, scaleIngredient, useRecipeStore } from '../../store/recipeStore';
 
 export default function RecipeDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const recipe = useRecipeStore((s) => s.recipes.find((r) => r.id === id));
-  const folders = useRecipeStore((s) => s.folders);
-  const toggleFolder = useRecipeStore((s) => s.toggleFolder);
+  const recipe = useRecipeStore((state) => state.recipes.find((item) => item.id === id));
+  const folders = useRecipeStore((state) => state.folders);
+  const toggleFolder = useRecipeStore((state) => state.toggleFolder);
+  const deleteRecipe = useRecipeStore((state) => state.deleteRecipe);
+  const syncToCloud = useRecipeStore((state) => state.syncToCloud);
+  const user = useAuthStore((state) => state.user);
   const [servings, setServings] = useState(recipe?.servings ?? 2);
 
   if (!recipe) {
@@ -26,24 +38,49 @@ export default function RecipeDetailScreen() {
   const factor = servings / recipe.servings;
   const totalTime = (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0);
 
+  const handleDelete = () => {
+    Alert.alert('Delete recipe?', `Remove "${recipe.title}" from your library?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          deleteRecipe(recipe.id);
+          if (user) {
+            void deleteRecipeRemote(user.id, recipe.id);
+            void syncToCloud(user.id);
+          }
+          router.back();
+        },
+      },
+    ]);
+  };
+
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={recipe.imageGradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+      <RecipeImage
+        imageUrl={recipe.imageUrl}
+        gradient={recipe.imageGradient}
         style={styles.hero}
       >
         <SafeAreaView edges={['top']} style={styles.heroTop}>
-          <Pressable onPress={() => router.back()} style={styles.backBtn}>
+          <Pressable onPress={() => router.back()} style={styles.iconBtn}>
             <Ionicons name="chevron-back" size={22} color="#fff" />
           </Pressable>
-          <Pressable onPress={() => router.push(`/cook/${recipe.id}`)} style={styles.cookBtn}>
-            <Ionicons name="play" size={16} color="#fff" />
-            <Text style={styles.cookBtnText}>Cook Mode</Text>
-          </Pressable>
+          <View style={styles.heroActions}>
+            <Pressable onPress={() => router.push(`/recipe/edit/${recipe.id}`)} style={styles.iconBtn}>
+              <Ionicons name="create-outline" size={20} color="#fff" />
+            </Pressable>
+            <Pressable onPress={handleDelete} style={styles.iconBtn}>
+              <Ionicons name="trash-outline" size={20} color="#fff" />
+            </Pressable>
+            <Pressable onPress={() => router.push(`/cook/${recipe.id}`)} style={styles.cookBtn}>
+              <Ionicons name="play" size={16} color="#fff" />
+              <Text style={styles.cookBtnText}>Cook Mode</Text>
+            </Pressable>
+          </View>
         </SafeAreaView>
-      </LinearGradient>
+      </RecipeImage>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>{recipe.title}</Text>
@@ -78,9 +115,21 @@ export default function RecipeDetailScreen() {
         {recipe.nutrition ? (
           <View style={styles.macroCard}>
             <MacroBar label="Calories" value={`${Math.round(recipe.nutrition.calories * factor)}`} />
-            <MacroBar label="Protein" value={`${Math.round(recipe.nutrition.protein * factor)}g`} color={colors.success} />
-            <MacroBar label="Carbs" value={`${Math.round(recipe.nutrition.carbs * factor)}g`} color={colors.accentAlt} />
-            <MacroBar label="Fat" value={`${Math.round(recipe.nutrition.fat * factor)}g`} color={colors.accent} />
+            <MacroBar
+              label="Protein"
+              value={`${Math.round(recipe.nutrition.protein * factor)}g`}
+              color={colors.success}
+            />
+            <MacroBar
+              label="Carbs"
+              value={`${Math.round(recipe.nutrition.carbs * factor)}g`}
+              color={colors.accentAlt}
+            />
+            <MacroBar
+              label="Fat"
+              value={`${Math.round(recipe.nutrition.fat * factor)}g`}
+              color={colors.accent}
+            />
           </View>
         ) : null}
 
@@ -88,30 +137,30 @@ export default function RecipeDetailScreen() {
           <Text style={styles.sectionTitle}>Servings</Text>
           <View style={styles.stepper}>
             <Pressable
-              onPress={() => setServings((s) => Math.max(1, s - 1))}
+              onPress={() => setServings((value) => Math.max(1, value - 1))}
               style={styles.stepBtn}
             >
               <Ionicons name="remove" size={18} color={colors.text} />
             </Pressable>
             <Text style={styles.servingCount}>{servings}</Text>
-            <Pressable onPress={() => setServings((s) => s + 1)} style={styles.stepBtn}>
+            <Pressable onPress={() => setServings((value) => value + 1)} style={styles.stepBtn}>
               <Ionicons name="add" size={18} color={colors.text} />
             </Pressable>
           </View>
         </View>
 
         <Text style={styles.sectionTitle}>Ingredients</Text>
-        {recipe.ingredients.map((ing) => (
-          <View key={ing.id} style={styles.ingredientRow}>
+        {recipe.ingredients.map((ingredient) => (
+          <View key={ingredient.id} style={styles.ingredientRow}>
             <View style={styles.bullet} />
-            <Text style={styles.ingredientText}>{scaleIngredient(ing, factor)}</Text>
+            <Text style={styles.ingredientText}>{scaleIngredient(ingredient, factor)}</Text>
           </View>
         ))}
 
         <Text style={styles.sectionTitle}>Steps</Text>
-        {recipe.steps.map((step, i) => (
-          <View key={i} style={styles.stepRow}>
-            <Text style={styles.stepNum}>{i + 1}</Text>
+        {recipe.steps.map((step, index) => (
+          <View key={index} style={styles.stepRow}>
+            <Text style={styles.stepNum}>{index + 1}</Text>
             <Text style={styles.stepText}>{step}</Text>
           </View>
         ))}
@@ -134,7 +183,15 @@ export default function RecipeDetailScreen() {
   );
 }
 
-function MacroBar({ label, value, color = colors.text }: { label: string; value: string; color?: string }) {
+function MacroBar({
+  label,
+  value,
+  color = colors.text,
+}: {
+  label: string;
+  value: string;
+  color?: string;
+}) {
   return (
     <View style={styles.macroItem}>
       <Text style={styles.macroLabel}>{label}</Text>
@@ -166,7 +223,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
   },
-  backBtn: {
+  heroActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  iconBtn: {
     width: 40,
     height: 40,
     borderRadius: radius.full,

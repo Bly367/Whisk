@@ -1,2 +1,5 @@
 [functions.import-recipe]
 verify_jwt = false
+
+[functions.import-recipe-image]
+verify_jwt = false

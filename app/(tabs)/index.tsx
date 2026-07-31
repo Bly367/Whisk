@@ -1,6 +1,7 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { FlatList, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FolderPill } from '../../components/FolderPill';
 import { RecipeCard } from '../../components/RecipeCard';
@@ -28,8 +29,15 @@ export default function LibraryScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Text style={styles.brand}>Whisk</Text>
-          <Text style={styles.tagline}>Your recipes, everywhere.</Text>
+          <View style={styles.headerTop}>
+            <View>
+              <Text style={styles.brand}>Whisk</Text>
+              <Text style={styles.tagline}>Your recipes, everywhere.</Text>
+            </View>
+            <Pressable onPress={() => router.push('/account')} style={styles.accountBtn}>
+              <Ionicons name="person-circle-outline" size={28} color={colors.textSecondary} />
+            </Pressable>
+          </View>
         </View>
 
         <SearchBar value={query} onChangeText={setQuery} />
@@ -117,6 +125,14 @@ const styles = StyleSheet.create({
   },
   header: {
     gap: 4,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  accountBtn: {
+    padding: spacing.xs,
   },
   brand: {
     ...typography.hero,

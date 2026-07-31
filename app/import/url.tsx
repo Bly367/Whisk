@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ImportProgress } from '../../components/ImportProgress';
 import { ScreenHeader } from '../../components/ScreenHeader';
 import { colors, radius, spacing, typography } from '../../constants/theme';
+import { detectSource, isSocialSource } from '../../services/import/url';
 import { useRecipeStore } from '../../store/recipeStore';
 
 export default function ImportUrlScreen() {
@@ -24,10 +25,24 @@ export default function ImportUrlScreen() {
   const currentImport = useRecipeStore((state) => state.currentImport);
   const startImport = useRecipeStore((state) => state.startImport);
   const clearImport = useRecipeStore((state) => state.clearImport);
+
+  const isSocial = useMemo(() => {
+    try {
+      return isSocialSource(detectSource(url.trim()));
+    } catch {
+      return false;
+    }
+  }, [url]);
+
   const loading =
     currentImport?.status === 'resolving' ||
     currentImport?.status === 'extracting' ||
     currentImport?.status === 'structuring';
+
+  const showAssist =
+    isSocial ||
+    currentImport?.status === 'needs_input' ||
+    currentImport?.status === 'failed';
 
   const handleImport = async () => {
     if (!url.trim()) return;
@@ -68,12 +83,19 @@ export default function ImportUrlScreen() {
             <Text style={styles.hint}>Instagram · TikTok · Facebook · Safari · Recipe blogs</Text>
           </View>
 
-          {currentImport?.status === 'needs_input' || currentImport?.status === 'failed' ? (
+          {showAssist ? (
             <View style={styles.assistCard}>
               <Text style={styles.assistTitle}>
-                {currentImport.status === 'needs_input' ? 'Help Whisk finish' : 'Import failed'}
+                {currentImport?.status === 'failed'
+                  ? 'Import failed'
+                  : isSocial
+                    ? 'Social posts often need the caption'
+                    : 'Help Whisk finish'}
               </Text>
-              <Text style={styles.assistBody}>{currentImport.error}</Text>
+              <Text style={styles.assistBody}>
+                {currentImport?.error ??
+                  'Instagram and TikTok usually hide recipe text behind login. Paste the caption here for best results — Whisk will also try any public page metadata it can read.'}
+              </Text>
               <TextInput
                 value={suppliedText}
                 onChangeText={setSuppliedText}
@@ -105,7 +127,7 @@ export default function ImportUrlScreen() {
               </>
             ) : (
               <Text style={styles.importText}>
-                {suppliedText.trim() ? 'Retry with Recipe Text' : 'Import Recipe'}
+                {suppliedText.trim() ? 'Import with Recipe Text' : 'Import Recipe'}
               </Text>
             )}
           </Pressable>

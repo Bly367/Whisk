@@ -48,7 +48,16 @@
           }
         }
       ],
-      "expo-font"
+      "expo-font",
+      "expo-image",
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Whisk needs photo access to import cookbook pages and screenshots.",
+          "cameraPermission": "Whisk needs camera access to snap cookbook pages."
+        }
+      ]
     ]
   }
 }

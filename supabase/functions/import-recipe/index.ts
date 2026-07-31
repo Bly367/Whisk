@@ -68,6 +68,46 @@ function readablePageText(html: string) {
     .slice(0, 50_000);
 }
 
+function extractPageMetadata(html: string) {
+  const meta = (property: string) => {
+    const escaped = property.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = new RegExp(
+      `<meta[^>]+(?:property|name)=["']${escaped}["'][^>]+content=["']([^"']+)["'][^>]*>`,
+      'i',
+    );
+    const reverse = new RegExp(
+      `<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${escaped}["'][^>]*>`,
+      'i',
+    );
+    const value = html.match(pattern)?.[1] ?? html.match(reverse)?.[1];
+    return value
+      ? value
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;|&apos;/g, "'")
+          .replace(/&amp;/g, '&')
+          .replace(/\s+/g, ' ')
+          .trim()
+      : undefined;
+  };
+  const titleTag = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.trim();
+  return {
+    title: meta('og:title') ?? titleTag,
+    description:
+      meta('og:description') ??
+      meta('description') ??
+      meta('twitter:description'),
+    imageUrl: meta('og:image') ?? meta('twitter:image'),
+  };
+}
+
+function socialCaptionFromMetadata(metadata: {
+  title?: string;
+  description?: string;
+}) {
+  const parts = [metadata.title, metadata.description].filter(Boolean);
+  return parts.join('\n\n').trim();
+}
+
 async function fetchPublicPage(url: URL, redirects = 0): Promise<string> {
   if (redirects > 3) throw new Error('Too many redirects.');
   const controller = new AbortController();
@@ -202,6 +242,28 @@ Deno.serve(async (request) => {
 
     let evidenceText = suppliedText;
     let evidenceKind = 'user-text';
+    let imageUrl: string | undefined;
+
+    if (!evidenceText && source !== 'url') {
+      try {
+        const html = await fetchPublicPage(url);
+        const metadata = extractPageMetadata(html);
+        imageUrl = metadata.imageUrl;
+        const metadataText = socialCaptionFromMetadata(metadata);
+        if (metadataText.length >= 40) {
+          evidenceText = metadataText;
+          evidenceKind = 'metadata';
+        } else {
+          const pageText = readablePageText(html);
+          if (pageText.length >= 40) {
+            evidenceText = pageText;
+            evidenceKind = 'page-text';
+          }
+        }
+      } catch {
+        // Fall through to assisted-input response below.
+      }
+    }
 
     if (!evidenceText && source !== 'url') {
       return json(
@@ -214,7 +276,10 @@ Deno.serve(async (request) => {
     }
 
     if (!evidenceText) {
-      evidenceText = readablePageText(await fetchPublicPage(url));
+      const html = await fetchPublicPage(url);
+      const metadata = extractPageMetadata(html);
+      imageUrl = metadata.imageUrl;
+      evidenceText = readablePageText(html);
       evidenceKind = 'page-text';
     }
     if (evidenceText.length < 40) {
@@ -241,6 +306,7 @@ Deno.serve(async (request) => {
     return json({
       ...recipe,
       description: recipe.description ?? undefined,
+      imageUrl,
       sourceAttribution: recipe.sourceAttribution ?? url.hostname,
       prepTime: recipe.prepTime ?? undefined,
       cookTime: recipe.cookTime ?? undefined,

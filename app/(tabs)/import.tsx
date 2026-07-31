@@ -47,8 +47,7 @@ export default function ImportScreen() {
             title="From photo"
             subtitle="Snap a cookbook page or screenshot"
             gradient={['#11998e', '#38ef7d']}
-            badge="SOON"
-            onPress={() => router.push('/import/manual')}
+            onPress={() => router.push('/import/photo')}
           />
           <ImportOption
             icon="sparkles"

@@ -71,6 +71,7 @@ async function importFromBackend(url: string, suppliedText?: string): Promise<Re
   return withIds({
     ...parsed.data,
     imageGradient: ['#1A1A2E', '#FF6B4A'],
+    imageUrl: parsed.data.imageUrl,
     source: detectSource(url),
     sourceUrl: url,
     canonicalUrl: url,

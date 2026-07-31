@@ -108,3 +108,17 @@ export interface Folder {
   emoji: string;
   color: string;
 }
+
+export interface MealPlanSlot {
+  dayIndex: number;
+  recipeId: string | null;
+}
+
+export interface GroceryItem {
+  id: string;
+  name: string;
+  amount: string;
+  unit: string;
+  checked: boolean;
+  recipeIds: string[];
+}

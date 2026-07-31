@@ -1,7 +1,7 @@
-import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, radius, spacing, typography } from '../constants/theme';
 import { Recipe } from '../types/recipe';
+import { RecipeImage } from './RecipeImage';
 
 const sourceLabels: Record<Recipe['source'], string> = {
   url: 'Web',
@@ -33,16 +33,15 @@ export function RecipeCard({ recipe, onPress, variant = 'grid' }: RecipeCardProp
         pressed && styles.pressed,
       ]}
     >
-      <LinearGradient
-        colors={recipe.imageGradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+      <RecipeImage
+        imageUrl={recipe.imageUrl}
+        gradient={recipe.imageGradient}
         style={[styles.image, isHero && styles.heroImage]}
       >
         <View style={styles.sourceBadge}>
           <Text style={styles.sourceText}>{sourceLabels[recipe.source]}</Text>
         </View>
-      </LinearGradient>
+      </RecipeImage>
 
       <View style={styles.content}>
         <Text style={[styles.title, isHero && styles.heroTitle]} numberOfLines={2}>
