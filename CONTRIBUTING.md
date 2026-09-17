@@ -34,7 +34,7 @@ Do not invent alternate stacks (Firebase-as-primary-DB, Redux-by-default, web-fi
 }
 ```
 
-W8 ships ESLint, Prettier, Jest config, and CI. Until W1 merges `package.json` and installs tooling deps, CI skips Node jobs gracefully and only verifies that standards files are present.
+W8 ships ESLint (flat `eslint.config.js`), Prettier, strict `tsconfig.base.json`, Jest config, and CI. Until W1 merges `package.json` and installs tooling deps, CI skips Node jobs and only verifies that standards files are present. **Once `package.json` exists, CI fails if `lint`, `typecheck`, or `test` scripts are missing** (no soft-pass).
 
 ## Review bar
 
@@ -63,11 +63,10 @@ Every workstream PR should be checked for:
 
 GitHub Actions runs on pull requests and pushes to `main`:
 
-- Lint (`npm run lint` when present)
-- Typecheck (`npm run typecheck` when present)
-- Test (`npm test` when present)
+- If `package.json` is **absent**: skip Node jobs; confirm standards files exist
+- If `package.json` is **present**: require `lint`, `typecheck`, and `test` scripts (fail if any are missing), then run them
 
-If `package.json` is missing, the workflow no-ops the Node steps and confirms standards files exist.
+See `docs/architecture.md` for known-good ESLint 9 flat-config deps and `tsconfig` merge notes with W1.
 
 ## Out of scope reminders
 

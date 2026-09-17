@@ -26,7 +26,7 @@ jobs:
         run: |
           if [ -f package.json ]; then
             echo "present=true" >> "$GITHUB_OUTPUT"
-            echo "Expo/Node app detected — running lint, typecheck, and test."
+            echo "Expo/Node app detected — requiring lint, typecheck, and test."
           else
             echo "present=false" >> "$GITHUB_OUTPUT"
             echo "No package.json yet (foundation not merged). Skipping Node jobs."
@@ -48,39 +48,47 @@ jobs:
             npm install
           fi
 
-      - name: Lint
+      - name: Require lint, typecheck, and test scripts
         if: steps.app.outputs.present == 'true'
         run: |
-          if node -e "process.exit(require('./package.json').scripts?.lint ? 0 : 1)"; then
-            npm run lint
-          else
-            echo "No lint script yet — add \"lint\": \"eslint .\" after W1 merges tooling deps."
-          fi
+          node <<'EOF'
+          const pkg = require('./package.json');
+          const scripts = pkg.scripts || {};
+          const required = ['lint', 'typecheck', 'test'];
+          const missing = required.filter((name) => !scripts[name]);
+          if (missing.length) {
+            console.error(
+              `Required scripts missing from package.json: ${missing.join(', ')}. ` +
+                'CI must fail until lint, typecheck, and test are defined (W8 gate).',
+            );
+            process.exit(1);
+          }
+          EOF
+
+      - name: Lint
+        if: steps.app.outputs.present == 'true'
+        run: npm run lint
 
       - name: Typecheck
         if: steps.app.outputs.present == 'true'
-        run: |
-          if node -e "process.exit(require('./package.json').scripts?.typecheck ? 0 : 1)"; then
-            npm run typecheck
-          else
-            echo "No typecheck script yet — expected \"typecheck\": \"tsc --noEmit\" from foundation."
-          fi
+        run: npm run typecheck
 
       - name: Test
         if: steps.app.outputs.present == 'true'
-        run: |
-          if node -e "process.exit(require('./package.json').scripts?.test ? 0 : 1)"; then
-            npm test
-          else
-            echo "No test script yet — expected Jest (npm test) once harness lands."
-          fi
+        run: npm test
 
       - name: Standards placeholder (pre-app)
         if: steps.app.outputs.present != 'true'
         run: |
           echo "W8 CI gate is active. Lint/typecheck/test will run once package.json exists."
-          test -f .eslintrc.cjs || test -f eslint.config.js || test -f eslint.config.mjs
-          test -f .prettierrc.json || test -f .prettierrc || test -f prettier.config.js
+          test -f eslint.config.js
+          test -f .prettierrc.json
+          test -f tsconfig.base.json
+          test -f tsconfig.json
+          test -f jest.config.js
           test -f docs/architecture.md
           test -f CONTRIBUTING.md
           test -f .github/PULL_REQUEST_TEMPLATE.md
+          test -f lib/standards/localPersistence.ts
+          test -f __tests__/localPersistence.test.ts
+          test -f __tests__/ci.workflow.test.ts
