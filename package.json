@@ -12,9 +12,11 @@
     "test": "jest"
   },
   "dependencies": {
+    "@react-native-async-storage/async-storage": "^2.2.0",
     "expo": "~57.0.23",
     "expo-constants": "~57.0.18",
     "expo-font": "~57.0.4",
+    "expo-keep-awake": "~15.0.8",
     "expo-linking": "~57.0.10",
     "expo-router": "~57.0.21",
     "expo-splash-screen": "~57.0.9",

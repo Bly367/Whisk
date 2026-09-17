@@ -65,6 +65,26 @@ function RootNavigator() {
             headerTintColor: colors.textPrimary,
           }}
         />
+        <Stack.Screen
+          name="recipe/[id]"
+          options={{
+            title: 'Recipe',
+            headerShadowVisible: false,
+            headerStyle: { backgroundColor: colors.canvas },
+            headerTintColor: colors.textPrimary,
+          }}
+        />
+        <Stack.Screen
+          name="cook/[recipeId]"
+          options={{
+            title: 'Cook',
+            headerShadowVisible: false,
+            headerStyle: { backgroundColor: colors.canvas },
+            headerTintColor: colors.textPrimary,
+            // Full-screen focus; avoid modal upgrade chrome.
+            presentation: 'card',
+          }}
+        />
       </Stack>
     </NavThemeProvider>
   );

@@ -1,21 +1,121 @@
-import { StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Alert, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/ui/Button';
 import { PlaceholderHero } from '@/components/ui/PlaceholderHero';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
+import { LimitNotice } from '@/components/trust/LimitNotice';
 import { radius, spacing } from '@/constants/tokens';
+import {
+  describeTrialOffer,
+  FREE_TIER,
+  gateImportAction,
+  mayShowUpgradePrompt,
+} from '@/features/trust/freeTier';
+import { useSessionStore } from '@/features/trust/sessionStore';
 import { useTheme } from '@/theme/ThemeProvider';
 
 const SOURCES = [
-  { id: 'link', label: 'Paste a link', hint: 'From a recipe site' },
-  { id: 'social', label: 'Import from social', hint: 'Share sheet or saved post' },
-  { id: 'scan', label: 'Scan a photo', hint: 'Cookbook page or screenshot' },
-  { id: 'manual', label: 'Create manually', hint: 'Type it in yourself' },
+  {
+    id: 'link',
+    label: 'Paste a link',
+    hint: 'From a recipe site',
+    limited: true,
+  },
+  {
+    id: 'social',
+    label: 'Import from social',
+    hint: 'Share sheet or saved post',
+    limited: true,
+  },
+  {
+    id: 'scan',
+    label: 'Scan a photo',
+    hint: 'Cookbook page or screenshot',
+    limited: true,
+  },
+  {
+    id: 'manual',
+    label: 'Create manually',
+    hint: 'Type it in yourself — never limited',
+    limited: false,
+  },
 ] as const;
+
+function trialRenewalLabel(from = new Date()): string {
+  const d = new Date(from);
+  d.setUTCDate(d.getUTCDate() + FREE_TIER.trialDays);
+  return d.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
 
 export default function AddScreen() {
   const { colors } = useTheme();
+  const usage = useSessionStore((s) => s.usage);
+  const hydrate = useSessionStore((s) => s.hydrate);
+  const recordImportStarted = useSessionStore((s) => s.recordImportStarted);
+  const [status, setStatus] = useState<string | null>(null);
+
+  const trialCopy = useMemo(
+    () => describeTrialOffer(trialRenewalLabel()),
+    [],
+  );
+
+  useEffect(() => {
+    void hydrate();
+  }, [hydrate]);
+
+  async function onChooseSource(source: (typeof SOURCES)[number]) {
+    setStatus(null);
+
+    if (!source.limited) {
+      setStatus(
+        'Manual create is unlimited on the free plan. Full editor arrives with Recipes (W3).',
+      );
+      return;
+    }
+
+    // Limits shown BEFORE the import starts — never mid-import.
+    const gate = gateImportAction(usage);
+    if (!gate.allowed) {
+      if (!mayShowUpgradePrompt('add_boundary')) {
+        return;
+      }
+      Alert.alert('Import limit reached', gate.message, [
+        { text: 'Not now', style: 'cancel' },
+        {
+          text: 'View plan',
+          onPress: () =>
+            setStatus(
+              `${gate.message} Trial: ${trialCopy}`,
+            ),
+        },
+      ]);
+      return;
+    }
+
+    Alert.alert(
+      'Before you import',
+      `${gate.remaining} of ${FREE_TIER.importsPerWeek} free imports left this week. Import review will not be interrupted by an upgrade screen.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Continue',
+          onPress: () => {
+            void recordImportStarted().then(() => {
+              setStatus(
+                `Started ${source.label.toLowerCase()} (${gate.remaining - 1} left after this). Preview + save land with Import (W4).`,
+              );
+            });
+          },
+        },
+      ],
+    );
+  }
 
   return (
     <Screen testID="screen-add" showSyncStatus={false}>
@@ -23,6 +123,9 @@ export default function AddScreen() {
         title="Add a recipe"
         body="Bring one in from a link, a share, a photo, or scratch. You’ll review it before it’s saved."
       />
+
+      <LimitNotice usage={usage} trialCopy={trialCopy} />
+
       <View style={styles.list}>
         {SOURCES.map((source) => (
           <View
@@ -39,18 +142,26 @@ export default function AddScreen() {
               <Text variant="headline">{source.label}</Text>
               <Text variant="caption" tone="secondary">
                 {source.hint}
+                {source.limited
+                  ? ` · counts toward ${FREE_TIER.importsPerWeek}/week`
+                  : ''}
               </Text>
             </View>
             <Button
-              label="Soon"
-              variant="secondary"
-              disabled
+              label={source.limited ? 'Import' : 'Create'}
+              variant={source.limited ? 'secondary' : 'primary'}
               testID={`add-source-${source.id}`}
-              accessibilityHint="Available in a later update"
+              onPress={() => void onChooseSource(source)}
             />
           </View>
         ))}
       </View>
+
+      {status ? (
+        <Text variant="caption" tone="secondary" testID="add-status">
+          {status}
+        </Text>
+      ) : null}
     </Screen>
   );
 }
