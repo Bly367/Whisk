@@ -53,7 +53,7 @@ export function GrocerySummaryModal({
           <Text variant="body" tone="secondary">
             {lines.length === 0
               ? 'Add meals to this week first — then we can summarize what to shop for.'
-              : `About to add ingredients from ${lines.length} recipe${lines.length === 1 ? '' : 's'} (${totalIngredients} items). Review, then confirm.`}
+              : `About to add ${totalIngredients} ingredient line${totalIngredients === 1 ? '' : 's'} from ${lines.length} recipe${lines.length === 1 ? '' : 's'}. Quantities are scaled by how many times each recipe appears this week.`}
           </Text>
 
           <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
@@ -70,9 +70,10 @@ export function GrocerySummaryModal({
                   {line.recipeTitle}
                 </Text>
                 <Text variant="caption" tone="secondary">
-                  {line.mealCount} meal{line.mealCount === 1 ? '' : 's'} ·{' '}
+                  {line.mealCount} meal{line.mealCount === 1 ? '' : 's'} this week ·{' '}
                   {line.ingredientCount} ingredient
                   {line.ingredientCount === 1 ? '' : 's'}
+                  {line.mealCount > 1 ? ' (quantities × meals)' : ''}
                 </Text>
               </View>
             ))}

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   Pressable,
   StyleSheet,
   View,
 } from 'react-native';
-import { router, useFocusEffect } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 
 import { EntryOptionsModal } from '@/components/plan/EntryOptionsModal';
 import { GrocerySummaryModal } from '@/components/plan/GrocerySummaryModal';
@@ -24,6 +25,7 @@ import { SnackbarShell } from '@/components/ui/SnackbarShell';
 import { Text } from '@/components/ui/Text';
 import { radius, spacing } from '@/constants/tokens';
 import type {
+  MealPlanEntry,
   MealPlanWithEntries,
   MealSlot,
   RecipeListItem,
@@ -35,6 +37,12 @@ import {
 } from '@/data';
 import { ensureMinTouchTarget, hitSlop } from '@/theme/a11y';
 import { useTheme } from '@/theme/ThemeProvider';
+
+type PlanSnack = {
+  message: string;
+  actionLabel?: string;
+  onAction?: () => void;
+};
 
 export default function PlanScreen() {
   const { colors } = useTheme();
@@ -49,7 +57,7 @@ export default function PlanScreen() {
   const [entryAction, setEntryAction] = useState<EntryActionTarget | null>(null);
   const [groceryOpen, setGroceryOpen] = useState(false);
   const [groceryBusy, setGroceryBusy] = useState(false);
-  const [snack, setSnack] = useState<string | null>(null);
+  const [snack, setSnack] = useState<PlanSnack | null>(null);
 
   const days = useMemo(() => weekDays(weekStart), [weekStart]);
   const recipesById = useMemo(() => recipeTitleMap(recipes), [recipes]);
@@ -77,23 +85,30 @@ export default function PlanScreen() {
 
   useEffect(() => {
     if (!snack) return;
-    const t = setTimeout(() => setSnack(null), 3200);
+    const t = setTimeout(() => setSnack(null), 4000);
     return () => clearTimeout(t);
   }, [snack]);
 
-  const persist = useCallback((action: () => void, successMessage?: string) => {
-    try {
-      action();
-      reportLocalPersistSuccess();
-      reload();
-      if (successMessage) setSnack(successMessage);
-    } catch (error) {
-      reportLocalPersistFailure(
-        error instanceof Error ? error.message : 'Could not save meal plan',
-      );
-      setSnack('Could not save on this device.');
-    }
-  }, [reload]);
+  const showSnack = useCallback((next: PlanSnack) => {
+    setSnack(next);
+  }, []);
+
+  const persist = useCallback(
+    (action: () => void, success?: PlanSnack) => {
+      try {
+        action();
+        reportLocalPersistSuccess();
+        reload();
+        if (success) showSnack(success);
+      } catch (error) {
+        reportLocalPersistFailure(
+          error instanceof Error ? error.message : 'Could not save meal plan',
+        );
+        showSnack({ message: 'Could not save on this device.' });
+      }
+    },
+    [reload, showSnack],
+  );
 
   const openPicker = (planDate: string, slot: MealSlot) => {
     setPicker({ planDate, slot });
@@ -102,59 +117,120 @@ export default function PlanScreen() {
   const addRecipe = (recipe: RecipeListItem) => {
     if (!plan || !picker) return;
     const target = picker;
-    persist(() => {
-      const { mealPlans } = getRepositories();
-      const existing = entriesForDaySlot(plan.entries, target.planDate, target.slot);
-      mealPlans.addEntry({
-        mealPlanId: plan.id,
-        recipeId: recipe.id,
-        planDate: target.planDate,
-        slot: target.slot,
-        position: existing.length,
-      });
-    }, `Added ${recipe.title}`);
+    persist(
+      () => {
+        const { mealPlans } = getRepositories();
+        const existing = entriesForDaySlot(plan.entries, target.planDate, target.slot);
+        mealPlans.addEntry({
+          mealPlanId: plan.id,
+          recipeId: recipe.id,
+          planDate: target.planDate,
+          slot: target.slot,
+          position: existing.length,
+        });
+      },
+      { message: `Added ${recipe.title}` },
+    );
     setPicker(null);
   };
 
+  const restoreEntry = useCallback((snapshot: MealPlanEntry) => {
+    persist(
+      () => {
+        getRepositories().mealPlans.addEntry({
+          mealPlanId: snapshot.mealPlanId,
+          recipeId: snapshot.recipeId,
+          planDate: snapshot.planDate,
+          slot: snapshot.slot,
+          note: snapshot.note,
+          position: snapshot.position,
+        });
+      },
+      { message: 'Meal restored' },
+    );
+  }, [persist]);
+
+  const removeEntryConfirmed = useCallback(
+    (entryId: string) => {
+      if (!plan) return;
+      const source = plan.entries.find((e) => e.id === entryId);
+      if (!source) return;
+      const snapshot: MealPlanEntry = { ...source };
+      persist(
+        () => {
+          getRepositories().mealPlans.removeEntry(entryId);
+        },
+        {
+          message: 'Meal removed',
+          actionLabel: 'Undo',
+          onAction: () => restoreEntry(snapshot),
+        },
+      );
+      setEntryAction(null);
+    },
+    [plan, persist, restoreEntry],
+  );
+
   const removeEntry = (entryId: string) => {
-    persist(() => {
-      getRepositories().mealPlans.removeEntry(entryId);
-    }, 'Meal removed');
-    setEntryAction(null);
+    const title =
+      entryAction?.recipeTitle ??
+      plan?.entries.find((e) => e.id === entryId)?.note ??
+      'this meal';
+    Alert.alert(
+      'Remove meal?',
+      `Remove ${title} from this week’s plan?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: () => removeEntryConfirmed(entryId),
+        },
+      ],
+    );
   };
 
   const duplicateEntry = () => {
     if (!plan || !entryAction) return;
     const source = plan.entries.find((e) => e.id === entryAction.entryId);
     if (!source) return;
-    persist(() => {
-      const { mealPlans } = getRepositories();
-      const siblings = entriesForDaySlot(plan.entries, source.planDate, source.slot);
-      mealPlans.addEntry({
-        mealPlanId: plan.id,
-        recipeId: source.recipeId,
-        planDate: source.planDate,
-        slot: source.slot,
-        note: source.note,
-        position: siblings.length,
-      });
-    }, 'Meal duplicated');
+    persist(
+      () => {
+        const { mealPlans } = getRepositories();
+        const siblings = entriesForDaySlot(plan.entries, source.planDate, source.slot);
+        mealPlans.addEntry({
+          mealPlanId: plan.id,
+          recipeId: source.recipeId,
+          planDate: source.planDate,
+          slot: source.slot,
+          note: source.note,
+          position: siblings.length,
+        });
+      },
+      { message: 'Meal duplicated' },
+    );
     setEntryAction(null);
   };
 
   const moveToDay = (planDate: string) => {
     if (!entryAction) return;
-    persist(() => {
-      getRepositories().mealPlans.updateEntry(entryAction.entryId, { planDate });
-    }, 'Meal moved');
+    persist(
+      () => {
+        getRepositories().mealPlans.updateEntry(entryAction.entryId, { planDate });
+      },
+      { message: 'Meal moved' },
+    );
     setEntryAction(null);
   };
 
   const changeSlot = (slot: MealSlot) => {
     if (!entryAction) return;
-    persist(() => {
-      getRepositories().mealPlans.updateEntry(entryAction.entryId, { slot });
-    }, 'Slot updated');
+    persist(
+      () => {
+        getRepositories().mealPlans.updateEntry(entryAction.entryId, { slot });
+      },
+      { message: 'Slot updated' },
+    );
     setEntryAction(null);
   };
 
@@ -201,15 +277,15 @@ export default function PlanScreen() {
       });
       reportLocalPersistSuccess();
       setGroceryOpen(false);
-      setSnack(
-        `${totalIngredients} item${totalIngredients === 1 ? '' : 's'} added to Groceries`,
-      );
-      router.push('/shop');
+      // Stay on Plan — Shop list UI lands with W6; avoid false-success navigation.
+      showSnack({
+        message: `${totalIngredients} item${totalIngredients === 1 ? '' : 's'} saved to Groceries. Find them on the Shop tab once list view ships.`,
+      });
     } catch (error) {
       reportLocalPersistFailure(
         error instanceof Error ? error.message : 'Could not create grocery list',
       );
-      setSnack('Could not create grocery list.');
+      showSnack({ message: 'Could not create grocery list.' });
     } finally {
       setGroceryBusy(false);
     }
@@ -424,7 +500,9 @@ export default function PlanScreen() {
 
       {snack ? (
         <SnackbarShell
-          message={snack}
+          message={snack.message}
+          actionLabel={snack.actionLabel}
+          onAction={snack.onAction}
           visible
           testID="plan-snackbar"
         />
