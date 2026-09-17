@@ -11,6 +11,7 @@ export type GroceryItemRowProps = {
   item: GroceryItem;
   onToggleComplete: (item: GroceryItem) => void;
   onUnmerge?: (item: GroceryItem) => void;
+  onDelete?: (item: GroceryItem) => void;
   testID?: string;
 };
 
@@ -18,6 +19,7 @@ export function GroceryItemRow({
   item,
   onToggleComplete,
   onUnmerge,
+  onDelete,
   testID,
 }: GroceryItemRowProps) {
   const { colors } = useTheme();
@@ -78,23 +80,42 @@ export function GroceryItemRow({
         ) : null}
       </View>
 
-      {merged && onUnmerge && !item.isCompleted ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Split ${item.name}`}
-          hitSlop={hitSlop}
-          onPress={() => onUnmerge(item)}
-          testID={testID ? `${testID}-split` : undefined}
-          style={({ pressed }) => [
-            ensureMinTouchTarget(styles.split),
-            { opacity: pressed ? 0.7 : 1 },
-          ]}
-        >
-          <Text variant="caption" tone="info">
-            Split
-          </Text>
-        </Pressable>
-      ) : null}
+      <View style={styles.actions}>
+        {merged && onUnmerge && !item.isCompleted ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Split ${item.name}`}
+            hitSlop={hitSlop}
+            onPress={() => onUnmerge(item)}
+            testID={testID ? `${testID}-split` : undefined}
+            style={({ pressed }) => [
+              ensureMinTouchTarget(styles.action),
+              { opacity: pressed ? 0.7 : 1 },
+            ]}
+          >
+            <Text variant="caption" tone="info">
+              Split
+            </Text>
+          </Pressable>
+        ) : null}
+        {onDelete ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Remove ${item.name}`}
+            hitSlop={hitSlop}
+            onPress={() => onDelete(item)}
+            testID={testID ? `${testID}-remove` : undefined}
+            style={({ pressed }) => [
+              ensureMinTouchTarget(styles.action),
+              { opacity: pressed ? 0.7 : 1 },
+            ]}
+          >
+            <Text variant="caption" tone="error">
+              Remove
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -128,7 +149,12 @@ const styles = StyleSheet.create({
     textDecorationLine: 'line-through',
     opacity: 0.55,
   },
-  split: {
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  action: {
     paddingHorizontal: spacing.sm,
     alignItems: 'center',
     justifyContent: 'center',

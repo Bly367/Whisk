@@ -19,7 +19,6 @@ import { GroceryItemRow } from '@/features/shop/components/GroceryItemRow';
 import { GroupModeToggle } from '@/features/shop/components/GroupModeToggle';
 import {
   buildGroceryPreviewFromPlan,
-  commitGroceryPreview,
   type GroceryGeneratePreview,
 } from '@/features/shop/generateFromPlan';
 import {
@@ -27,6 +26,10 @@ import {
   groupGroceryItems,
   type ShopGroupMode,
 } from '@/features/shop/groupItems';
+import {
+  replaceGroceryListFromPreview,
+  undoReplaceGroceryList,
+} from '@/features/shop/replaceList';
 import { unmergeGroceryItem } from '@/features/shop/unmerge';
 import { ensureMinTouchTarget, hitSlop } from '@/theme/a11y';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -36,6 +39,12 @@ const UNDO_MS = 5000;
 type UndoState =
   | { kind: 'complete'; itemId: string; name: string }
   | { kind: 'delete'; itemId: string; name: string }
+  | {
+      kind: 'replace';
+      previousListId: string;
+      newListId: string;
+      previousName: string;
+    }
   | null;
 
 function loadActiveList(): GroceryListWithItems | null {
@@ -43,6 +52,17 @@ function loadActiveList(): GroceryListWithItems | null {
   const lists = grocery.list();
   if (lists.length === 0) return null;
   return grocery.getById(lists[0].id);
+}
+
+function undoMessage(undo: NonNullable<UndoState>): string {
+  switch (undo.kind) {
+    case 'complete':
+      return `Checked off ${undo.name}`;
+    case 'delete':
+      return `Removed ${undo.name}`;
+    case 'replace':
+      return `Replaced ${undo.previousName}`;
+  }
 }
 
 export function ShopScreen() {
@@ -102,16 +122,26 @@ export function ShopScreen() {
     setConfirming(true);
     try {
       const { grocery } = getRepositories();
-      // Soft-delete previous active list so Shop focuses on the new one
-      if (list) {
-        grocery.softDeleteList(list.id);
-      }
-      const created = commitGroceryPreview(grocery, preview);
+      // Create first, then retire prior list — never soft-delete before create.
+      const { created, replacedListId, replacedListName } =
+        replaceGroceryListFromPreview(grocery, preview, list);
       reportLocalPersistSuccess();
       setList(created);
       setPreview(null);
       setCompletedOpen(false);
+      if (replacedListId && replacedListName) {
+        showUndo({
+          kind: 'replace',
+          previousListId: replacedListId,
+          newListId: created.id,
+          previousName: replacedListName,
+        });
+      } else {
+        setUndo(null);
+        clearUndoTimer();
+      }
     } catch (error) {
+      // Prior list untouched if create threw
       reportLocalPersistFailure(
         error instanceof Error ? error.message : 'Could not save grocery list',
       );
@@ -130,6 +160,7 @@ export function ShopScreen() {
       } else {
         grocery.setCompleted(item.id, false);
         reportLocalPersistSuccess();
+        clearUndoTimer();
         setUndo(null);
       }
       refresh();
@@ -140,19 +171,42 @@ export function ShopScreen() {
     }
   };
 
+  const handleDeleteItem = (item: GroceryItem) => {
+    try {
+      const { grocery } = getRepositories();
+      grocery.softDeleteItem(item.id);
+      reportLocalPersistSuccess();
+      showUndo({ kind: 'delete', itemId: item.id, name: item.name });
+      refresh();
+    } catch (error) {
+      reportLocalPersistFailure(
+        error instanceof Error ? error.message : 'Could not remove item',
+      );
+    }
+  };
+
   const handleUndo = () => {
     if (!undo) return;
     try {
       const { grocery } = getRepositories();
       if (undo.kind === 'complete') {
         grocery.setCompleted(undo.itemId, false);
-      } else {
+        reportLocalPersistSuccess();
+        refresh();
+      } else if (undo.kind === 'delete') {
         grocery.restoreItem(undo.itemId);
+        reportLocalPersistSuccess();
+        refresh();
+      } else {
+        const restored = undoReplaceGroceryList(grocery, {
+          newListId: undo.newListId,
+          previousListId: undo.previousListId,
+        });
+        reportLocalPersistSuccess();
+        setList(restored);
       }
-      reportLocalPersistSuccess();
       clearUndoTimer();
       setUndo(null);
-      refresh();
     } catch (error) {
       reportLocalPersistFailure(
         error instanceof Error ? error.message : 'Could not undo',
@@ -229,6 +283,7 @@ export function ShopScreen() {
                   item={item}
                   onToggleComplete={handleToggleComplete}
                   onUnmerge={handleUnmerge}
+                  onDelete={handleDeleteItem}
                   testID={`shop-item-${item.id}`}
                 />
               ))}
@@ -265,6 +320,7 @@ export function ShopScreen() {
                       key={item.id}
                       item={item}
                       onToggleComplete={handleToggleComplete}
+                      onDelete={handleDeleteItem}
                       testID={`shop-done-${item.id}`}
                     />
                   ))
@@ -280,11 +336,7 @@ export function ShopScreen() {
           pointerEvents="box-none"
         >
           <SnackbarShell
-            message={
-              undo.kind === 'complete'
-                ? `Checked off ${undo.name}`
-                : `Removed ${undo.name}`
-            }
+            message={undoMessage(undo)}
             actionLabel="Undo"
             onAction={handleUndo}
             testID="shop-undo-snackbar"

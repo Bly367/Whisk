@@ -17,6 +17,10 @@ import {
   splitMergedDraft,
   type GrocerySourceLine,
 } from '@/features/shop/merge';
+import {
+  replaceGroceryListFromPreview,
+  undoReplaceGroceryList,
+} from '@/features/shop/replaceList';
 import { unmergeGroceryItem } from '@/features/shop/unmerge';
 import { startOfWeekMonday } from '@/features/shop/week';
 
@@ -223,5 +227,115 @@ describe('aisle grouping + undo + unmerge', () => {
     const chickens = afterUnmerge.items.filter((i) => i.name.toLowerCase() === 'chicken');
     expect(chickens.length).toBe(2);
     expect(chickens.every((c) => !isMergedItem(c))).toBe(true);
+  });
+});
+
+describe('replace generate + destructive undo', () => {
+  it('creates the new list before retiring the old one; undo restores prior list', () => {
+    const db = createTestDbClient();
+    const repos = createRepositories(db);
+    const recipe = repos.recipes.create({
+      title: 'Soup',
+      ingredients: [{ name: 'onion', quantity: '1', aisle: 'Produce' }],
+    });
+    const week = '2026-09-14';
+    const plan = repos.mealPlans.getOrCreateForWeek(week);
+    repos.mealPlans.addEntry({
+      mealPlanId: plan.id,
+      recipeId: recipe.id,
+      planDate: '2026-09-15',
+      slot: 'dinner',
+    });
+
+    const first = generateGroceryListFromPlan(repos, { weekStart: week });
+    expect(first).not.toBeNull();
+    const firstItemId = first!.items[0].id;
+    repos.grocery.setCompleted(firstItemId, true);
+
+    const preview = buildGroceryPreviewFromPlan(repos, { weekStart: week });
+    expect(preview).not.toBeNull();
+
+    const { created, replacedListId } = replaceGroceryListFromPreview(
+      repos.grocery,
+      preview!,
+      first,
+    );
+    expect(created.id).not.toBe(first!.id);
+    expect(replacedListId).toBe(first!.id);
+    expect(repos.grocery.getById(first!.id)).toBeNull();
+    expect(repos.grocery.getById(created.id)?.items.length).toBeGreaterThan(0);
+
+    const restored = undoReplaceGroceryList(repos.grocery, {
+      newListId: created.id,
+      previousListId: first!.id,
+    });
+    expect(restored.id).toBe(first!.id);
+    expect(repos.grocery.getById(created.id)).toBeNull();
+    // Prior checked-off progress survives soft-delete + restore of the list
+    const onion = restored.items.find((i) => i.name === 'onion');
+    expect(onion?.isCompleted).toBe(true);
+  });
+
+  it('leaves the prior list intact when create fails before retire', () => {
+    const db = createTestDbClient();
+    const repos = createRepositories(db);
+    const prior = repos.grocery.create({
+      name: 'Keep me',
+      items: [{ name: 'milk', quantity: '1', unit: 'qt', aisle: 'Dairy & Eggs' }],
+    });
+
+    const brokenGrocery = {
+      ...repos.grocery,
+      create: () => {
+        throw new Error('simulated create failure');
+      },
+    };
+
+    expect(() =>
+      replaceGroceryListFromPreview(
+        brokenGrocery as typeof repos.grocery,
+        {
+          mealPlanId: null as unknown as string,
+          weekStart: '2026-09-14',
+          listName: 'Should not land',
+          recipeCount: 1,
+          drafts: [
+            {
+              name: 'eggs',
+              quantity: '6',
+              unit: null,
+              aisle: 'Dairy & Eggs',
+              recipeId: null,
+              recipeTitle: null,
+              mergeKey: 'eggs|',
+              sources: [],
+              wasMerged: false,
+            },
+          ],
+          mergedCount: 0,
+          rawLineCount: 1,
+        },
+        prior,
+      ),
+    ).toThrow('simulated create failure');
+
+    expect(repos.grocery.getById(prior.id)?.name).toBe('Keep me');
+    expect(repos.grocery.list().map((l) => l.id)).toContain(prior.id);
+  });
+
+  it('restores a soft-deleted item via restoreItem (delete undo path)', () => {
+    const db = createTestDbClient();
+    const repos = createRepositories(db);
+    const list = repos.grocery.create({
+      name: 'Errands',
+      items: [{ name: 'bread', aisle: 'Bakery' }],
+    });
+    const itemId = list.items[0].id;
+    repos.grocery.softDeleteItem(itemId);
+    expect(repos.grocery.getById(list.id)?.items).toHaveLength(0);
+
+    const restored = repos.grocery.restoreItem(itemId);
+    expect(restored.deletedAt).toBeNull();
+    expect(repos.grocery.getById(list.id)?.items.map((i) => i.id)).toContain(itemId);
   });
 });

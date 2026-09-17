@@ -230,6 +230,27 @@ export function createGroceryRepository(db: DbClient) {
         [nowIso(), nowIso(), id],
       );
     },
+
+    /** Restore a soft-deleted grocery list (undo replace / delete). */
+    restoreList(id: string): GroceryListWithItems {
+      const existing = db.get<ListRow>(`SELECT * FROM grocery_lists WHERE id = ?`, [
+        id,
+      ]);
+      if (!existing) {
+        throw new Error(`Grocery list not found: ${id}`);
+      }
+      const now = nowIso();
+      db.run(
+        `UPDATE grocery_lists SET deleted_at = NULL, updated_at = ?, sync_status = 'synced_local'
+         WHERE id = ?`,
+        [now, id],
+      );
+      const row = db.get<ListRow>(`SELECT * FROM grocery_lists WHERE id = ?`, [id]);
+      if (!row) {
+        throw new Error('Failed to restore grocery list');
+      }
+      return hydrate(db, mapGroceryList(row));
+    },
   };
 }
 

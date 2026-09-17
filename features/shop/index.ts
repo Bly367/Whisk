@@ -22,4 +22,9 @@ export {
   type GroceryGroup,
 } from '@/features/shop/groupItems';
 export { unmergeGroceryItem } from '@/features/shop/unmerge';
+export {
+  replaceGroceryListFromPreview,
+  undoReplaceGroceryList,
+  type ReplaceGroceryResult,
+} from '@/features/shop/replaceList';
 export { startOfWeekMonday, formatWeekLabel } from '@/features/shop/week';
