@@ -45,7 +45,7 @@ function identityFrom(user: AuthUser, hasTokens: boolean): AuthIdentity {
 
 /**
  * Default stub auth transport for local/dev until a real SDK is wired.
- * Accepts any non-empty email/password; does not call the network.
+ * Accepts any non-empty email/password (not a security boundary); does not call the network.
  */
 export function createStubAuthTransport(
   preset?: { user?: AuthUser; tokens?: AuthTokens },
@@ -120,6 +120,9 @@ export const useAuthSessionStore = create<AuthSessionState>((set, get) => ({
       // Secure store unavailable — remain guest; local core loop still works.
     }
     set({ mode: 'guest', identity: null, hydrated: true });
+    // Align trust session (AsyncStorage mode) so a keychain wipe cannot leave
+    // the UI stuck on signed_in without tokens.
+    await useSessionStore.getState().setMode('guest');
   },
 
   async signIn(credentials) {

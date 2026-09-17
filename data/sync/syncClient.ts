@@ -90,8 +90,12 @@ export function createSyncClient(deps: SyncClientDeps): SyncClient {
       useSyncStatusStore.getState().markRemoteSyncStarted();
       try {
         const remote = await deps.transport.push(pushRequest, tokens);
-        if (remote.rejected.length > 0 && remote.accepted.length === 0) {
-          useSyncStatusStore.getState().markRemoteSyncFailed('Remote sync rejected all items.');
+        if (remote.rejected.length > 0) {
+          const detail =
+            remote.accepted.length === 0
+              ? 'Remote sync rejected all items.'
+              : `Remote sync partially failed (${remote.rejected.length} rejected).`;
+          useSyncStatusStore.getState().markRemoteSyncFailed(detail);
         } else {
           useSyncStatusStore.getState().markRemoteSyncSucceeded();
         }
