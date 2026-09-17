@@ -34,7 +34,7 @@ export function getThemeColors(scheme: ColorSchemeName): ThemeColors {
     brand: {
       yolk,
       yolkPressed: brand.yolkPressed,
-      yolkSoft: scheme === 'dark' ? '#3A3010' : brand.yolkSoft,
+      yolkSoft: scheme === 'dark' ? brand.yolkSoftDark : brand.yolkSoft,
       yolkMuted: brand.yolkMuted,
       chick: brand.chick,
     },

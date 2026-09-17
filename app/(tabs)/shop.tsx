@@ -7,9 +7,6 @@ export default function ShopScreen() {
       <PlaceholderHero
         title="Grocery list"
         body="One list from your plan — merged quantities, aisle groups, and undo when you check something off."
-        actionLabel="Generate from plan"
-        actionTestID="shop-generate"
-        onAction={() => undefined}
       />
     </Screen>
   );

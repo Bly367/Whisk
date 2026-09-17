@@ -7,6 +7,8 @@ export const brand = {
   yolk: '#F7B928',
   yolkPressed: '#D89400',
   yolkSoft: '#FFF1C2',
+  /** Soft yolk wash for dark mode — keeps accent readable without glare. */
+  yolkSoftDark: '#3A3010',
   yolkMuted: '#E5A820',
   chick: '#FFD968',
 } as const;
