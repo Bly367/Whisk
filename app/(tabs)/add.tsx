@@ -9,9 +9,10 @@ import { Text } from '@/components/ui/Text';
 import { LimitNotice } from '@/components/trust/LimitNotice';
 import { radius, spacing } from '@/constants/tokens';
 import {
-  describeTrialOffer,
+  describeUnlockOffer,
   FREE_TIER,
   gateImportAction,
+  hasUnlimitedAccess,
   mayShowUpgradePrompt,
 } from '@/features/trust/freeTier';
 import { useSessionStore } from '@/features/trust/sessionStore';
@@ -48,24 +49,17 @@ const SOURCES = [
   },
 ] as const;
 
-function trialRenewalLabel(from = new Date()): string {
-  const d = new Date(from);
-  d.setUTCDate(d.getUTCDate() + FREE_TIER.trialDays);
-  return d.toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-}
-
 export default function AddScreen() {
   const { colors } = useTheme();
   const usage = useSessionStore((s) => s.usage);
+  const entitlement = useSessionStore((s) => s.entitlement);
+  const unlockPricing = useSessionStore((s) => s.unlockPricing);
   const hydrate = useSessionStore((s) => s.hydrate);
   const recordImportStarted = useSessionStore((s) => s.recordImportStarted);
   const [status, setStatus] = useState<string | null>(null);
 
-  const trialCopy = useMemo(() => describeTrialOffer(trialRenewalLabel()), []);
+  const unlockCopy = useMemo(() => describeUnlockOffer(unlockPricing), [unlockPricing]);
+  const unlimited = hasUnlimitedAccess(entitlement);
 
   useEffect(() => {
     void hydrate();
@@ -80,7 +74,7 @@ export default function AddScreen() {
     }
 
     // Limits shown BEFORE the import starts — never mid-import.
-    const gate = gateImportAction(usage);
+    const gate = gateImportAction(usage, entitlement);
     if (!gate.allowed) {
       if (!mayShowUpgradePrompt('add_boundary')) {
         return;
@@ -88,10 +82,15 @@ export default function AddScreen() {
       Alert.alert('Import limit reached', gate.message, [
         { text: 'Not now', style: 'cancel' },
         {
-          text: 'View plan',
-          onPress: () => setStatus(`${gate.message} Trial: ${trialCopy}`),
+          text: 'View unlock',
+          onPress: () => setStatus(`${gate.message} Unlock: ${unlockCopy}`),
         },
       ]);
+      return;
+    }
+
+    if (gate.unlimited) {
+      router.push(source.href);
       return;
     }
 
@@ -119,7 +118,7 @@ export default function AddScreen() {
         body="Bring one in from a link, a share, a photo, or scratch. You’ll review it before it’s saved."
       />
 
-      <LimitNotice usage={usage} trialCopy={trialCopy} />
+      <LimitNotice usage={usage} entitlement={entitlement} unlockCopy={unlockCopy} />
 
       <View style={styles.list}>
         {SOURCES.map((source) => (
@@ -137,7 +136,9 @@ export default function AddScreen() {
               <Text variant="headline">{source.label}</Text>
               <Text variant="caption" tone="secondary">
                 {source.hint}
-                {source.limited ? ` · counts toward ${FREE_TIER.importsPerWeek}/week` : ''}
+                {source.limited && !unlimited
+                  ? ` · counts toward ${FREE_TIER.importsPerWeek}/week`
+                  : ''}
               </Text>
             </View>
             <Button

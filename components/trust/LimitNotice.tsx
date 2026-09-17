@@ -2,12 +2,21 @@ import { StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/ui/Text';
 import { radius, spacing } from '@/constants/tokens';
-import { describeImportLimit, FREE_TIER, type FreeTierUsage } from '@/features/trust/freeTier';
+import {
+  describeImportLimit,
+  FREE_TIER,
+  hasUnlimitedAccess,
+  type Entitlement,
+  type FreeTierUsage,
+} from '@/features/trust/freeTier';
 import { useTheme } from '@/theme/ThemeProvider';
 
 type Props = {
   usage: FreeTierUsage;
-  /** Extra plain-language trial/price line when monetization UI is shown. */
+  entitlement?: Entitlement;
+  /** Extra plain-language unlock/price line when monetization UI is shown. */
+  unlockCopy?: string | null;
+  /** @deprecated Prefer unlockCopy */
   trialCopy?: string | null;
   testID?: string;
 };
@@ -16,9 +25,17 @@ type Props = {
  * Transparent free-tier notice — place before limited actions (Add / import).
  * Never mount this as a blocking overlay inside cook mode.
  */
-export function LimitNotice({ usage, trialCopy, testID = 'limit-notice' }: Props) {
+export function LimitNotice({
+  usage,
+  entitlement = 'free',
+  unlockCopy,
+  trialCopy,
+  testID = 'limit-notice',
+}: Props) {
   const { colors } = useTheme();
-  const atLimit = usage.importsUsedThisWeek >= FREE_TIER.importsPerWeek;
+  const unlimited = hasUnlimitedAccess(entitlement);
+  const atLimit = !unlimited && usage.importsUsedThisWeek >= FREE_TIER.importsPerWeek;
+  const offerCopy = unlockCopy ?? trialCopy ?? null;
 
   return (
     <View
@@ -33,14 +50,14 @@ export function LimitNotice({ usage, trialCopy, testID = 'limit-notice' }: Props
       ]}
     >
       <Text variant="headline" tone={atLimit ? 'warning' : 'primary'}>
-        Free plan limits
+        {unlimited ? (entitlement === 'admin' ? 'Admin unlock' : 'Unlocked') : 'Free plan limits'}
       </Text>
       <Text variant="body" tone="secondary" testID={`${testID}-body`}>
-        {describeImportLimit(usage)}
+        {describeImportLimit(usage, entitlement)}
       </Text>
-      {trialCopy ? (
+      {offerCopy && !unlimited ? (
         <Text variant="caption" tone="secondary" testID={`${testID}-trial`}>
-          {trialCopy}
+          {offerCopy}
         </Text>
       ) : null}
     </View>
