@@ -6,7 +6,6 @@ import {
   weekDays,
 } from '@/components/plan/weekUtils';
 import { buildGroceryPreview, entriesForDaySlot } from '@/components/plan/planHelpers';
-import type { MealPlanEntry } from '@/data/contracts';
 import { createRepositories } from '@/data/repositories';
 import { createTestDbClient } from '@/data/testing/createTestDb';
 
