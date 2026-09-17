@@ -195,14 +195,16 @@ export function useRecipeEditor(initialId?: string | null): UseRecipeEditorResul
       ? Number(next.cookMinutes)
       : null;
 
-    // Always pass the id from the first successful saveDraft.
-    const knownId = recipeIdRef.current;
+    // Prefer the id from the first successful saveDraft; fall back to W2
+    // sessionAnonymousDraftId so stale closures cannot fork a second draft.
+    const knownId =
+      recipeIdRef.current ?? autosave.getSessionDraftId() ?? undefined;
 
     setSaving(true);
     setError(null);
     try {
       const result = await autosave.saveDraft({
-        recipeId: knownId ?? undefined,
+        recipeId: knownId,
         patch: {
           title: next.title.trim() || 'Untitled draft',
           notes: next.notes.trim() || null,
