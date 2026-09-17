@@ -6,7 +6,8 @@ Feature module for cook mode, guest/local clarity, export, and free-tier limit U
 
 | Path                      | Role                                                         |
 | ------------------------- | ------------------------------------------------------------ |
-| `app/cook/[recipeId].tsx` | Cook mode (steps, keep-awake, persisted progress)            |
+| `app/cook/[recipeId].tsx` | Cook mode (steps, multi-timers, hands-free nav, keep-awake)  |
+| `features/cook/cookTimers.ts` / `cookStepNavigation.ts` | P2-W8 timer + step boundary helpers |
 | `app/recipe/[id].tsx`     | Minimal detail + **Start cooking**                           |
 | `app/profile.tsx`         | Guest banner, export, one-time unlock + codes, trash restore |
 | `app/(tabs)/add.tsx`      | Limit notice **before** import; manual create unlimited      |

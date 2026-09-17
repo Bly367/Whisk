@@ -1,34 +1,44 @@
 import { useLocalSearchParams, router, Stack } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/Button';
 import { Text } from '@/components/ui/Text';
-import { radius, spacing } from '@/constants/tokens';
+import { motion, radius, spacing } from '@/constants/tokens';
 import { createOfflineReader, getDatabase, getRepositories } from '@/data';
 import type { RecipeWithIngredients } from '@/data/contracts';
+import { CookTimersPanel } from '@/features/cook/CookTimersPanel';
+import {
+  handsFreeNavFeedback,
+  navigateCookStep,
+} from '@/features/cook/cookStepNavigation';
 import { useCookProgressStore } from '@/features/cook/cookProgressStore';
+import { useCookTimerSession } from '@/features/cook/cookTimerSession';
 import { useKeepAwakeWhileCooking } from '@/features/cook/useKeepAwakeWhileCooking';
+import { motionDuration, useReduceMotion } from '@/hooks/useReduceMotion';
 import { ensureMinTouchTarget, hitSlop } from '@/theme/a11y';
 import { useTheme } from '@/theme/ThemeProvider';
 
 /**
- * Cook mode — step focus, large Back/Next, keep-awake, persisted progress.
- * No upgrade / paywall chrome here (trust: never interrupt mid-cook).
+ * Cook mode — step focus, large Back/Next (hands-free targets), multi-timers,
+ * keep-awake, persisted progress. No upgrade / paywall / chick chrome here.
  */
 export default function CookModeScreen() {
   const { recipeId } = useLocalSearchParams<{ recipeId: string }>();
   const { colors } = useTheme();
+  const reduceMotion = useReduceMotion();
   const [recipe, setRecipe] = useState<RecipeWithIngredients | null>(null);
   const [stepIndex, setStepIndex] = useState(0);
   const [ready, setReady] = useState(false);
   const [done, setDone] = useState(false);
+  const stepOpacity = useMemo(() => new Animated.Value(1), []);
 
   const hydrateProgress = useCookProgressStore((s) => s.hydrate);
   const getProgress = useCookProgressStore((s) => s.getProgress);
   const setStep = useCookProgressStore((s) => s.setStep);
   const clearProgress = useCookProgressStore((s) => s.clearProgress);
+  const endTimerSession = useCookTimerSession((s) => s.endSession);
 
   useKeepAwakeWhileCooking(Boolean(recipe) && !done);
 
@@ -52,6 +62,12 @@ export default function CookModeScreen() {
     };
   }, [recipeId, hydrateProgress, getProgress]);
 
+  useEffect(() => {
+    return () => {
+      endTimerSession();
+    };
+  }, [endTimerSession]);
+
   const steps = recipe?.instructions ?? [];
   const total = steps.length;
   const current = steps[stepIndex];
@@ -61,6 +77,23 @@ export default function CookModeScreen() {
     if (total === 0) return 'No steps';
     return `Step ${stepIndex + 1} of ${total}`;
   }, [stepIndex, total]);
+
+  const playStepTransition = useCallback(
+    (didChange: boolean) => {
+      const feedback = handsFreeNavFeedback({ reduceMotion, didChange });
+      if (!feedback.animateTransition) {
+        stepOpacity.setValue(1);
+        return;
+      }
+      stepOpacity.setValue(0.35);
+      Animated.timing(stepOpacity, {
+        toValue: 1,
+        duration: motionDuration(motion.normal, reduceMotion),
+        useNativeDriver: true,
+      }).start();
+    },
+    [reduceMotion, stepOpacity],
+  );
 
   const persist = useCallback(
     async (nextIndex: number) => {
@@ -72,9 +105,11 @@ export default function CookModeScreen() {
   );
 
   const goBack = useCallback(() => {
-    if (stepIndex <= 0) return;
-    void persist(stepIndex - 1);
-  }, [persist, stepIndex]);
+    const result = navigateCookStep({ stepIndex, totalSteps: total, action: 'back' });
+    playStepTransition(result.didChange);
+    if (!result.didChange) return;
+    void persist(result.stepIndex);
+  }, [persist, playStepTransition, stepIndex, total]);
 
   const goNext = useCallback(async () => {
     if (!recipe || !recipeId) return;
@@ -83,11 +118,25 @@ export default function CookModeScreen() {
         cookedAt: new Date().toISOString(),
       });
       await clearProgress(recipeId);
+      endTimerSession();
       setDone(true);
       return;
     }
-    await persist(stepIndex + 1);
-  }, [clearProgress, isLast, persist, recipe, recipeId, stepIndex]);
+    const result = navigateCookStep({ stepIndex, totalSteps: total, action: 'next' });
+    playStepTransition(result.didChange);
+    if (!result.didChange) return;
+    await persist(result.stepIndex);
+  }, [
+    clearProgress,
+    endTimerSession,
+    isLast,
+    persist,
+    playStepTransition,
+    recipe,
+    recipeId,
+    stepIndex,
+    total,
+  ]);
 
   if (!ready) {
     return (
@@ -168,7 +217,11 @@ export default function CookModeScreen() {
         </View>
       </View>
 
-      <View style={styles.stepBody} accessibilityLiveRegion="polite">
+      <Animated.View
+        style={[styles.stepBody, { opacity: stepOpacity }]}
+        accessibilityLiveRegion="polite"
+        testID="cook-step-body"
+      >
         {total === 0 ? (
           <Text variant="title2" tone="secondary">
             This recipe has no steps yet. Add directions from the recipe editor.
@@ -203,12 +256,15 @@ export default function CookModeScreen() {
             ) : null}
           </>
         )}
-      </View>
+      </Animated.View>
 
-      <View style={styles.controls}>
+      {recipeId ? <CookTimersPanel recipeId={recipeId} /> : null}
+
+      <View style={styles.controls} testID="cook-hands-free-controls">
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Previous step"
+          accessibilityHint="Hands-free back"
           accessibilityState={{ disabled: stepIndex === 0 }}
           disabled={stepIndex === 0}
           hitSlop={hitSlop}
@@ -228,6 +284,7 @@ export default function CookModeScreen() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={isLast ? 'Finish cooking' : 'Next step'}
+          accessibilityHint="Hands-free next"
           hitSlop={hitSlop}
           onPress={() => void goNext()}
           testID="cook-next"
@@ -254,7 +311,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
-    gap: spacing.lg,
+    gap: spacing.md,
   },
   header: {
     gap: spacing.sm,
@@ -272,6 +329,7 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: spacing.xl,
     justifyContent: 'center',
+    minHeight: 120,
   },
   ingredients: {
     gap: spacing.xs,
@@ -286,7 +344,7 @@ const styles = StyleSheet.create({
   },
   navBtn: {
     flex: 1,
-    minHeight: 56,
+    minHeight: 64,
     borderRadius: radius.control,
     borderWidth: 1,
     alignItems: 'center',
