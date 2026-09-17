@@ -9,6 +9,7 @@ import { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
+import { DatabaseProvider } from '@/data/DatabaseProvider';
 import { AppThemeProvider, useTheme } from '@/theme/ThemeProvider';
 
 export { ErrorBoundary } from 'expo-router';
@@ -26,7 +27,9 @@ export default function RootLayout() {
 
   return (
     <AppThemeProvider>
-      <RootNavigator />
+      <DatabaseProvider>
+        <RootNavigator />
+      </DatabaseProvider>
     </AppThemeProvider>
   );
 }

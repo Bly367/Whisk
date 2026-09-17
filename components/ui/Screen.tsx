@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, View, type ViewProps } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SyncStatusBanner, type SyncStatus } from '@/components/ui/SyncStatusBanner';
+import { useSyncStatusStore } from '@/data/sync/statusStore';
 import { spacing } from '@/constants/tokens';
 import { useTheme } from '@/theme/ThemeProvider';
 
@@ -10,6 +11,7 @@ export type ScreenProps = ViewProps & {
   children: ReactNode;
   scroll?: boolean;
   showSyncStatus?: boolean;
+  /** Override store-backed status (tests / rare screen-local cases). */
   syncStatus?: SyncStatus;
 };
 
@@ -17,11 +19,13 @@ export function Screen({
   children,
   scroll = true,
   showSyncStatus = true,
-  syncStatus = 'saved_locally',
+  syncStatus: syncStatusOverride,
   style,
   ...rest
 }: ScreenProps) {
   const { colors } = useTheme();
+  const storeStatus = useSyncStatusStore((s) => s.status);
+  const syncStatus = syncStatusOverride ?? storeStatus;
 
   const body = (
     <>

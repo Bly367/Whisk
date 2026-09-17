@@ -26,7 +26,7 @@ export type SyncStatusBannerProps = {
 
 /**
  * Visible sync-status chrome for local-first trust UX.
- * Wired to real persistence outcomes in W2; stubbed for foundation.
+ * Driven by `useSyncStatusStore` (local persist outcomes). Never fakes cloud sync.
  */
 export function SyncStatusBanner({
   status = 'saved_locally',

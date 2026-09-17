@@ -6,6 +6,8 @@ Recipe-saving → meal-planning → grocery → cooking. Warm kitchen companion 
 
 - Expo + React Native + TypeScript (strict)
 - Expo Router (five tabs: Home · Recipes · Add · Plan · Shop)
+- **expo-sqlite** + typed repositories (local-first source of truth)
+- Zustand for UI/session only (sync banner) — not recipe storage
 - Yolk & Chick design tokens
 
 ## Run
@@ -24,16 +26,22 @@ npm run ios
 npm run android
 npm run web
 npm run typecheck
+npm test
 ```
 
 ## Project layout
 
 - `app/(tabs)/` — Home, Recipes, Add, Plan, Shop
 - `app/profile.tsx` — Account / settings (modal; not a tab)
+- `data/` — SQLite schema, repositories, autosave, offline reads, sync-status store
+- `docs/data-layer.md` — **contracts for W3–W7**
 - `constants/tokens.ts` — brand and spacing tokens
 - `theme/` — light/dark theme + a11y helpers
 - `components/ui/` — Button, Text, Screen, SyncStatusBanner, SnackbarShell
 
-## Notes
+## Data layer (W2)
 
-Local-first foundation: sync-status UI is visible and stubbed for “saved on this device.” Persistence and cloud sync land in later workstreams.
+SQLite is the source of truth for recipes, meal plans, grocery lists, and trash/recovery.
+Feature workstreams import shared types and repositories from `@/data` (see `docs/data-layer.md`).
+
+Sync-status UI reflects **local** persistence (`Saved on this device` / needs attention) — it does not claim cloud sync success.
