@@ -21,18 +21,30 @@ type Pending = {
   }>;
 };
 
+const ANON_KEY = '__new__';
+
 /**
  * Autosave helpers for recipe drafts.
  * Persists to SQLite on every flush so drafts survive backgrounding / relaunch.
  * Never reports success until local write completes.
+ *
+ * Anonymous drafts (no `recipeId` yet): after the first create, this session
+ * remaps further no-id saves onto that same draft so stale editor closures
+ * cannot spawn duplicates.
  */
 export function createRecipeAutosave(db: DbClient, options: AutosaveOptions = {}) {
   const debounceMs = options.debounceMs ?? 400;
   const recipes = createRecipeRepository(db);
   const pendingByKey = new Map<string, Pending>();
+  /** Id of the draft created while the caller still omitted recipeId. */
+  let sessionAnonymousDraftId: string | null = null;
 
-  function keyFor(input: AutosaveDraftInput): string {
-    return input.recipeId ?? '__new__';
+  function resolveRecipeId(input: AutosaveDraftInput): string | undefined {
+    return input.recipeId ?? sessionAnonymousDraftId ?? undefined;
+  }
+
+  function keyFor(recipeId: string | undefined): string {
+    return recipeId ?? ANON_KEY;
   }
 
   function flush(key: string): void {
@@ -47,13 +59,17 @@ export function createRecipeAutosave(db: DbClient, options: AutosaveOptions = {}
 
     try {
       let recipe: RecipeWithIngredients;
-      const { recipeId, patch } = pending.latest;
+      const recipeId = resolveRecipeId(pending.latest);
+      const { patch } = pending.latest;
 
       if (recipeId) {
         recipe = recipes.update(recipeId, {
           ...patch,
           status: patch.status ?? 'draft',
         });
+        if (!sessionAnonymousDraftId && !pending.latest.recipeId) {
+          sessionAnonymousDraftId = recipe.id;
+        }
       } else {
         recipe = recipes.create({
           title: patch.title ?? 'Untitled draft',
@@ -71,6 +87,7 @@ export function createRecipeAutosave(db: DbClient, options: AutosaveOptions = {}
           isFavorite: patch.isFavorite,
           status: 'draft',
         });
+        sessionAnonymousDraftId = recipe.id;
       }
 
       reportLocalPersistSuccess();
@@ -95,14 +112,21 @@ export function createRecipeAutosave(db: DbClient, options: AutosaveOptions = {}
     /**
      * Queue a draft patch. Resolves only after SQLite persistence succeeds.
      * Concurrent edits for the same recipe coalesce to the latest patch.
+     * Omitting `recipeId` reuses the session’s anonymous draft after first create.
      */
     saveDraft(input: AutosaveDraftInput): Promise<AutosaveResult> {
-      const key = keyFor(input);
+      const recipeId = resolveRecipeId(input);
+      const normalized: AutosaveDraftInput = {
+        recipeId,
+        patch: input.patch,
+      };
+      const key = keyFor(recipeId);
+
       return new Promise<AutosaveResult>((resolve, reject) => {
         const existing = pendingByKey.get(key);
         if (existing) {
           existing.latest = {
-            recipeId: input.recipeId ?? existing.latest.recipeId,
+            recipeId: recipeId ?? existing.latest.recipeId,
             patch: { ...existing.latest.patch, ...input.patch },
           };
           existing.resolvers.push({ resolve, reject });
@@ -114,7 +138,7 @@ export function createRecipeAutosave(db: DbClient, options: AutosaveOptions = {}
 
         const entry: Pending = {
           timer: null,
-          latest: input,
+          latest: normalized,
           resolvers: [{ resolve, reject }],
         };
         pendingByKey.set(key, entry);
@@ -136,6 +160,11 @@ export function createRecipeAutosave(db: DbClient, options: AutosaveOptions = {}
       for (const key of [...pendingByKey.keys()]) {
         flush(key);
       }
+    },
+
+    /** Id of the anonymous draft created this session, if any. */
+    getSessionDraftId(): string | null {
+      return sessionAnonymousDraftId;
     },
 
     /** Load an existing draft by id (offline-safe). */

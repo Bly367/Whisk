@@ -33,7 +33,9 @@ export {
   useSyncStatusStore,
   reportLocalPersistSuccess,
   reportLocalPersistFailure,
+  withLocalPersist,
   bannerStatusFromLocal,
   type SyncStatusState,
+  type SettableSyncBannerStatus,
 } from '@/data/sync/statusStore';
 export { createId, nowIso } from '@/data/util';

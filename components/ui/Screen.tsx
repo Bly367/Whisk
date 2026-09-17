@@ -2,7 +2,8 @@ import { type ReactNode } from 'react';
 import { ScrollView, StyleSheet, View, type ViewProps } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { SyncStatusBanner, type SyncStatus } from '@/components/ui/SyncStatusBanner';
+import { SyncStatusBanner } from '@/components/ui/SyncStatusBanner';
+import type { SyncBannerStatus } from '@/data/contracts';
 import { useSyncStatusStore } from '@/data/sync/statusStore';
 import { spacing } from '@/constants/tokens';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -12,7 +13,7 @@ export type ScreenProps = ViewProps & {
   scroll?: boolean;
   showSyncStatus?: boolean;
   /** Override store-backed status (tests / rare screen-local cases). */
-  syncStatus?: SyncStatus;
+  syncStatus?: SyncBannerStatus;
 };
 
 export function Screen({

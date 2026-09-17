@@ -6,6 +6,7 @@ import type {
 } from '@/data/contracts';
 import type { DbClient } from '@/data/client';
 import { mapMealPlan, mapMealPlanEntry } from '@/data/mappers';
+import { withLocalPersist } from '@/data/sync/statusStore';
 import { createId, nowIso } from '@/data/util';
 
 type MealPlanRow = Parameters<typeof mapMealPlan>[0];
@@ -33,18 +34,20 @@ export function createMealPlanRepository(db: DbClient) {
       if (existing) {
         return hydrate(db, mapMealPlan(existing));
       }
-      const id = createId();
-      const now = nowIso();
-      db.run(
-        `INSERT INTO meal_plans (id, week_start, created_at, updated_at, deleted_at, sync_status)
-         VALUES (?, ?, ?, ?, NULL, 'synced_local')`,
-        [id, weekStart, now, now],
-      );
-      const row = db.get<MealPlanRow>(`SELECT * FROM meal_plans WHERE id = ?`, [id]);
-      if (!row) {
-        throw new Error('Failed to create meal plan');
-      }
-      return hydrate(db, mapMealPlan(row));
+      return withLocalPersist(() => {
+        const id = createId();
+        const now = nowIso();
+        db.run(
+          `INSERT INTO meal_plans (id, week_start, created_at, updated_at, deleted_at, sync_status)
+           VALUES (?, ?, ?, ?, NULL, 'synced_local')`,
+          [id, weekStart, now, now],
+        );
+        const row = db.get<MealPlanRow>(`SELECT * FROM meal_plans WHERE id = ?`, [id]);
+        if (!row) {
+          throw new Error('Failed to create meal plan');
+        }
+        return hydrate(db, mapMealPlan(row));
+      }, 'Could not save meal plan');
     },
 
     getById(id: string): MealPlanWithEntries | null {
@@ -71,37 +74,39 @@ export function createMealPlanRepository(db: DbClient) {
       note?: string | null;
       position?: number;
     }): MealPlanEntry {
-      const id = createId();
-      const now = nowIso();
-      return db.withTransaction(() => {
-        db.run(
-          `INSERT INTO meal_plan_entries (
-            id, meal_plan_id, recipe_id, plan_date, slot, note, position, created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
+      return withLocalPersist(() => {
+        const id = createId();
+        const now = nowIso();
+        return db.withTransaction(() => {
+          db.run(
+            `INSERT INTO meal_plan_entries (
+              id, meal_plan_id, recipe_id, plan_date, slot, note, position, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              id,
+              input.mealPlanId,
+              input.recipeId ?? null,
+              input.planDate,
+              input.slot,
+              input.note ?? null,
+              input.position ?? 0,
+              now,
+              now,
+            ],
+          );
+          db.run(
+            `UPDATE meal_plans SET updated_at = ?, sync_status = 'synced_local' WHERE id = ?`,
+            [now, input.mealPlanId],
+          );
+          const row = db.get<EntryRow>(`SELECT * FROM meal_plan_entries WHERE id = ?`, [
             id,
-            input.mealPlanId,
-            input.recipeId ?? null,
-            input.planDate,
-            input.slot,
-            input.note ?? null,
-            input.position ?? 0,
-            now,
-            now,
-          ],
-        );
-        db.run(
-          `UPDATE meal_plans SET updated_at = ?, sync_status = 'synced_local' WHERE id = ?`,
-          [now, input.mealPlanId],
-        );
-        const row = db.get<EntryRow>(`SELECT * FROM meal_plan_entries WHERE id = ?`, [
-          id,
-        ]);
-        if (!row) {
-          throw new Error('Failed to add meal plan entry');
-        }
-        return mapMealPlanEntry(row);
-      });
+          ]);
+          if (!row) {
+            throw new Error('Failed to add meal plan entry');
+          }
+          return mapMealPlanEntry(row);
+        });
+      }, 'Could not save meal plan entry');
     },
 
     updateEntry(
@@ -114,46 +119,48 @@ export function createMealPlanRepository(db: DbClient) {
         position: number;
       }>,
     ): MealPlanEntry {
-      const existing = db.get<EntryRow>(
-        `SELECT * FROM meal_plan_entries WHERE id = ?`,
-        [id],
-      );
-      if (!existing) {
-        throw new Error(`Meal plan entry not found: ${id}`);
-      }
-      const now = nowIso();
-      return db.withTransaction(() => {
-        db.run(
-          `UPDATE meal_plan_entries SET
-            recipe_id = ?,
-            plan_date = ?,
-            slot = ?,
-            note = ?,
-            position = ?,
-            updated_at = ?
-           WHERE id = ?`,
-          [
-            patch.recipeId !== undefined ? patch.recipeId : existing.recipe_id,
-            patch.planDate !== undefined ? patch.planDate : existing.plan_date,
-            patch.slot !== undefined ? patch.slot : existing.slot,
-            patch.note !== undefined ? patch.note : existing.note,
-            patch.position !== undefined ? patch.position : existing.position,
-            now,
-            id,
-          ],
+      return withLocalPersist(() => {
+        const existing = db.get<EntryRow>(
+          `SELECT * FROM meal_plan_entries WHERE id = ?`,
+          [id],
         );
-        db.run(
-          `UPDATE meal_plans SET updated_at = ?, sync_status = 'synced_local' WHERE id = ?`,
-          [now, existing.meal_plan_id],
-        );
-        const row = db.get<EntryRow>(`SELECT * FROM meal_plan_entries WHERE id = ?`, [
-          id,
-        ]);
-        if (!row) {
-          throw new Error('Failed to update meal plan entry');
+        if (!existing) {
+          throw new Error(`Meal plan entry not found: ${id}`);
         }
-        return mapMealPlanEntry(row);
-      });
+        const now = nowIso();
+        return db.withTransaction(() => {
+          db.run(
+            `UPDATE meal_plan_entries SET
+              recipe_id = ?,
+              plan_date = ?,
+              slot = ?,
+              note = ?,
+              position = ?,
+              updated_at = ?
+             WHERE id = ?`,
+            [
+              patch.recipeId !== undefined ? patch.recipeId : existing.recipe_id,
+              patch.planDate !== undefined ? patch.planDate : existing.plan_date,
+              patch.slot !== undefined ? patch.slot : existing.slot,
+              patch.note !== undefined ? patch.note : existing.note,
+              patch.position !== undefined ? patch.position : existing.position,
+              now,
+              id,
+            ],
+          );
+          db.run(
+            `UPDATE meal_plans SET updated_at = ?, sync_status = 'synced_local' WHERE id = ?`,
+            [now, existing.meal_plan_id],
+          );
+          const row = db.get<EntryRow>(`SELECT * FROM meal_plan_entries WHERE id = ?`, [
+            id,
+          ]);
+          if (!row) {
+            throw new Error('Failed to update meal plan entry');
+          }
+          return mapMealPlanEntry(row);
+        });
+      }, 'Could not update meal plan entry');
     },
 
     removeEntry(id: string): void {
@@ -164,21 +171,28 @@ export function createMealPlanRepository(db: DbClient) {
       if (!existing) {
         return;
       }
-      db.withTransaction(() => {
-        db.run(`DELETE FROM meal_plan_entries WHERE id = ?`, [id]);
-        db.run(
-          `UPDATE meal_plans SET updated_at = ?, sync_status = 'synced_local' WHERE id = ?`,
-          [nowIso(), existing.meal_plan_id],
-        );
-      });
+      withLocalPersist(() => {
+        db.withTransaction(() => {
+          db.run(`DELETE FROM meal_plan_entries WHERE id = ?`, [id]);
+          db.run(
+            `UPDATE meal_plans SET updated_at = ?, sync_status = 'synced_local' WHERE id = ?`,
+            [nowIso(), existing.meal_plan_id],
+          );
+        });
+      }, 'Could not remove meal plan entry');
     },
 
     softDelete(id: string): void {
-      db.run(
-        `UPDATE meal_plans SET deleted_at = ?, updated_at = ?, sync_status = 'synced_local'
-         WHERE id = ? AND deleted_at IS NULL`,
-        [nowIso(), nowIso(), id],
-      );
+      withLocalPersist(() => {
+        const result = db.run(
+          `UPDATE meal_plans SET deleted_at = ?, updated_at = ?, sync_status = 'synced_local'
+           WHERE id = ? AND deleted_at IS NULL`,
+          [nowIso(), nowIso(), id],
+        );
+        if (result.changes === 0) {
+          throw new Error(`Meal plan not found: ${id}`);
+        }
+      }, 'Could not delete meal plan');
     },
   };
 }

@@ -39,15 +39,22 @@ import {
 
 ## Key modules
 
-- `data/contracts.ts` — shared TypeScript types
+- `data/contracts.ts` — shared TypeScript types (`SyncBannerStatus`, domain models)
 - `data/schema.ts` — SQLite DDL + `SCHEMA_VERSION`
 - `data/repositories/*` — typed CRUD (only write path for domain data)
 - `data/autosave.ts` — draft persistence (survives backgrounding conceptually)
 - `data/offline.ts` — offline read helpers
 - `data/sync/statusStore.ts` — banner status (`saved_locally` / `needs_attention` / …); **no fake cloud “synced”**
+- `data/DatabaseProvider.tsx` — boots SQLite, runs migrations, caches the write connection
+
+## Database connection
+
+`DatabaseProvider` (`SQLiteProvider` + `migrateDbIfNeeded`) opens the DB on boot, migrates, and **caches that client**. `getDatabase()` / `getRepositories()` reuse it. Repositories own all domain writes; do not open a second database for feature code.
 
 ## Persistence rules
 
-1. Celebrate success only after local SQLite write succeeds.
+1. Celebrate success only after local SQLite write succeeds (`withLocalPersist` / `reportLocalPersist*` on mutating APIs).
 2. Soft-delete recipes (`deleted_at`) + `restore` for trash recovery.
 3. List screens use `recipes.list()` which batches ingredient/tag names (no N+1).
+4. Do not call `setStatus('synced')` — cloud sync is not shipped; use `markLocalPersisted`.
+5. Autosave without `recipeId` reuses the session’s first anonymous draft id (no duplicate drafts).
