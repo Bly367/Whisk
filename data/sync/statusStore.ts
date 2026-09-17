@@ -5,8 +5,10 @@ import { create } from 'zustand';
  * UI/session store for sync banner presentation only.
  * Domain data lives in SQLite — do not put recipes/plans/lists here.
  *
- * Cloud `synced` is reserved until real sync ships. Prefer
- * `markLocalPersisted` / `reportLocalPersist*` — do not call `setStatus('synced')`.
+ * Cloud `synced` is only set via `markRemoteSyncSucceeded`, which requires a
+ * prior successful local persist (`lastLocalPersistAt`). Prefer
+ * `markLocalPersisted` / `reportLocalPersist*` for local writes; do not call
+ * `setStatus('synced')` (excluded from SettableSyncBannerStatus).
  */
 export type SettableSyncBannerStatus = Exclude<SyncBannerStatus, 'synced'>;
 
@@ -19,9 +21,14 @@ export type SyncStatusState = {
   markPersistFailed: (detail?: string) => void;
   markOffline: () => void;
   resetToLocalOk: () => void;
+  /** After local persist — show syncing. No-op (needs_attention) if never persisted. */
+  markRemoteSyncStarted: () => void;
+  /** Cloud success only when local persist already succeeded. */
+  markRemoteSyncSucceeded: () => void;
+  markRemoteSyncFailed: (detail?: string) => void;
 };
 
-export const useSyncStatusStore = create<SyncStatusState>((set) => ({
+export const useSyncStatusStore = create<SyncStatusState>((set, get) => ({
   status: 'saved_locally',
   detail: null,
   lastLocalPersistAt: null,
@@ -51,6 +58,34 @@ export const useSyncStatusStore = create<SyncStatusState>((set) => ({
     set({
       status: 'saved_locally',
       detail: null,
+    }),
+
+  markRemoteSyncStarted: () => {
+    if (!get().lastLocalPersistAt) {
+      set({
+        status: 'needs_attention',
+        detail: 'Cannot sync before saving on this device.',
+      });
+      return;
+    }
+    set({ status: 'syncing', detail: null });
+  },
+
+  markRemoteSyncSucceeded: () => {
+    if (!get().lastLocalPersistAt) {
+      set({
+        status: 'needs_attention',
+        detail: 'Cannot claim synced before local persistence.',
+      });
+      return;
+    }
+    set({ status: 'synced', detail: null });
+  },
+
+  markRemoteSyncFailed: (detail) =>
+    set({
+      status: 'needs_attention',
+      detail: detail ?? 'Could not reach sync. Your edits are still on this device.',
     }),
 }));
 

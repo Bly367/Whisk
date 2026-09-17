@@ -33,4 +33,20 @@ export {
   type SyncStatusState,
   type SettableSyncBannerStatus,
 } from '@/data/sync/statusStore';
+export type * from '@/data/sync/contracts';
+export {
+  SECURE_TOKEN_STORAGE_KEY,
+  createSecureTokenStorage,
+  createMemorySecureTokenStorage,
+} from '@/data/sync/secureTokenStorage';
+export {
+  useAuthSessionStore,
+  createStubAuthTransport,
+  getAuthTokens,
+} from '@/data/sync/authSession';
+export {
+  createSyncClient,
+  createStubSyncTransport,
+  reportSyncBlockedByLocalFailure,
+} from '@/data/sync/syncClient';
 export { createId, nowIso } from '@/data/util';

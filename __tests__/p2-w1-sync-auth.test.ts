@@ -54,6 +54,8 @@ const SAMPLE_PUSH: SyncPushRequest = {
 describe('P2-W1 secure token storage', () => {
   beforeEach(async () => {
     await AsyncStorage.clear();
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('expo-secure-store').__resetSecureStoreMock();
   });
 
   it('stores tokens in secure storage, not AsyncStorage', async () => {
