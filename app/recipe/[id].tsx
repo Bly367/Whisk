@@ -117,9 +117,8 @@ export default function RecipeDetailScreen() {
 
         <Button
           label="Start cooking"
-          onPress={() => undefined}
-          disabled
-          accessibilityHint="Cook mode arrives in a later update"
+          onPress={() => router.push(`/cook/${recipe.id}`)}
+          accessibilityHint="Open cook mode with large steps"
           testID="start-cooking"
         />
 

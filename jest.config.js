@@ -5,9 +5,11 @@ module.exports = {
   testPathIgnorePatterns: ['/node_modules/', '/android/', '/ios/', '/.expo/'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
+    '^@react-native-async-storage/async-storage$':
+      '@react-native-async-storage/async-storage/jest/async-storage-mock',
   },
   transformIgnorePatterns: [
-    'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg)',
+    'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg|@react-native-async-storage/async-storage)',
   ],
   collectCoverageFrom: [
     'app/**/*.{ts,tsx}',

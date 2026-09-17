@@ -76,6 +76,16 @@ function RootNavigator() {
           }}
         />
         <Stack.Screen
+          name="cook/[recipeId]"
+          options={{
+            title: 'Cook',
+            headerShadowVisible: false,
+            headerStyle: { backgroundColor: colors.canvas },
+            headerTintColor: colors.textPrimary,
+            presentation: 'card',
+          }}
+        />
+        <Stack.Screen
           name="profile"
           options={{
             title: 'Account',
