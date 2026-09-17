@@ -103,3 +103,25 @@ export function formatTimerRemaining(remainingMs: number): string {
   const seconds = totalSec % 60;
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
+
+/**
+ * Rising-edge detector for audible/haptic completion feedback.
+ * Fire only when completionSignaled flips false→true (or undefined→true).
+ */
+export function shouldSignalAudio(
+  prevCompletionSignaled: boolean | undefined,
+  nextCompletionSignaled: boolean,
+): boolean {
+  return nextCompletionSignaled === true && prevCompletionSignaled !== true;
+}
+
+/** Timers that crossed into completionSignaled since the previous snapshot. */
+export function collectTimersNeedingAudibleCue(
+  previous: readonly CookTimer[],
+  next: readonly CookTimer[],
+): CookTimer[] {
+  const prevById = new Map(previous.map((t) => [t.id, t]));
+  return next.filter((timer) =>
+    shouldSignalAudio(prevById.get(timer.id)?.completionSignaled, timer.completionSignaled),
+  );
+}

@@ -1,6 +1,6 @@
 import { useLocalSearchParams, router, Stack } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Animated, Pressable, StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, Animated, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/Button';
@@ -68,7 +68,7 @@ export default function CookModeScreen() {
     };
   }, [endTimerSession]);
 
-  const steps = recipe?.instructions ?? [];
+  const steps = useMemo(() => recipe?.instructions ?? [], [recipe?.instructions]);
   const total = steps.length;
   const current = steps[stepIndex];
   const isLast = total > 0 && stepIndex >= total - 1;
@@ -79,8 +79,11 @@ export default function CookModeScreen() {
   }, [stepIndex, total]);
 
   const playStepTransition = useCallback(
-    (didChange: boolean) => {
+    (didChange: boolean, announcement?: string) => {
       const feedback = handsFreeNavFeedback({ reduceMotion, didChange });
+      if (feedback.announce && announcement) {
+        AccessibilityInfo.announceForAccessibility(announcement);
+      }
       if (!feedback.animateTransition) {
         stepOpacity.setValue(1);
         return;
@@ -106,10 +109,16 @@ export default function CookModeScreen() {
 
   const goBack = useCallback(() => {
     const result = navigateCookStep({ stepIndex, totalSteps: total, action: 'back' });
-    playStepTransition(result.didChange);
+    const nextStep = steps[result.stepIndex];
+    playStepTransition(
+      result.didChange,
+      result.didChange
+        ? `Step ${result.stepIndex + 1} of ${total}. ${nextStep?.text ?? ''}`
+        : undefined,
+    );
     if (!result.didChange) return;
     void persist(result.stepIndex);
-  }, [persist, playStepTransition, stepIndex, total]);
+  }, [persist, playStepTransition, stepIndex, steps, total]);
 
   const goNext = useCallback(async () => {
     if (!recipe || !recipeId) return;
@@ -123,7 +132,13 @@ export default function CookModeScreen() {
       return;
     }
     const result = navigateCookStep({ stepIndex, totalSteps: total, action: 'next' });
-    playStepTransition(result.didChange);
+    const nextStep = steps[result.stepIndex];
+    playStepTransition(
+      result.didChange,
+      result.didChange
+        ? `Step ${result.stepIndex + 1} of ${total}. ${nextStep?.text ?? ''}`
+        : undefined,
+    );
     if (!result.didChange) return;
     await persist(result.stepIndex);
   }, [
@@ -135,6 +150,7 @@ export default function CookModeScreen() {
     recipe,
     recipeId,
     stepIndex,
+    steps,
     total,
   ]);
 

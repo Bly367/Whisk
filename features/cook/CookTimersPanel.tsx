@@ -1,22 +1,32 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { Text } from '@/components/ui/Text';
 import { radius, spacing } from '@/constants/tokens';
-import { formatTimerRemaining } from '@/features/cook/cookTimers';
+import {
+  createDefaultCookTimerCompletionCuePorts,
+  fireCookTimerCompletionCues,
+} from '@/features/cook/cookTimerCompletionCue';
+import {
+  collectTimersNeedingAudibleCue,
+  formatTimerRemaining,
+  type CookTimer,
+} from '@/features/cook/cookTimers';
 import { useCookTimerSession } from '@/features/cook/cookTimerSession';
 import { ensureMinTouchTarget, hitSlop } from '@/theme/a11y';
 import { useTheme } from '@/theme/ThemeProvider';
 
 const PRESETS_SEC = [60, 180, 300, 600] as const;
+const defaultCompletionCues = createDefaultCookTimerCompletionCuePorts();
 
 type Props = {
   recipeId: string;
 };
 
 /**
- * Multi-timer strip for cook mode. Completion uses a high-contrast banner + live region
- * (no chick mascot — cook is non-payment but we keep chrome calm mid-cook).
+ * Multi-timer strip for cook mode. Completion uses visual banner + live region +
+ * one-shot audible/haptic (expo-av ding + Vibration) on rising completionSignaled.
+ * Pause/resume helpers exist on the session store; UI keeps add/dismiss for large-target hands-free.
  */
 export function CookTimersPanel({ recipeId }: Props) {
   const { colors } = useTheme();
@@ -27,6 +37,7 @@ export function CookTimersPanel({ recipeId }: Props) {
   const tick = useCookTimerSession((s) => s.tick);
   const acknowledgeCompletion = useCookTimerSession((s) => s.acknowledgeCompletion);
   const [customMinutes, setCustomMinutes] = useState('5');
+  const previousTimersRef = useRef<CookTimer[]>([]);
 
   useEffect(() => {
     beginSession(recipeId);
@@ -36,6 +47,16 @@ export function CookTimersPanel({ recipeId }: Props) {
     const id = setInterval(() => tick(Date.now()), 250);
     return () => clearInterval(id);
   }, [tick]);
+
+  useEffect(() => {
+    const newly = collectTimersNeedingAudibleCue(previousTimersRef.current, timers);
+    previousTimersRef.current = timers;
+    if (newly.length === 0) return;
+    void fireCookTimerCompletionCues(
+      newly.map((t) => t.id),
+      defaultCompletionCues,
+    );
+  }, [timers]);
 
   const signaling = useMemo(
     () => timers.filter((t) => t.completionSignaled),

@@ -20,6 +20,7 @@ type CookTimerSessionState = {
   endSession: () => void;
   addTimer: (input: { label: string; durationMs: number; nowMs?: number }) => string;
   removeTimer: (id: string) => void;
+  /** Available for future UI; cook panel currently focuses on add/dismiss for large targets. */
   pauseTimer: (id: string, nowMs?: number) => void;
   resumeTimer: (id: string, nowMs?: number) => void;
   tick: (nowMs?: number) => void;
