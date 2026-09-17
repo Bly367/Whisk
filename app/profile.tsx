@@ -110,16 +110,15 @@ export default function ProfileScreen() {
 
   function handleDeleteAccountStub() {
     Alert.alert(
-      'Delete local data',
-      'Guest mode has no cloud account. Deleting removes recipes, plans, and lists stored on this device. Export first if you want a copy. Cloud account deletion will follow the same path when sign-in ships.',
+      'Deletion coming later — export first',
+      'Guest mode has no cloud account yet. Account and local-data deletion is not available in this build — nothing will be removed. Export your recipes anytime so you keep a copy.',
       [
-        { text: 'Keep data', style: 'cancel' },
+        { text: 'OK', style: 'cancel' },
         {
-          text: 'Understood',
-          style: 'destructive',
+          text: 'Got it',
           onPress: () =>
             setMessage(
-              'Account deletion is stubbed safely for guest mode. Export anytime; no silent wipe.',
+              'Deletion is stubbed for now — your library was not changed. Export anytime.',
             ),
         },
       ],
@@ -179,8 +178,8 @@ export default function ProfileScreen() {
       <View style={styles.section}>
         <Text variant="headline">Danger zone</Text>
         <Button
-          label="Delete account / local data"
-          variant="destructive"
+          label="Account deletion (coming later)"
+          variant="secondary"
           onPress={handleDeleteAccountStub}
           testID="profile-delete-stub"
         />

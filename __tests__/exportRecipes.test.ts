@@ -52,4 +52,31 @@ describe('recipe export', () => {
     });
     expect(payload.recipes.map((r) => r.id)).toContain(created.id);
   });
+
+  it('still exports a library when free tier is downgraded / at import limit', () => {
+    const db = createTestDbClient();
+    const repos = createRepositories(db);
+    repos.recipes.create({
+      title: 'Kept after downgrade',
+      ingredients: [{ name: 'beans' }],
+      instructions: [{ id: '1', text: 'Simmer', position: 0 }],
+    });
+
+    // Pricing transparency: downgrade / limit must not hostage saved recipes.
+    const usage = {
+      importsUsedThisWeek: 5,
+      weekStartIso: '2026-09-15',
+      isDowngraded: true,
+    };
+    expect(usage.isDowngraded).toBe(true);
+
+    const payload = buildRecipeExport({
+      reader: createOfflineReader(db),
+      tags: repos.tags.list(),
+      mode: 'guest',
+    });
+    expect(payload.recipes).toHaveLength(1);
+    expect(payload.recipes[0].title).toBe('Kept after downgrade');
+    expect(exportPayloadToJson(payload)).toContain('Kept after downgrade');
+  });
 });

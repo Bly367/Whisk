@@ -16,11 +16,9 @@ import {
 import { useCookProgressStore } from '@/features/cook/cookProgressStore';
 import { ensureSampleCookRecipe } from '@/features/cook/ensureSampleRecipe';
 import { useSessionStore } from '@/features/trust/sessionStore';
-import { useReduceMotion } from '@/hooks/useReduceMotion';
 import { useTheme } from '@/theme/ThemeProvider';
 
 export default function HomeScreen() {
-  const reduceMotion = useReduceMotion();
   const { colors } = useTheme();
   const mode = useSessionStore((s) => s.mode);
   const hydrateSession = useSessionStore((s) => s.hydrate);
@@ -113,14 +111,6 @@ export default function HomeScreen() {
           />
         </View>
       )}
-
-      <View style={styles.note}>
-        <Text variant="caption" tone="secondary">
-          {reduceMotion
-            ? 'Reduce Motion is on — animations stay brief.'
-            : 'Motion stays subtle and useful.'}
-        </Text>
-      </View>
     </Screen>
   );
 }
@@ -132,8 +122,5 @@ const styles = StyleSheet.create({
     borderRadius: radius.card,
     borderWidth: 1,
     alignItems: 'flex-start',
-  },
-  note: {
-    marginTop: spacing.xs,
   },
 });

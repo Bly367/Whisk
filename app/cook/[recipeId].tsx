@@ -10,13 +10,12 @@ import { createOfflineReader, getDatabase, getRepositories } from '@/data';
 import type { RecipeWithIngredients } from '@/data/contracts';
 import { useCookProgressStore } from '@/features/cook/cookProgressStore';
 import { useKeepAwakeWhileCooking } from '@/features/cook/useKeepAwakeWhileCooking';
-import { mayShowUpgradePrompt } from '@/features/trust/freeTier';
 import { ensureMinTouchTarget, hitSlop } from '@/theme/a11y';
 import { useTheme } from '@/theme/ThemeProvider';
 
 /**
  * Cook mode — step focus, large Back/Next, keep-awake, persisted progress.
- * Upgrade prompts are forbidden here (mayShowUpgradePrompt('cook_mode') === false).
+ * No upgrade / paywall chrome here (trust: never interrupt mid-cook).
  */
 export default function CookModeScreen() {
   const { recipeId } = useLocalSearchParams<{ recipeId: string }>();
@@ -32,9 +31,6 @@ export default function CookModeScreen() {
   const clearProgress = useCookProgressStore((s) => s.clearProgress);
 
   useKeepAwakeWhileCooking(Boolean(recipe) && !done);
-
-  // Trust invariant documented for reviewers: upgrade UI is forbidden here.
-  void mayShowUpgradePrompt('cook_mode');
 
   useEffect(() => {
     let cancelled = false;
