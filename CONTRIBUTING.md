@@ -6,12 +6,26 @@ Whisk is built as a local-first Expo + React Native + TypeScript app. This note 
 
 Prefer these docs (Context store / repo as available):
 
-1. **MVP roadmap** — workstreams W1–W8, acceptance criteria, locked stack
-2. **Project context** — durable brief and non-negotiables
-3. **Competitor research** — product/trust requirements
-4. **UI/UX guidelines** — Yolk & Chick tokens, nav, a11y, copy
+1. **Phase 2 roadmap** — [`docs/phase-2-roadmap.md`](./docs/phase-2-roadmap.md) (active build plan, P2-W1…P2-W8)
+2. **Security standards** — [`SECURITY.md`](./SECURITY.md) (blocking)
+3. **Agent rules** — [`AGENTS.md`](./AGENTS.md) (test-first + multi-agent)
+4. **Architecture / data layer** — [`docs/architecture.md`](./docs/architecture.md), [`docs/data-layer.md`](./docs/data-layer.md)
+5. **MVP roadmap / project context / competitor research / UI guidelines** — Context store when mounted
 
 Do not invent alternate stacks (Firebase-as-primary-DB, Redux-by-default, web-first SPA) without updating the roadmap and project context.
+
+## Test-first development (mandatory)
+
+**Create tests before implementation** so we never invent tests that already pass against existing code.
+
+1. **Red** — Write a Jest (and RNTL when UI) test for the new behavior. Run it and confirm it **fails** for the expected reason.
+2. **Green** — Implement only enough production code to make that test pass.
+3. **Refactor** — Improve structure with the suite still green.
+4. **PR evidence** — Describe the red→green sequence in the PR body (command + failure, then pass).
+
+Exceptions: docs-only/chore PRs with no behavior change; explicit **characterization** tests that lock current behavior (must be labeled as such—not used to “cover” new feature work).
+
+Reviewers **REQUEST_CHANGES** if new behavior lands without a preceding failing test (or a justified exception).
 
 ## Branch & PR workflow
 
@@ -46,9 +60,9 @@ Every workstream PR should be checked for:
 4. **Accessibility** — targets, labels, contrast, Reduce Motion (WCAG 2.2 AA)
 5. **Efficiency** — no unnecessary re-renders, N+1 queries, dead code
 6. **Type safety & errors** — strict TypeScript; loading / empty / offline / error paths designed
-7. **Security basics** — no secrets; safe URL/OCR handling; sane export/deletion
-8. **Tests** — new behavior covered or justified; CI green
-9. **Scope** — no Phase 2/3 features; no competitor clones of branding/layout/copy
+7. **Security** — [`SECURITY.md`](./SECURITY.md): no secrets; safe URL/OCR handling; sane export/deletion; Phase 2 authz/tenancy when touched
+8. **Tests** — **test-first** evidence; new behavior covered; CI green
+9. **Scope** — matches the active roadmap workstream (Phase 2 PRs: no Phase 3); no competitor clones of branding/layout/copy
 
 ## Local-first rules
 
@@ -70,4 +84,4 @@ See `docs/architecture.md` for known-good ESLint 9 flat-config deps and `tsconfi
 
 ## Out of scope reminders
 
-Do not treat automated nutrition, grocery delivery, AI meal recommendations, or a social discovery feed as MVP-critical unless the roadmap is explicitly updated.
+Do not treat automated nutrition, grocery delivery, AI meal recommendations, or a social discovery feed as Phase 2-critical unless [`docs/phase-2-roadmap.md`](./docs/phase-2-roadmap.md) is explicitly updated.

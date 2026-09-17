@@ -2,9 +2,15 @@
 
 ### Workstream & acceptance
 
-- [ ] Matches the MVP roadmap acceptance criteria for this workstream
-- [ ] Scope stays in Phase 1 / MVP (no Phase 2/3 features sneaking in)
+- [ ] Matches the active roadmap acceptance criteria for this workstream (Phase 2: `docs/phase-2-roadmap.md`)
+- [ ] Scope stays in the declared phase (Phase 2 PRs: no Phase 3 features sneaking in)
 - [ ] Linked roadmap / issue / workstream ID in the description
+
+### Test-first
+
+- [ ] Failing test written **before** production code (red → green)
+- [ ] PR body includes evidence of the initial failure and subsequent pass
+- [ ] Not a post-hoc test written to match already-passing implementation (unless labeled characterization)
 
 ### Trust & offline
 
@@ -28,9 +34,11 @@
 
 ### Security & hygiene
 
+- [ ] Follows [`SECURITY.md`](../SECURITY.md)
 - [ ] No secrets, API keys, or credentials committed
 - [ ] Safe handling of URLs / OCR / user content
 - [ ] Export / deletion paths sane when touched
+- [ ] Auth / household / sync changes enforce tenancy (no cross-user leakage)
 
 ### Quality gate
 

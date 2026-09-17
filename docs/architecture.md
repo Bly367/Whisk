@@ -1,6 +1,6 @@
 # Whisk architecture
 
-Short engineering map for agents and contributors. Matches the locked stack in the MVP roadmap.
+Short engineering map for agents and contributors. Matches the locked stack in the MVP roadmap; Phase 2 extensions are sequenced in [`phase-2-roadmap.md`](./phase-2-roadmap.md). Security baseline: [`../SECURITY.md`](../SECURITY.md). Test-first policy: [`../CONTRIBUTING.md`](../CONTRIBUTING.md) / [`../AGENTS.md`](../AGENTS.md).
 
 ## Stack
 
