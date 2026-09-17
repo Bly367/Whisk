@@ -1,17 +1,14 @@
 import { StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/ui/Text';
+import type { SyncBannerStatus } from '@/data/contracts';
 import { radius, spacing } from '@/constants/tokens';
 import { useTheme } from '@/theme/ThemeProvider';
 
-export type SyncStatus =
-  | 'saved_locally'
-  | 'syncing'
-  | 'synced'
-  | 'needs_attention'
-  | 'offline';
+/** @deprecated Prefer `SyncBannerStatus` from `@/data/contracts`. */
+export type SyncStatus = SyncBannerStatus;
 
-const STATUS_COPY: Record<SyncStatus, string> = {
+const STATUS_COPY: Record<SyncBannerStatus, string> = {
   saved_locally: 'Saved on this device. Sync comes later.',
   syncing: 'Syncing…',
   synced: 'Synced',
@@ -20,13 +17,13 @@ const STATUS_COPY: Record<SyncStatus, string> = {
 };
 
 export type SyncStatusBannerProps = {
-  status?: SyncStatus;
+  status?: SyncBannerStatus;
   testID?: string;
 };
 
 /**
  * Visible sync-status chrome for local-first trust UX.
- * Wired to real persistence outcomes in W2; stubbed for foundation.
+ * Driven by `useSyncStatusStore` (local persist outcomes). Never fakes cloud sync.
  */
 export function SyncStatusBanner({
   status = 'saved_locally',
