@@ -1,6 +1,6 @@
-import { PlaceholderHero } from '@/components/ui/PlaceholderHero';
-import { Screen } from '@/components/ui/Screen';
+import { ShopScreen } from '@/features/shop/ShopScreen';
 
+<<<<<<< HEAD
 export default function ShopScreen() {
   return (
     <Screen testID="screen-shop">
@@ -10,4 +10,8 @@ export default function ShopScreen() {
       />
     </Screen>
   );
+=======
+export default function ShopTab() {
+  return <ShopScreen />;
+>>>>>>> origin/cursor/w6-grocery-shop-263a
 }
