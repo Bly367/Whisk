@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Detect package.json
+        id: app
+        run: |
+          if [ -f package.json ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+            echo "Expo/Node app detected — running lint, typecheck, and test."
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "No package.json yet (foundation not merged). Skipping Node jobs."
+          fi
+
+      - name: Set up Node.js
+        if: steps.app.outputs.present == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.app.outputs.present == 'true'
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Lint
+        if: steps.app.outputs.present == 'true'
+        run: |
+          if node -e "process.exit(require('./package.json').scripts?.lint ? 0 : 1)"; then
+            npm run lint
+          else
+            echo "No lint script yet — add \"lint\": \"eslint .\" after W1 merges tooling deps."
+          fi
+
+      - name: Typecheck
+        if: steps.app.outputs.present == 'true'
+        run: |
+          if node -e "process.exit(require('./package.json').scripts?.typecheck ? 0 : 1)"; then
+            npm run typecheck
+          else
+            echo "No typecheck script yet — expected \"typecheck\": \"tsc --noEmit\" from foundation."
+          fi
+
+      - name: Test
+        if: steps.app.outputs.present == 'true'
+        run: |
+          if node -e "process.exit(require('./package.json').scripts?.test ? 0 : 1)"; then
+            npm test
+          else
+            echo "No test script yet — expected Jest (npm test) once harness lands."
+          fi
+
+      - name: Standards placeholder (pre-app)
+        if: steps.app.outputs.present != 'true'
+        run: |
+          echo "W8 CI gate is active. Lint/typecheck/test will run once package.json exists."
+          test -f .eslintrc.cjs || test -f eslint.config.js || test -f eslint.config.mjs
+          test -f .prettierrc.json || test -f .prettierrc || test -f prettier.config.js
+          test -f docs/architecture.md
+          test -f CONTRIBUTING.md
+          test -f .github/PULL_REQUEST_TEMPLATE.md
