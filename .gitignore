@@ -1,31 +1,17 @@
-<<<<<<< HEAD
 # Dependencies
 node_modules/
 
 # Expo / Metro
-=======
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
-
-# dependencies
-node_modules/
-
-# Expo
->>>>>>> origin/cursor/w1-expo-foundation-8acf
 .expo/
 dist/
 web-build/
 expo-env.d.ts
-<<<<<<< HEAD
 .metro-health-check*
 
 # Native
+.kotlin/
 android/
 ios/
-=======
-
-# Native
-.kotlin/
->>>>>>> origin/cursor/w1-expo-foundation-8acf
 *.orig.*
 *.jks
 *.p8
@@ -33,7 +19,6 @@ ios/
 *.key
 *.mobileprovision
 
-<<<<<<< HEAD
 # Tests / coverage
 coverage/
 
@@ -50,26 +35,3 @@ yarn-error.*
 
 # TypeScript
 *.tsbuildinfo
-=======
-# Metro
-.metro-health-check*
-
-# debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
-
-# macOS
-.DS_Store
-*.pem
-
-# local env files
-.env*.local
-
-# typescript
-*.tsbuildinfo
-
-# generated native folders
-/ios
-/android
->>>>>>> origin/cursor/w1-expo-foundation-8acf
