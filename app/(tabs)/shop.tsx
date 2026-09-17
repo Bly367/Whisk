@@ -1,16 +1,5 @@
-import { PlaceholderHero } from '@/components/ui/PlaceholderHero';
-import { Screen } from '@/components/ui/Screen';
+import { ShopScreen } from '@/features/shop/ShopScreen';
 
-export default function ShopScreen() {
-  return (
-    <Screen testID="screen-shop">
-      <PlaceholderHero
-        title="Grocery list"
-        body="One list from your plan — merged quantities, aisle groups, and undo when you check something off."
-        actionLabel="Generate from plan"
-        actionTestID="shop-generate"
-        onAction={() => undefined}
-      />
-    </Screen>
-  );
+export default function ShopTab() {
+  return <ShopScreen />;
 }
