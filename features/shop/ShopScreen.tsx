@@ -21,15 +21,8 @@ import {
   buildGroceryPreviewFromPlan,
   type GroceryGeneratePreview,
 } from '@/features/shop/generateFromPlan';
-import {
-  completedItems,
-  groupGroceryItems,
-  type ShopGroupMode,
-} from '@/features/shop/groupItems';
-import {
-  replaceGroceryListFromPreview,
-  undoReplaceGroceryList,
-} from '@/features/shop/replaceList';
+import { completedItems, groupGroceryItems, type ShopGroupMode } from '@/features/shop/groupItems';
+import { replaceGroceryListFromPreview, undoReplaceGroceryList } from '@/features/shop/replaceList';
 import { unmergeGroceryItem } from '@/features/shop/unmerge';
 import { ensureMinTouchTarget, hitSlop } from '@/theme/a11y';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -103,9 +96,7 @@ export function ShopScreen() {
       const repos = getRepositories();
       const next = buildGroceryPreviewFromPlan(repos);
       if (!next) {
-        setEmptyReason(
-          'Add recipes to this week’s plan first, then generate a list here.',
-        );
+        setEmptyReason('Add recipes to this week’s plan first, then generate a list here.');
         setPreview(null);
         return;
       }
@@ -123,8 +114,11 @@ export function ShopScreen() {
     try {
       const { grocery } = getRepositories();
       // Create first, then retire prior list — never soft-delete before create.
-      const { created, replacedListId, replacedListName } =
-        replaceGroceryListFromPreview(grocery, preview, list);
+      const { created, replacedListId, replacedListName } = replaceGroceryListFromPreview(
+        grocery,
+        preview,
+        list,
+      );
       reportLocalPersistSuccess();
       setList(created);
       setPreview(null);
@@ -165,9 +159,7 @@ export function ShopScreen() {
       }
       refresh();
     } catch (error) {
-      reportLocalPersistFailure(
-        error instanceof Error ? error.message : 'Could not update item',
-      );
+      reportLocalPersistFailure(error instanceof Error ? error.message : 'Could not update item');
     }
   };
 
@@ -179,9 +171,7 @@ export function ShopScreen() {
       showUndo({ kind: 'delete', itemId: item.id, name: item.name });
       refresh();
     } catch (error) {
-      reportLocalPersistFailure(
-        error instanceof Error ? error.message : 'Could not remove item',
-      );
+      reportLocalPersistFailure(error instanceof Error ? error.message : 'Could not remove item');
     }
   };
 
@@ -208,9 +198,7 @@ export function ShopScreen() {
       clearUndoTimer();
       setUndo(null);
     } catch (error) {
-      reportLocalPersistFailure(
-        error instanceof Error ? error.message : 'Could not undo',
-      );
+      reportLocalPersistFailure(error instanceof Error ? error.message : 'Could not undo');
     }
   };
 

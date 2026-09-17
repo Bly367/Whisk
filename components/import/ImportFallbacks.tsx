@@ -46,10 +46,7 @@ export function ImportFallbacks({
 
   return (
     <View
-      style={[
-        styles.wrap,
-        { backgroundColor: colors.sunken, borderColor: colors.border },
-      ]}
+      style={[styles.wrap, { backgroundColor: colors.sunken, borderColor: colors.border }]}
       testID={testID}
       accessibilityRole="summary"
     >

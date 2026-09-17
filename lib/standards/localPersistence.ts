@@ -61,8 +61,6 @@ export function resolveSyncStatus(args: {
  */
 export function assertDomainWritePath(path: 'repository' | 'zustand' | 'ad_hoc_sqlite'): void {
   if (path !== 'repository') {
-    throw new Error(
-      `Invalid domain write path "${path}". Use typed repositories → SQLite only.`,
-    );
+    throw new Error(`Invalid domain write path "${path}". Use typed repositories → SQLite only.`);
   }
 }

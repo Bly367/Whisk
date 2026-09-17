@@ -1,9 +1,4 @@
-import type {
-  MealPlan,
-  MealPlanEntry,
-  MealPlanWithEntries,
-  MealSlot,
-} from '@/data/contracts';
+import type { MealPlan, MealPlanEntry, MealPlanWithEntries, MealSlot } from '@/data/contracts';
 import type { DbClient } from '@/data/client';
 import { mapMealPlan, mapMealPlanEntry } from '@/data/mappers';
 import { withLocalPersist } from '@/data/sync/statusStore';
@@ -98,9 +93,7 @@ export function createMealPlanRepository(db: DbClient) {
             `UPDATE meal_plans SET updated_at = ?, sync_status = 'synced_local' WHERE id = ?`,
             [now, input.mealPlanId],
           );
-          const row = db.get<EntryRow>(`SELECT * FROM meal_plan_entries WHERE id = ?`, [
-            id,
-          ]);
+          const row = db.get<EntryRow>(`SELECT * FROM meal_plan_entries WHERE id = ?`, [id]);
           if (!row) {
             throw new Error('Failed to add meal plan entry');
           }
@@ -120,10 +113,7 @@ export function createMealPlanRepository(db: DbClient) {
       }>,
     ): MealPlanEntry {
       return withLocalPersist(() => {
-        const existing = db.get<EntryRow>(
-          `SELECT * FROM meal_plan_entries WHERE id = ?`,
-          [id],
-        );
+        const existing = db.get<EntryRow>(`SELECT * FROM meal_plan_entries WHERE id = ?`, [id]);
         if (!existing) {
           throw new Error(`Meal plan entry not found: ${id}`);
         }
@@ -152,9 +142,7 @@ export function createMealPlanRepository(db: DbClient) {
             `UPDATE meal_plans SET updated_at = ?, sync_status = 'synced_local' WHERE id = ?`,
             [now, existing.meal_plan_id],
           );
-          const row = db.get<EntryRow>(`SELECT * FROM meal_plan_entries WHERE id = ?`, [
-            id,
-          ]);
+          const row = db.get<EntryRow>(`SELECT * FROM meal_plan_entries WHERE id = ?`, [id]);
           if (!row) {
             throw new Error('Failed to update meal plan entry');
           }
@@ -164,10 +152,7 @@ export function createMealPlanRepository(db: DbClient) {
     },
 
     removeEntry(id: string): void {
-      const existing = db.get<EntryRow>(
-        `SELECT * FROM meal_plan_entries WHERE id = ?`,
-        [id],
-      );
+      const existing = db.get<EntryRow>(`SELECT * FROM meal_plan_entries WHERE id = ?`, [id]);
       if (!existing) {
         return;
       }

@@ -4,11 +4,11 @@ Feature workstreams (W3–W7) should import domain types and repositories from `
 
 ## Source of truth
 
-| Concern | Location |
-| --- | --- |
-| SQLite (recipes, plans, lists, trash) | `@/data` repositories |
-| UI / session (sync banner, sheets) | Zustand — `useSyncStatusStore` only for sync chrome today |
-| Never | Zustand as a recipe/plan/list database |
+| Concern                               | Location                                                  |
+| ------------------------------------- | --------------------------------------------------------- |
+| SQLite (recipes, plans, lists, trash) | `@/data` repositories                                     |
+| UI / session (sync banner, sheets)    | Zustand — `useSyncStatusStore` only for sync chrome today |
+| Never                                 | Zustand as a recipe/plan/list database                    |
 
 ## Import paths
 
@@ -29,13 +29,13 @@ import {
 } from '@/data';
 ```
 
-| Workstream | Primary contracts / APIs |
-| --- | --- |
-| **W3 Recipes** | `Recipe`, `RecipeCreateInput`, `RecipeUpdateInput`, `RecipeListQuery`, `getRepositories().recipes`, `createRecipeAutosave` |
-| **W4 Import** | `RecipeCreateInput`, `IngredientInput`, `getRepositories().recipes.create` (after preview commit) |
-| **W5 Plan** | `MealPlan`, `MealPlanEntry`, `MealSlot`, `getRepositories().mealPlans` |
-| **W6 Shop** | `GroceryList`, `GroceryItem`, `getRepositories().grocery` |
-| **W7 Cook + trust** | `RecipeWithIngredients`, `CookStep`, offline `getRecipe`; trash via `recipes.restore` |
+| Workstream          | Primary contracts / APIs                                                                                                   |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| **W3 Recipes**      | `Recipe`, `RecipeCreateInput`, `RecipeUpdateInput`, `RecipeListQuery`, `getRepositories().recipes`, `createRecipeAutosave` |
+| **W4 Import**       | `RecipeCreateInput`, `IngredientInput`, `getRepositories().recipes.create` (after preview commit)                          |
+| **W5 Plan**         | `MealPlan`, `MealPlanEntry`, `MealSlot`, `getRepositories().mealPlans`                                                     |
+| **W6 Shop**         | `GroceryList`, `GroceryItem`, `getRepositories().grocery`                                                                  |
+| **W7 Cook + trust** | `RecipeWithIngredients`, `CookStep`, offline `getRecipe`; trash via `recipes.restore`                                      |
 
 ## Key modules
 

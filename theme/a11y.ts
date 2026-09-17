@@ -2,8 +2,7 @@ import { Platform, type ViewStyle } from 'react-native';
 
 import { touchTarget } from '@/constants/tokens';
 
-export const minTouchSize =
-  Platform.OS === 'ios' ? touchTarget.ios : touchTarget.min;
+export const minTouchSize = Platform.OS === 'ios' ? touchTarget.ios : touchTarget.min;
 
 /** Style helpers for interactive controls that meet platform touch guidance. */
 export const hitSlop = {

@@ -49,9 +49,7 @@ export function setDatabaseForTests(client: DbClient | null): void {
 /**
  * SQLiteProvider `onInit`: migrate and cache this connection as the app write path.
  */
-export async function migrateDbIfNeeded(
-  db: import('expo-sqlite').SQLiteDatabase,
-): Promise<void> {
+export async function migrateDbIfNeeded(db: import('expo-sqlite').SQLiteDatabase): Promise<void> {
   const client = createExpoDbClient(db);
   migrate(client);
   cachedClient = client;

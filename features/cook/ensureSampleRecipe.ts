@@ -7,10 +7,7 @@ import { createId } from '@/data/util';
 
 export const SAMPLE_COOK_TITLE = 'Weeknight lemon pasta';
 
-export function ensureSampleCookRecipe(
-  repos: Repositories,
-  reader: OfflineReader,
-): string {
+export function ensureSampleCookRecipe(repos: Repositories, reader: OfflineReader): string {
   const existing = reader.listRecipes({ search: SAMPLE_COOK_TITLE, limit: 5 });
   const match = existing.find((r) => r.title === SAMPLE_COOK_TITLE);
   if (match) return match.id;
@@ -30,7 +27,11 @@ export function ensureSampleCookRecipe(
     ],
     instructions: [
       { id: createId(), text: 'Bring a large pot of salted water to a boil.', position: 0 },
-      { id: createId(), text: 'Cook spaghetti until just shy of al dente. Reserve a cup of pasta water, then drain.', position: 1 },
+      {
+        id: createId(),
+        text: 'Cook spaghetti until just shy of al dente. Reserve a cup of pasta water, then drain.',
+        position: 1,
+      },
       {
         id: createId(),
         text: 'Warm olive oil in a skillet. Soften garlic, then add lemon zest and juice.',

@@ -8,11 +8,7 @@ import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { GuestModeBanner } from '@/components/trust/GuestModeBanner';
 import { radius, spacing } from '@/constants/tokens';
-import {
-  createOfflineReader,
-  getDatabase,
-  getRepositories,
-} from '@/data';
+import { createOfflineReader, getDatabase, getRepositories } from '@/data';
 import { useCookProgressStore } from '@/features/cook/cookProgressStore';
 import { ensureSampleCookRecipe } from '@/features/cook/ensureSampleRecipe';
 import { useSessionStore } from '@/features/trust/sessionStore';
@@ -39,9 +35,7 @@ export default function HomeScreen() {
       setContinueTitle(null);
       return;
     }
-    const latest = [...entries].sort((a, b) =>
-      b.updatedAt.localeCompare(a.updatedAt),
-    )[0];
+    const latest = [...entries].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
     try {
       const reader = createOfflineReader(getDatabase());
       const recipe = reader.getRecipe(latest.recipeId);
@@ -76,10 +70,7 @@ export default function HomeScreen() {
 
       {continueId && continueTitle ? (
         <View
-          style={[
-            styles.continue,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
+          style={[styles.continue, { backgroundColor: colors.card, borderColor: colors.border }]}
         >
           <Text variant="headline">Continue cooking</Text>
           <Text variant="body" tone="secondary">
@@ -93,15 +84,11 @@ export default function HomeScreen() {
         </View>
       ) : (
         <View
-          style={[
-            styles.continue,
-            { backgroundColor: colors.sunken, borderColor: colors.border },
-          ]}
+          style={[styles.continue, { backgroundColor: colors.sunken, borderColor: colors.border }]}
         >
           <Text variant="headline">Try cook mode</Text>
           <Text variant="body" tone="secondary">
-            Large steps, screen stays awake, and your place is remembered after
-            relaunch.
+            Large steps, screen stays awake, and your place is remembered after relaunch.
           </Text>
           <Button
             label="Open sample recipe"

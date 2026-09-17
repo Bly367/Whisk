@@ -39,11 +39,7 @@ export function SnackbarShell({
         },
       ]}
     >
-      <Text
-        variant="callout"
-        style={[styles.message, { color: colors.canvas }]}
-        numberOfLines={2}
-      >
+      <Text variant="callout" style={[styles.message, { color: colors.canvas }]} numberOfLines={2}>
         {message}
       </Text>
       {actionLabel && onAction ? (

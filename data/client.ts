@@ -18,9 +18,7 @@ export type DbClient = {
   withTransaction<T>(fn: () => T): T;
 };
 
-export function createExpoDbClient(
-  db: import('expo-sqlite').SQLiteDatabase,
-): DbClient {
+export function createExpoDbClient(db: import('expo-sqlite').SQLiteDatabase): DbClient {
   return {
     exec(sql: string) {
       db.execSync(sql);

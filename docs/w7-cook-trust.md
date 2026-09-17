@@ -4,13 +4,13 @@ Feature module for cook mode, guest/local clarity, export, and free-tier limit U
 
 ## Entry points
 
-| Path | Role |
-| --- | --- |
-| `app/cook/[recipeId].tsx` | Cook mode (steps, keep-awake, persisted progress) |
-| `app/recipe/[id].tsx` | Minimal detail + **Start cooking** |
-| `app/profile.tsx` | Guest banner, export, trial copy, deletion stub, trash restore |
-| `app/(tabs)/add.tsx` | Limit notice **before** import; manual create unlimited |
-| `app/(tabs)/index.tsx` | Guest banner, resume cook / sample recipe |
+| Path                      | Role                                                           |
+| ------------------------- | -------------------------------------------------------------- |
+| `app/cook/[recipeId].tsx` | Cook mode (steps, keep-awake, persisted progress)              |
+| `app/recipe/[id].tsx`     | Minimal detail + **Start cooking**                             |
+| `app/profile.tsx`         | Guest banner, export, trial copy, deletion stub, trash restore |
+| `app/(tabs)/add.tsx`      | Limit notice **before** import; manual create unlimited        |
+| `app/(tabs)/index.tsx`    | Guest banner, resume cook / sample recipe                      |
 
 ## Contracts used (from `@/data`)
 

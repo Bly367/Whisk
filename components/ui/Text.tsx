@@ -4,13 +4,7 @@ import { typography } from '@/constants/tokens';
 import { useTheme } from '@/theme/ThemeProvider';
 
 export type TextVariant =
-  | 'display'
-  | 'title1'
-  | 'title2'
-  | 'headline'
-  | 'body'
-  | 'callout'
-  | 'caption';
+  'display' | 'title1' | 'title2' | 'headline' | 'body' | 'callout' | 'caption';
 
 export type TextTone = 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'info';
 
@@ -29,12 +23,7 @@ const variantStyle: Record<TextVariant, TextStyle> = {
   caption: typography.caption,
 };
 
-export function Text({
-  variant = 'body',
-  tone = 'primary',
-  style,
-  ...rest
-}: TextProps) {
+export function Text({ variant = 'body', tone = 'primary', style, ...rest }: TextProps) {
   const { colors } = useTheme();
 
   const toneColor =

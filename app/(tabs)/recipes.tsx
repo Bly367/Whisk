@@ -49,8 +49,7 @@ export default function RecipesScreen() {
 
   const { recipes, tags, collections, loading } = useRecipeLibrary(filters);
   const filterCount = activeFilterCount(filters);
-  const isEmptyLibrary =
-    !loading && recipes.length === 0 && !search.trim() && filterCount === 0;
+  const isEmptyLibrary = !loading && recipes.length === 0 && !search.trim() && filterCount === 0;
 
   return (
     <Screen testID="screen-recipes" scroll={false} style={styles.screen}>
@@ -99,10 +98,7 @@ export default function RecipesScreen() {
         </View>
       </View>
 
-      <ScrollView
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={styles.content}
-      >
+      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
         <View style={styles.filterBlock}>
           <Text variant="caption" tone="secondary">
             Filters
@@ -113,9 +109,7 @@ export default function RecipesScreen() {
                 key={option.value}
                 label={option.label}
                 selected={cookTime === option.value}
-                onPress={() =>
-                  setCookTime(cookTime === option.value ? 'any' : option.value)
-                }
+                onPress={() => setCookTime(cookTime === option.value ? 'any' : option.value)}
                 testID={`filter-cook-${option.value}`}
               />
             ))}
@@ -124,9 +118,7 @@ export default function RecipesScreen() {
                 key={option.value}
                 label={option.label}
                 selected={dateAdded === option.value}
-                onPress={() =>
-                  setDateAdded(dateAdded === option.value ? 'any' : option.value)
-                }
+                onPress={() => setDateAdded(dateAdded === option.value ? 'any' : option.value)}
                 testID={`filter-date-${option.value}`}
               />
             ))}
@@ -161,9 +153,7 @@ export default function RecipesScreen() {
                     label={collection.name}
                     selected={collectionId === collection.id}
                     onPress={() =>
-                      setCollectionId(
-                        collectionId === collection.id ? null : collection.id,
-                      )
+                      setCollectionId(collectionId === collection.id ? null : collection.id)
                     }
                     testID={`filter-collection-${collection.id}`}
                   />
@@ -196,11 +186,7 @@ export default function RecipesScreen() {
               Try removing a filter or searching a related ingredient.
             </Text>
             {filterCount > 0 ? (
-              <Button
-                label="Clear filters"
-                variant="secondary"
-                onPress={clearFilters}
-              />
+              <Button label="Clear filters" variant="secondary" onPress={clearFilters} />
             ) : null}
           </View>
         ) : (

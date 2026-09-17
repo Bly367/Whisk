@@ -56,10 +56,7 @@ export function EntryOptionsModal({
         accessibilityLabel="Dismiss"
       >
         <Pressable
-          style={[
-            styles.sheet,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
+          style={[styles.sheet, { backgroundColor: colors.card, borderColor: colors.border }]}
           onPress={(e) => e.stopPropagation()}
           testID={testID}
         >
@@ -134,12 +131,7 @@ export function EntryOptionsModal({
             onPress={onRemove}
             testID={`${testID}-remove`}
           />
-          <Button
-            label="Cancel"
-            variant="tertiary"
-            onPress={onClose}
-            testID={`${testID}-cancel`}
-          />
+          <Button label="Cancel" variant="tertiary" onPress={onClose} testID={`${testID}-cancel`} />
         </Pressable>
       </Pressable>
     </Modal>

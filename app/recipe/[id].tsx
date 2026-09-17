@@ -2,10 +2,7 @@ import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
-import {
-  IngredientLine,
-  ServingStepper,
-} from '@/components/recipes/ServingControls';
+import { IngredientLine, ServingStepper } from '@/components/recipes/ServingControls';
 import { Button } from '@/components/ui/Button';
 import { Chip, ChipRow } from '@/components/ui/Chip';
 import { Text } from '@/components/ui/Text';
@@ -16,7 +13,7 @@ import { isUnitSystemAvailable } from '@/features/recipes/scale';
 import { useUnitPreferenceStore } from '@/features/recipes/unitPreferenceStore';
 import { useTheme } from '@/theme/ThemeProvider';
 
-const UNIT_OPTIONS: Array<{ value: UnitSystem; label: string }> = [
+const UNIT_OPTIONS: { value: UnitSystem; label: string }[] = [
   { value: 'original', label: 'As written' },
   { value: 'metric', label: 'Metric' },
   { value: 'imperial', label: 'Imperial' },
@@ -28,10 +25,7 @@ const UNIT_UNAVAILABLE_HINT =
 export default function RecipeDetailScreen() {
   const { colors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const recipe = useMemo(
-    () => (id ? getRepositories().recipes.getById(id) : null),
-    [id],
-  );
+  const recipe = useMemo(() => (id ? getRepositories().recipes.getById(id) : null), [id]);
   const tags = useMemo(() => getRepositories().tags.list(), []);
   const system = useUnitPreferenceStore((s) => s.system);
   const setSystem = useUnitPreferenceStore((s) => s.setSystem);
@@ -51,8 +45,7 @@ export default function RecipeDetailScreen() {
   const tagNames = recipe.tagIds
     .map((tagId) => tags.find((t) => t.id === tagId)?.name)
     .filter((n): n is string => !!n);
-  const total =
-    (recipe.prepMinutes ?? 0) + (recipe.cookMinutes ?? 0) || null;
+  const total = (recipe.prepMinutes ?? 0) + (recipe.cookMinutes ?? 0) || null;
 
   return (
     <>
@@ -83,7 +76,10 @@ export default function RecipeDetailScreen() {
         style={{ flex: 1, backgroundColor: colors.canvas }}
       >
         <View
-          style={[styles.hero, { backgroundColor: colors.brand.yolkSoft, borderColor: colors.border }]}
+          style={[
+            styles.hero,
+            { backgroundColor: colors.brand.yolkSoft, borderColor: colors.border },
+          ]}
           accessible={false}
         />
         <Text variant="title1">{recipe.title}</Text>
@@ -122,11 +118,7 @@ export default function RecipeDetailScreen() {
           testID="start-cooking"
         />
 
-        <ServingStepper
-          servings={servings}
-          onChange={setServings}
-          baseServings={recipe.servings}
-        />
+        <ServingStepper servings={servings} onChange={setServings} baseServings={recipe.servings} />
 
         <View style={styles.unitBlock}>
           <Text variant="callout">Units</Text>
@@ -139,9 +131,7 @@ export default function RecipeDetailScreen() {
                   label={option.label}
                   selected={system === option.value}
                   disabled={!available}
-                  onPress={
-                    available ? () => setSystem(option.value) : undefined
-                  }
+                  onPress={available ? () => setSystem(option.value) : undefined}
                   accessibilityHint={available ? undefined : UNIT_UNAVAILABLE_HINT}
                   testID={`unit-${option.value}`}
                 />
@@ -174,10 +164,7 @@ export default function RecipeDetailScreen() {
           .slice()
           .sort((a, b) => a.position - b.position)
           .map((step, index) => (
-            <View
-              key={step.id}
-              style={[styles.step, { borderColor: colors.border }]}
-            >
+            <View key={step.id} style={[styles.step, { borderColor: colors.border }]}>
               <Text variant="callout">Step {index + 1}</Text>
               <Text variant="body">{step.text}</Text>
             </View>

@@ -11,9 +11,7 @@ export function slotLabel(slot: MealSlot): string {
   return MEAL_SLOTS.find((s) => s.slot === slot)?.label ?? slot;
 }
 
-export function recipeTitleMap(
-  recipes: RecipeListItem[],
-): Map<string, RecipeListItem> {
+export function recipeTitleMap(recipes: RecipeListItem[]): Map<string, RecipeListItem> {
   return new Map(recipes.map((r) => [r.id, r]));
 }
 
@@ -54,8 +52,7 @@ export function scaleQuantityForMeals(
 
   const mixed = raw.match(/^(\d+)\s+(\d+)\s*\/\s*(\d+)$/);
   if (mixed) {
-    const value =
-      Number(mixed[1]) + Number(mixed[2]) / Number(mixed[3]);
+    const value = Number(mixed[1]) + Number(mixed[2]) / Number(mixed[3]);
     return formatScaledNumber(value * mealCount);
   }
 

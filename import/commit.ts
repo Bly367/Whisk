@@ -6,11 +6,7 @@ import type { ImportDraft } from '@/import/types';
 export class ImportCommitError extends Error {
   constructor(
     message: string,
-    public readonly code:
-      | 'empty_title'
-      | 'empty_recipe'
-      | 'already_saved'
-      | 'persist_failed',
+    public readonly code: 'empty_title' | 'empty_recipe' | 'already_saved' | 'persist_failed',
   ) {
     super(message);
     this.name = 'ImportCommitError';
@@ -53,10 +49,7 @@ export function toRecipeCreateInput(draft: ImportDraft): RecipeCreateInput {
 export function assertDraftReadyToSave(draft: ImportDraft): RecipeCreateInput {
   const input = toRecipeCreateInput(draft);
   if (!input.title.trim()) {
-    throw new ImportCommitError(
-      'Add a recipe title before saving.',
-      'empty_title',
-    );
+    throw new ImportCommitError('Add a recipe title before saving.', 'empty_title');
   }
   const hasIngredients = (input.ingredients?.length ?? 0) > 0;
   const hasInstructions = (input.instructions?.length ?? 0) > 0;
@@ -91,8 +84,7 @@ export function commitImportDraft(
   }
 
   const input = assertDraftReadyToSave(draft);
-  const create =
-    options.create ?? ((payload) => getRepositories().recipes.create(payload));
+  const create = options.create ?? ((payload) => getRepositories().recipes.create(payload));
 
   try {
     const recipe = create(input);

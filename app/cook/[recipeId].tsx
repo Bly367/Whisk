@@ -123,11 +123,7 @@ export default function CookModeScreen() {
         <Text variant="body" tone="secondary">
           {recipe.title} is marked as recently cooked. Screen can sleep again.
         </Text>
-        <Button
-          label="Done"
-          testID="cook-done"
-          onPress={() => router.back()}
-        />
+        <Button label="Done" testID="cook-done" onPress={() => router.back()} />
       </SafeAreaView>
     );
   }
@@ -199,9 +195,7 @@ export default function CookModeScreen() {
                 <Text variant="callout">
                   {recipe.ingredients
                     .slice(0, 6)
-                    .map((i) =>
-                      [i.quantity, i.unit, i.name].filter(Boolean).join(' '),
-                    )
+                    .map((i) => [i.quantity, i.unit, i.name].filter(Boolean).join(' '))
                     .join(' · ')}
                   {recipe.ingredients.length > 6 ? '…' : ''}
                 </Text>

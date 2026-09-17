@@ -17,7 +17,7 @@ export const AISLE_ORDER = [
 
 export type AisleName = (typeof AISLE_ORDER)[number];
 
-const KEYWORD_AISLES: Array<{ aisle: AisleName; patterns: RegExp }> = [
+const KEYWORD_AISLES: { aisle: AisleName; patterns: RegExp }[] = [
   {
     aisle: 'Produce',
     patterns:
@@ -60,9 +60,7 @@ const KEYWORD_AISLES: Array<{ aisle: AisleName; patterns: RegExp }> = [
 export function resolveAisle(name: string, hint?: string | null): AisleName {
   const trimmed = hint?.trim();
   if (trimmed) {
-    const match = AISLE_ORDER.find(
-      (a) => a.toLowerCase() === trimmed.toLowerCase(),
-    );
+    const match = AISLE_ORDER.find((a) => a.toLowerCase() === trimmed.toLowerCase());
     if (match) return match;
     // Preserve custom aisle labels as Other bucket label via passthrough —
     // callers store the hint string; grouping still works.
@@ -77,8 +75,6 @@ export function resolveAisle(name: string, hint?: string | null): AisleName {
 
 export function aisleSortIndex(aisle: string | null | undefined): number {
   if (!aisle) return AISLE_ORDER.length;
-  const idx = AISLE_ORDER.findIndex(
-    (a) => a.toLowerCase() === aisle.toLowerCase(),
-  );
+  const idx = AISLE_ORDER.findIndex((a) => a.toLowerCase() === aisle.toLowerCase());
   return idx === -1 ? AISLE_ORDER.length : idx;
 }

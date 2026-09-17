@@ -8,13 +8,7 @@ import type { CookStep, IngredientInput } from '@/data/contracts';
 export type ConfidenceLevel = 'high' | 'medium' | 'low' | 'unknown';
 
 export type ImportFieldKey =
-  | 'title'
-  | 'ingredients'
-  | 'instructions'
-  | 'servings'
-  | 'times'
-  | 'notes'
-  | 'image';
+  'title' | 'ingredients' | 'instructions' | 'servings' | 'times' | 'notes' | 'image';
 
 export type FieldConfidence = Partial<Record<ImportFieldKey, ConfidenceLevel>>;
 
@@ -33,26 +27,12 @@ export type ImportWarning = {
   field?: ImportFieldKey;
 };
 
-export type ImportSourceKind =
-  | 'website'
-  | 'share_sheet'
-  | 'ocr'
-  | 'manual'
-  | 'paste_text';
+export type ImportSourceKind = 'website' | 'share_sheet' | 'ocr' | 'manual' | 'paste_text';
 
-export type ImportFallbackAction =
-  | 'try_again'
-  | 'paste_text'
-  | 'scan'
-  | 'manual';
+export type ImportFallbackAction = 'try_again' | 'paste_text' | 'scan' | 'manual';
 
 export type ImportAdapterErrorCode =
-  | 'invalid_url'
-  | 'network'
-  | 'parse_failed'
-  | 'unsupported'
-  | 'needs_input'
-  | 'stub';
+  'invalid_url' | 'network' | 'parse_failed' | 'unsupported' | 'needs_input' | 'stub';
 
 export type ImportAdapterError = {
   code: ImportAdapterErrorCode;

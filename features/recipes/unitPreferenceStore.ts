@@ -1,9 +1,6 @@
 import { create } from 'zustand';
 
-import {
-  isUnitSystemAvailable,
-  type UnitSystem,
-} from '@/features/recipes/scale';
+import { isUnitSystemAvailable, type UnitSystem } from '@/features/recipes/scale';
 
 type UnitPreferenceState = {
   system: UnitSystem;

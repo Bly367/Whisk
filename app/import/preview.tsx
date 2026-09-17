@@ -35,9 +35,7 @@ export default function ImportPreviewScreen() {
   const ingredientsText = useMemo(
     () =>
       (draft?.ingredients ?? [])
-        .map((ing) =>
-          [ing.quantity, ing.unit, ing.name].filter(Boolean).join(' '),
-        )
+        .map((ing) => [ing.quantity, ing.unit, ing.name].filter(Boolean).join(' '))
         .join('\n'),
     [draft?.ingredients],
   );
@@ -52,8 +50,8 @@ export default function ImportPreviewScreen() {
       <Screen testID="screen-import-preview-empty" showSyncStatus={false}>
         <Text variant="title2">Nothing to review</Text>
         <Text variant="body" tone="secondary">
-          Start from Add and import a link, share, or paste text first. Whisk
-          never saves without this preview.
+          Start from Add and import a link, share, or paste text first. Whisk never saves without
+          this preview.
         </Text>
         <Button
           label="Back to Add"
@@ -98,9 +96,7 @@ export default function ImportPreviewScreen() {
       setSavedNote('Saved locally. You can find it in Recipes.');
     } catch (error) {
       const message =
-        error instanceof ImportCommitError
-          ? error.message
-          : 'Could not save. Nothing was stored.';
+        error instanceof ImportCommitError ? error.message : 'Could not save. Nothing was stored.';
       setSaveError(message);
       // Keep draft in preview — never clear on validation failure.
       useImportSessionStore.setState({ phase: 'preview' });
@@ -110,8 +106,8 @@ export default function ImportPreviewScreen() {
   return (
     <Screen testID="screen-import-preview" showSyncStatus>
       <Text variant="body" tone="secondary">
-        Check everything below. Low-confidence fields are marked for review.
-        Nothing is saved until you confirm.
+        Check everything below. Low-confidence fields are marked for review. Nothing is saved until
+        you confirm.
       </Text>
 
       {draft.warnings.length > 0 ? (
@@ -119,11 +115,7 @@ export default function ImportPreviewScreen() {
           {draft.warnings.map((warning, index) => (
             <ConfidenceBanner
               key={`${warning.code}-${index}`}
-              level={
-                warning.field
-                  ? (draft.confidence[warning.field] ?? 'low')
-                  : 'low'
-              }
+              level={warning.field ? (draft.confidence[warning.field] ?? 'low') : 'low'}
               message={warning.message}
             />
           ))}
@@ -186,10 +178,7 @@ export default function ImportPreviewScreen() {
             styles.multi,
             {
               backgroundColor: colors.card,
-              borderColor:
-                draft.confidence.ingredients === 'high'
-                  ? colors.border
-                  : colors.warning,
+              borderColor: draft.confidence.ingredients === 'high' ? colors.border : colors.warning,
               color: colors.textPrimary,
             },
           ]}
@@ -216,9 +205,7 @@ export default function ImportPreviewScreen() {
             {
               backgroundColor: colors.card,
               borderColor:
-                draft.confidence.instructions === 'high'
-                  ? colors.border
-                  : colors.warning,
+                draft.confidence.instructions === 'high' ? colors.border : colors.warning,
               color: colors.textPrimary,
             },
           ]}

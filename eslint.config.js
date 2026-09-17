@@ -35,4 +35,11 @@ module.exports = defineConfig([
       },
     },
   },
+  {
+    // Feature hydrate/load-from-SQLite patterns legitimately set state in effects.
+    // Keep as follow-up to migrate toward derived state / external stores.
+    rules: {
+      'react-hooks/set-state-in-effect': 'off',
+    },
+  },
 ]);

@@ -1,9 +1,6 @@
 import { StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
 
-import {
-  ConfidenceBanner,
-  fieldNeedsReview,
-} from '@/components/import/ConfidenceBanner';
+import { ConfidenceBanner, fieldNeedsReview } from '@/components/import/ConfidenceBanner';
 import { Text } from '@/components/ui/Text';
 import { radius, spacing } from '@/constants/tokens';
 import type { ConfidenceLevel } from '@/import/types';
@@ -44,13 +41,9 @@ export function ConfidenceField({
           style,
         ]}
         accessibilityLabel={label}
-        accessibilityHint={
-          review ? reviewHint ?? 'This field may need a closer look' : undefined
-        }
+        accessibilityHint={review ? (reviewHint ?? 'This field may need a closer look') : undefined}
       />
-      {review && reviewHint ? (
-        <ConfidenceBanner level={confidence} message={reviewHint} />
-      ) : null}
+      {review && reviewHint ? <ConfidenceBanner level={confidence} message={reviewHint} /> : null}
     </View>
   );
 }

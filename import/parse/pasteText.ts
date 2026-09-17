@@ -23,9 +23,7 @@ export function draftFromPastedText(options: {
 
   const title = (options.titleHint?.trim() || lines[0]).trim();
   const body = options.titleHint?.trim() ? lines : lines.slice(1);
-  const splitAt = body.findIndex((line) =>
-    /^(directions|instructions|method|steps)\b/i.test(line),
-  );
+  const splitAt = body.findIndex((line) => /^(directions|instructions|method|steps)\b/i.test(line));
   const ingredientSection = splitAt >= 0 ? body.slice(0, splitAt) : body;
   const stepSection = splitAt >= 0 ? body.slice(splitAt + 1) : [];
 
@@ -45,8 +43,7 @@ export function draftFromPastedText(options: {
   const warnings: ImportWarning[] = [
     {
       code: 'low_confidence',
-      message:
-        'This draft came from pasted text. Double-check quantities and steps before saving.',
+      message: 'This draft came from pasted text. Double-check quantities and steps before saving.',
     },
   ];
   if (!ingredients.length) {

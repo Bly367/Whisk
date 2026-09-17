@@ -1,12 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import {
-  FlatList,
-  Modal,
-  Pressable,
-  StyleSheet,
-  TextInput,
-  View,
-} from 'react-native';
+import { FlatList, Modal, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { Button } from '@/components/ui/Button';
 import { Text } from '@/components/ui/Text';
@@ -76,10 +69,7 @@ export function RecipePickerModal({
     >
       <View style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
         <View
-          style={[
-            styles.sheet,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
+          style={[styles.sheet, { backgroundColor: colors.card, borderColor: colors.border }]}
           testID={testID}
         >
           <Text variant="title2">{title}</Text>
@@ -114,10 +104,7 @@ export function RecipePickerModal({
                     },
                   ]}
                 >
-                  <Text
-                    variant="callout"
-                    style={{ color: colors.textPrimary }}
-                  >
+                  <Text variant="callout" style={{ color: colors.textPrimary }}>
                     {label}
                   </Text>
                 </Pressable>

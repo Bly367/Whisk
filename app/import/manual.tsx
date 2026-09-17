@@ -8,11 +8,7 @@ import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { createId, nowIso } from '@/data/util';
 import { radius, spacing } from '@/constants/tokens';
-import {
-  parseIngredientLine,
-  useImportSessionStore,
-  type ImportDraft,
-} from '@/import';
+import { parseIngredientLine, useImportSessionStore, type ImportDraft } from '@/import';
 import { useTheme } from '@/theme/ThemeProvider';
 
 /**
@@ -157,11 +153,7 @@ export default function ImportManualScreen() {
         </Text>
       ) : null}
 
-      <Button
-        label="Review before saving"
-        onPress={handleContinue}
-        testID="manual-continue"
-      />
+      <Button label="Review before saving" onPress={handleContinue} testID="manual-continue" />
     </Screen>
   );
 }

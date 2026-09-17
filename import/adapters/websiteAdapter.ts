@@ -4,16 +4,8 @@ import {
   extractRecipeJsonLd,
 } from '@/import/parse/jsonLd';
 import { draftFromPastedText } from '@/import/parse/pasteText';
-import {
-  canonicalizeUrl,
-  detectSource,
-  isSocialSource,
-} from '@/import/parse/url';
-import type {
-  ImportAdapter,
-  ImportAdapterInput,
-  ImportAdapterResult,
-} from '@/import/types';
+import { canonicalizeUrl, detectSource, isSocialSource } from '@/import/parse/url';
+import type { ImportAdapter, ImportAdapterInput, ImportAdapterResult } from '@/import/types';
 import { DEFAULT_FALLBACKS } from '@/import/types';
 
 export const WEBSITE_ADAPTER_ID = 'website-jsonld';

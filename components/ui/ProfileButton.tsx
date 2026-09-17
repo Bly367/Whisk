@@ -31,11 +31,7 @@ export function ProfileButton() {
           { opacity: pressed ? 0.6 : 1 },
         ]}
       >
-        <SymbolView
-          name={profileIcon}
-          size={28}
-          tintColor={colors.textPrimary}
-        />
+        <SymbolView name={profileIcon} size={28} tintColor={colors.textPrimary} />
       </Pressable>
     </Link>
   );

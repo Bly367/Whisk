@@ -84,9 +84,7 @@ function sampleDraft(overrides: Partial<ImportDraft> = {}): ImportDraft {
 describe('import adapters registry', () => {
   it('exposes replaceable website, share-sheet, and OCR adapters', () => {
     const ids = listImportAdapters().map((a) => a.id);
-    expect(ids).toEqual(
-      expect.arrayContaining(['website-jsonld', 'share-sheet', 'ocr-photo']),
-    );
+    expect(ids).toEqual(expect.arrayContaining(['website-jsonld', 'share-sheet', 'ocr-photo']));
   });
 });
 
@@ -148,9 +146,7 @@ describe('website adapter', () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error.code).toBe('unsupported');
-    expect(result.error.fallbacks).toEqual(
-      expect.arrayContaining(['paste_text', 'manual']),
-    );
+    expect(result.error.fallbacks).toEqual(expect.arrayContaining(['paste_text', 'manual']));
   });
 
   it('returns needs_input for pages without structured recipe (no blank draft)', async () => {
@@ -192,9 +188,7 @@ describe('import commit trust gates', () => {
   });
 
   it('refuses blank title and empty content', () => {
-    expect(() =>
-      assertDraftReadyToSave(sampleDraft({ title: '   ' })),
-    ).toThrow(ImportCommitError);
+    expect(() => assertDraftReadyToSave(sampleDraft({ title: '   ' }))).toThrow(ImportCommitError);
 
     expect(() =>
       assertDraftReadyToSave(
@@ -222,10 +216,7 @@ describe('import commit trust gates', () => {
     const { recipes } = createRepositories(db);
     const before = recipes.list().length;
 
-    const result = await runImport(
-      { url: 'https://instagram.com/p/x' },
-      'website-jsonld',
-    );
+    const result = await runImport({ url: 'https://instagram.com/p/x' }, 'website-jsonld');
     expect(result.ok).toBe(false);
     expect(recipes.list()).toHaveLength(before);
   });
@@ -253,9 +244,7 @@ describe('import commit trust gates', () => {
 
 describe('url helpers', () => {
   it('canonicalizes and detects social hosts', () => {
-    const url = canonicalizeUrl(
-      'https://www.Instagram.com/p/abc/?utm_source=share',
-    );
+    const url = canonicalizeUrl('https://www.Instagram.com/p/abc/?utm_source=share');
     expect(url).toBe('https://instagram.com/p/abc/');
     expect(isSocialSource(detectSource(url))).toBe(true);
   });

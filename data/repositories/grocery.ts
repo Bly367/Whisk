@@ -1,8 +1,4 @@
-import type {
-  GroceryItem,
-  GroceryList,
-  GroceryListWithItems,
-} from '@/data/contracts';
+import type { GroceryItem, GroceryList, GroceryListWithItems } from '@/data/contracts';
 import type { DbClient } from '@/data/client';
 import { mapGroceryItem, mapGroceryList } from '@/data/mappers';
 import { withLocalPersist } from '@/data/sync/statusStore';
@@ -28,7 +24,7 @@ export function createGroceryRepository(db: DbClient) {
     create(input: {
       name: string;
       mealPlanId?: string | null;
-      items?: Array<{
+      items?: {
         name: string;
         quantity?: string | null;
         unit?: string | null;
@@ -37,7 +33,7 @@ export function createGroceryRepository(db: DbClient) {
         recipeTitle?: string | null;
         mergeKey?: string | null;
         position?: number;
-      }>;
+      }[];
     }): GroceryListWithItems {
       return withLocalPersist(() => {
         const id = createId();
@@ -189,10 +185,11 @@ export function createGroceryRepository(db: DbClient) {
       withLocalPersist(() => {
         const now = nowIso();
         db.withTransaction(() => {
-          db.run(
-            `UPDATE grocery_items SET deleted_at = ?, updated_at = ? WHERE id = ?`,
-            [now, now, id],
-          );
+          db.run(`UPDATE grocery_items SET deleted_at = ?, updated_at = ? WHERE id = ?`, [
+            now,
+            now,
+            id,
+          ]);
           db.run(
             `UPDATE grocery_lists SET updated_at = ?, sync_status = 'synced_local' WHERE id = ?`,
             [now, existing.list_id],
@@ -205,9 +202,7 @@ export function createGroceryRepository(db: DbClient) {
     restoreItem(id: string): GroceryItem {
       return withLocalPersist(() => {
         const now = nowIso();
-        const existing = db.get<ItemRow>(`SELECT * FROM grocery_items WHERE id = ?`, [
-          id,
-        ]);
+        const existing = db.get<ItemRow>(`SELECT * FROM grocery_items WHERE id = ?`, [id]);
         if (!existing) {
           throw new Error(`Grocery item not found: ${id}`);
         }
@@ -249,9 +244,7 @@ export function createGroceryRepository(db: DbClient) {
 
     /** Restore a soft-deleted grocery list (undo replace / delete). */
     restoreList(id: string): GroceryListWithItems {
-      const existing = db.get<ListRow>(`SELECT * FROM grocery_lists WHERE id = ?`, [
-        id,
-      ]);
+      const existing = db.get<ListRow>(`SELECT * FROM grocery_lists WHERE id = ?`, [id]);
       if (!existing) {
         throw new Error(`Grocery list not found: ${id}`);
       }

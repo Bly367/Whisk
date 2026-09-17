@@ -1,10 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  Alert,
-  Pressable,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 
 import { EntryOptionsModal } from '@/components/plan/EntryOptionsModal';
@@ -16,7 +11,11 @@ import {
   recipeTitleMap,
   slotLabel,
 } from '@/components/plan/planHelpers';
-import { usePlanUiStore, type EntryActionTarget, type PickerTarget } from '@/components/plan/planUiStore';
+import {
+  usePlanUiStore,
+  type EntryActionTarget,
+  type PickerTarget,
+} from '@/components/plan/planUiStore';
 import { RecipePickerModal } from '@/components/plan/RecipePickerModal';
 import { formatWeekRange, weekDays } from '@/components/plan/weekUtils';
 import { Button } from '@/components/ui/Button';
@@ -30,11 +29,7 @@ import type {
   MealSlot,
   RecipeListItem,
 } from '@/data/contracts';
-import {
-  getRepositories,
-  reportLocalPersistFailure,
-  reportLocalPersistSuccess,
-} from '@/data';
+import { getRepositories, reportLocalPersistFailure, reportLocalPersistSuccess } from '@/data';
 import { ensureMinTouchTarget, hitSlop } from '@/theme/a11y';
 import { useTheme } from '@/theme/ThemeProvider';
 
@@ -71,9 +66,7 @@ export default function PlanScreen() {
       setRecipes(nextRecipes);
       setLoadError(null);
     } catch (error) {
-      setLoadError(
-        error instanceof Error ? error.message : 'Could not load this week’s plan.',
-      );
+      setLoadError(error instanceof Error ? error.message : 'Could not load this week’s plan.');
     }
   }, [weekStart]);
 
@@ -134,21 +127,24 @@ export default function PlanScreen() {
     setPicker(null);
   };
 
-  const restoreEntry = useCallback((snapshot: MealPlanEntry) => {
-    persist(
-      () => {
-        getRepositories().mealPlans.addEntry({
-          mealPlanId: snapshot.mealPlanId,
-          recipeId: snapshot.recipeId,
-          planDate: snapshot.planDate,
-          slot: snapshot.slot,
-          note: snapshot.note,
-          position: snapshot.position,
-        });
-      },
-      { message: 'Meal restored' },
-    );
-  }, [persist]);
+  const restoreEntry = useCallback(
+    (snapshot: MealPlanEntry) => {
+      persist(
+        () => {
+          getRepositories().mealPlans.addEntry({
+            mealPlanId: snapshot.mealPlanId,
+            recipeId: snapshot.recipeId,
+            planDate: snapshot.planDate,
+            slot: snapshot.slot,
+            note: snapshot.note,
+            position: snapshot.position,
+          });
+        },
+        { message: 'Meal restored' },
+      );
+    },
+    [persist],
+  );
 
   const removeEntryConfirmed = useCallback(
     (entryId: string) => {
@@ -173,21 +169,15 @@ export default function PlanScreen() {
 
   const removeEntry = (entryId: string) => {
     const title =
-      entryAction?.recipeTitle ??
-      plan?.entries.find((e) => e.id === entryId)?.note ??
-      'this meal';
-    Alert.alert(
-      'Remove meal?',
-      `Remove ${title} from this week’s plan?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: () => removeEntryConfirmed(entryId),
-        },
-      ],
-    );
+      entryAction?.recipeTitle ?? plan?.entries.find((e) => e.id === entryId)?.note ?? 'this meal';
+    Alert.alert('Remove meal?', `Remove ${title} from this week’s plan?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: () => removeEntryConfirmed(entryId),
+      },
+    ]);
   };
 
   const duplicateEntry = () => {
@@ -248,10 +238,7 @@ export default function PlanScreen() {
     });
   }, [plan, recipesById]);
 
-  const totalIngredients = groceryPreview.reduce(
-    (sum, line) => sum + line.ingredientCount,
-    0,
-  );
+  const totalIngredients = groceryPreview.reduce((sum, line) => sum + line.ingredientCount, 0);
 
   const confirmGrocery = () => {
     if (!plan || groceryPreview.length === 0) return;
@@ -356,10 +343,7 @@ export default function PlanScreen() {
 
       {loadError ? (
         <View
-          style={[
-            styles.errorBox,
-            { backgroundColor: colors.sunken, borderColor: colors.border },
-          ]}
+          style={[styles.errorBox, { backgroundColor: colors.sunken, borderColor: colors.border }]}
         >
           <Text variant="body" tone="error">
             {loadError}
@@ -370,17 +354,11 @@ export default function PlanScreen() {
 
       {isEmpty && !loadError ? (
         <View
-          style={[
-            styles.empty,
-            { backgroundColor: colors.sunken, borderColor: colors.border },
-          ]}
+          style={[styles.empty, { backgroundColor: colors.sunken, borderColor: colors.border }]}
           testID="plan-empty"
         >
           <View
-            style={[
-              styles.chickDot,
-              { backgroundColor: colors.brand.chick },
-            ]}
+            style={[styles.chickDot, { backgroundColor: colors.brand.chick }]}
             accessible={false}
             importantForAccessibility="no"
           />
@@ -510,11 +488,7 @@ export default function PlanScreen() {
 
       <RecipePickerModal
         visible={picker !== null}
-        title={
-          picker
-            ? `Add ${slotLabel(picker.slot).toLowerCase()}`
-            : 'Add meal'
-        }
+        title={picker ? `Add ${slotLabel(picker.slot).toLowerCase()}` : 'Add meal'}
         recipes={recipes}
         onClose={() => setPicker(null)}
         onSelect={addRecipe}

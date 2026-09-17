@@ -18,11 +18,7 @@ function isLow(level: ConfidenceLevel | undefined): boolean {
 /**
  * Warning treatment for uncertain import fields (color + plain copy — not color alone).
  */
-export function ConfidenceBanner({
-  level,
-  message,
-  testID,
-}: ConfidenceBannerProps) {
+export function ConfidenceBanner({ level, message, testID }: ConfidenceBannerProps) {
   const { colors } = useTheme();
   if (!level || level === 'high') return null;
   if (!isLow(level) && level !== 'medium') return null;

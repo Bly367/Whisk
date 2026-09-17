@@ -1,10 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 
-import {
-  currentWeekStartIso,
-  type FreeTierUsage,
-} from '@/features/trust/freeTier';
+import { currentWeekStartIso, type FreeTierUsage } from '@/features/trust/freeTier';
 
 const STORAGE_KEY = 'whisk.session.v1';
 

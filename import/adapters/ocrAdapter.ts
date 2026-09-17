@@ -1,8 +1,4 @@
-import type {
-  ImportAdapter,
-  ImportAdapterInput,
-  ImportAdapterResult,
-} from '@/import/types';
+import type { ImportAdapter, ImportAdapterInput, ImportAdapterResult } from '@/import/types';
 import { DEFAULT_FALLBACKS } from '@/import/types';
 
 export const OCR_ADAPTER_ID = 'ocr-photo';

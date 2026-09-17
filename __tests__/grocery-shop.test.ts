@@ -5,11 +5,7 @@ import {
   commitGroceryPreview,
   generateGroceryListFromPlan,
 } from '@/features/shop/generateFromPlan';
-import {
-  completedItems,
-  groupGroceryItems,
-  isMergedItem,
-} from '@/features/shop/groupItems';
+import { completedItems, groupGroceryItems, isMergedItem } from '@/features/shop/groupItems';
 import {
   buildMergeKey,
   mergeGroceryLines,
@@ -17,10 +13,7 @@ import {
   splitMergedDraft,
   type GrocerySourceLine,
 } from '@/features/shop/merge';
-import {
-  replaceGroceryListFromPreview,
-  undoReplaceGroceryList,
-} from '@/features/shop/replaceList';
+import { replaceGroceryListFromPreview, undoReplaceGroceryList } from '@/features/shop/replaceList';
 import { unmergeGroceryItem } from '@/features/shop/unmerge';
 import { startOfWeekMonday } from '@/features/shop/week';
 
@@ -186,9 +179,7 @@ describe('aisle grouping + undo + unmerge', () => {
     // Second recipe to force a merge
     const soup = repos.recipes.create({
       title: 'Soup',
-      ingredients: [
-        { name: 'chicken', quantity: '1', unit: 'lb', aisle: 'Meat & Seafood' },
-      ],
+      ingredients: [{ name: 'chicken', quantity: '1', unit: 'lb', aisle: 'Meat & Seafood' }],
     });
     repos.mealPlans.addEntry({
       mealPlanId: plan.id,

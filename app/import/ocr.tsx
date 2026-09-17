@@ -38,10 +38,7 @@ export default function ImportOcrScreen() {
       />
 
       <View
-        style={[
-          styles.card,
-          { backgroundColor: colors.sunken, borderColor: colors.border },
-        ]}
+        style={[styles.card, { backgroundColor: colors.sunken, borderColor: colors.border }]}
         testID="ocr-stub-card"
       >
         <Text variant="headline" tone="warning">

@@ -65,10 +65,7 @@ export function buildMergeKey(name: string, unit?: string | null): string {
   return `${normalizeIngredientName(name)}|${normalizeUnit(unit)}`;
 }
 
-export function encodeMergeKey(
-  baseKey: string,
-  sources: GrocerySourceLine[],
-): string {
+export function encodeMergeKey(baseKey: string, sources: GrocerySourceLine[]): string {
   if (sources.length <= 1) return baseKey;
   return `${baseKey}${SRC_SEP}${JSON.stringify(sources)}`;
 }
@@ -129,11 +126,7 @@ function canMergeQuantities(
 
 function provenanceTitle(sources: GrocerySourceLine[]): string | null {
   const titles = [
-    ...new Set(
-      sources
-        .map((s) => s.recipeTitle?.trim())
-        .filter((t): t is string => !!t),
-    ),
+    ...new Set(sources.map((s) => s.recipeTitle?.trim()).filter((t): t is string => !!t)),
   ];
   if (titles.length === 0) return null;
   return titles.join(' · ');

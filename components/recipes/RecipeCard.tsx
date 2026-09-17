@@ -42,10 +42,7 @@ export function RecipeCard({ recipe, searchQuery = '', onPress }: RecipeCardProp
         })
       }
     >
-      <View
-        style={[styles.thumb, { backgroundColor: colors.brand.yolkSoft }]}
-        accessible={false}
-      />
+      <View style={[styles.thumb, { backgroundColor: colors.brand.yolkSoft }]} accessible={false} />
       <View style={styles.body}>
         <Text variant="headline" numberOfLines={2}>
           {recipe.title}

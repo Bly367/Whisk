@@ -1,9 +1,4 @@
-import type {
-  GroceryListWithItems,
-  Ingredient,
-  MealPlanWithEntries,
-  Repositories,
-} from '@/data';
+import type { GroceryListWithItems, Ingredient, MealPlanWithEntries, Repositories } from '@/data';
 import { resolveAisle } from '@/features/shop/aisle';
 import {
   mergeGroceryLines,

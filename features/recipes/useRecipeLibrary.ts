@@ -3,10 +3,7 @@ import { useFocusEffect } from 'expo-router';
 
 import type { Collection, RecipeListItem, Tag } from '@/data/contracts';
 import { getRepositories } from '@/data';
-import {
-  applyLibraryFilters,
-  type LibraryFilterState,
-} from '@/features/recipes/libraryFilters';
+import { applyLibraryFilters, type LibraryFilterState } from '@/features/recipes/libraryFilters';
 
 export type LibraryData = {
   recipes: RecipeListItem[];
@@ -34,9 +31,7 @@ export function useRecipeLibrary(filters: LibraryFilterState): LibraryData {
 
       let collectionIds: Set<string> | null = null;
       if (filters.collectionId) {
-        collectionIds = new Set(
-          repos.collections.listRecipeIds(filters.collectionId),
-        );
+        collectionIds = new Set(repos.collections.listRecipeIds(filters.collectionId));
       }
 
       setRecipes(applyLibraryFilters(listed, filters, collectionIds));

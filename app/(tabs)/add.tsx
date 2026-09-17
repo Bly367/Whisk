@@ -137,9 +137,7 @@ export default function AddScreen() {
               <Text variant="headline">{source.label}</Text>
               <Text variant="caption" tone="secondary">
                 {source.hint}
-                {source.limited
-                  ? ` · counts toward ${FREE_TIER.importsPerWeek}/week`
-                  : ''}
+                {source.limited ? ` · counts toward ${FREE_TIER.importsPerWeek}/week` : ''}
               </Text>
             </View>
             <Button

@@ -7,23 +7,11 @@ import type {
   RecipeWithIngredients,
 } from '@/data/contracts';
 import type { DbClient } from '@/data/client';
-import {
-  mapIngredient,
-  mapRecipe,
-  type IngredientRow,
-  type RecipeRow,
-} from '@/data/mappers';
-import {
-  reportLocalPersistFailure,
-  reportLocalPersistSuccess,
-} from '@/data/sync/statusStore';
+import { mapIngredient, mapRecipe, type IngredientRow, type RecipeRow } from '@/data/mappers';
+import { reportLocalPersistFailure, reportLocalPersistSuccess } from '@/data/sync/statusStore';
 import { createId, fromBool, nowIso } from '@/data/util';
 
-function replaceIngredients(
-  db: DbClient,
-  recipeId: string,
-  ingredients: IngredientInput[],
-): void {
+function replaceIngredients(db: DbClient, recipeId: string, ingredients: IngredientInput[]): void {
   db.run('DELETE FROM ingredients WHERE recipe_id = ?', [recipeId]);
   ingredients.forEach((ing, index) => {
     db.run(
@@ -64,10 +52,9 @@ function loadIngredients(db: DbClient, recipeId: string) {
 }
 
 function loadTagIds(db: DbClient, recipeId: string): string[] {
-  const rows = db.all<{ tag_id: string }>(
-    `SELECT tag_id FROM recipe_tags WHERE recipe_id = ?`,
-    [recipeId],
-  );
+  const rows = db.all<{ tag_id: string }>(`SELECT tag_id FROM recipe_tags WHERE recipe_id = ?`, [
+    recipeId,
+  ]);
   return rows.map((r) => r.tag_id);
 }
 
@@ -146,9 +133,7 @@ export function createRecipeRepository(db: DbClient) {
         reportLocalPersistSuccess();
         return recipe;
       } catch (error) {
-        reportLocalPersistFailure(
-          error instanceof Error ? error.message : 'Could not save recipe',
-        );
+        reportLocalPersistFailure(error instanceof Error ? error.message : 'Could not save recipe');
         throw error;
       }
     },
@@ -195,9 +180,7 @@ export function createRecipeRepository(db: DbClient) {
               sync_status = 'synced_local'
             WHERE id = ?`,
             [
-              input.title !== undefined
-                ? input.title.trim() || 'Untitled recipe'
-                : existing.title,
+              input.title !== undefined ? input.title.trim() || 'Untitled recipe' : existing.title,
               input.notes !== undefined ? input.notes : existing.notes,
               input.sourceUrl !== undefined ? input.sourceUrl : existing.source_url,
               input.sourceName !== undefined ? input.sourceName : existing.source_name,
@@ -210,9 +193,7 @@ export function createRecipeRepository(db: DbClient) {
                 ? JSON.stringify(input.instructions)
                 : existing.instructions_json,
               input.status !== undefined ? input.status : existing.status,
-              input.isFavorite !== undefined
-                ? fromBool(input.isFavorite)
-                : existing.is_favorite,
+              input.isFavorite !== undefined ? fromBool(input.isFavorite) : existing.is_favorite,
               input.cookedAt !== undefined ? input.cookedAt : existing.cooked_at,
               now,
               id,
@@ -235,9 +216,7 @@ export function createRecipeRepository(db: DbClient) {
         reportLocalPersistSuccess();
         return recipe;
       } catch (error) {
-        reportLocalPersistFailure(
-          error instanceof Error ? error.message : 'Could not save recipe',
-        );
+        reportLocalPersistFailure(error instanceof Error ? error.message : 'Could not save recipe');
         throw error;
       }
     },
@@ -291,9 +270,7 @@ export function createRecipeRepository(db: DbClient) {
     },
 
     listTrash(): RecipeListItem[] {
-      return this.list({ includeDeleted: true, status: 'any' }).filter(
-        (r) => r.deletedAt !== null,
-      );
+      return this.list({ includeDeleted: true, status: 'any' }).filter((r) => r.deletedAt !== null);
     },
 
     /**
@@ -349,8 +326,7 @@ export function createRecipeRepository(db: DbClient) {
       }
 
       const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
-      const limitSql =
-        typeof limit === 'number' ? `LIMIT ${limit} OFFSET ${offset}` : '';
+      const limitSql = typeof limit === 'number' ? `LIMIT ${limit} OFFSET ${offset}` : '';
 
       type ListRow = RecipeRow & {
         ingredient_names: string | null;
@@ -380,9 +356,7 @@ export function createRecipeRepository(db: DbClient) {
 
       return rows.map((row) => ({
         ...mapRecipe(row),
-        ingredientNames: row.ingredient_names
-          ? row.ingredient_names.split('\u001f')
-          : [],
+        ingredientNames: row.ingredient_names ? row.ingredient_names.split('\u001f') : [],
         tagNames: row.tag_names ? row.tag_names.split('\u001f') : [],
       }));
     },

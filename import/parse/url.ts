@@ -12,12 +12,7 @@ const TRACKING_PARAMS = [
 ];
 
 export type DetectedSource =
-  | 'website'
-  | 'instagram'
-  | 'tiktok'
-  | 'facebook'
-  | 'youtube'
-  | 'pinterest';
+  'website' | 'instagram' | 'tiktok' | 'facebook' | 'youtube' | 'pinterest';
 
 export function extractUrl(input: string): string | null {
   const match = input.match(URL_PATTERN);
@@ -75,11 +70,7 @@ export function detectSource(input: string): DetectedSource {
   ) {
     return 'facebook';
   }
-  if (
-    hostname === 'youtube.com' ||
-    hostname.endsWith('.youtube.com') ||
-    hostname === 'youtu.be'
-  ) {
+  if (hostname === 'youtube.com' || hostname.endsWith('.youtube.com') || hostname === 'youtu.be') {
     return 'youtube';
   }
   if (hostname === 'pinterest.com' || hostname.endsWith('.pinterest.com')) {

@@ -19,14 +19,7 @@ export function createCollectionRepository(db: DbClient) {
           db.run(
             `INSERT INTO collections (id, name, kind, rules_json, created_at, updated_at, deleted_at)
              VALUES (?, ?, ?, ?, ?, ?, NULL)`,
-            [
-              id,
-              input.name.trim(),
-              input.kind ?? 'manual',
-              input.rulesJson ?? null,
-              now,
-              now,
-            ],
+            [id, input.name.trim(), input.kind ?? 'manual', input.rulesJson ?? null, now, now],
           );
           input.recipeIds?.forEach((recipeId, position) => {
             db.run(
@@ -77,32 +70,27 @@ export function createCollectionRepository(db: DbClient) {
       withLocalPersist(() => {
         const pos =
           position ??
-          (db.get<{ c: number }>(
+          db.get<{ c: number }>(
             `SELECT COUNT(*) AS c FROM collection_recipes WHERE collection_id = ?`,
             [collectionId],
-          )?.c ?? 0);
+          )?.c ??
+          0;
         db.run(
           `INSERT OR IGNORE INTO collection_recipes (collection_id, recipe_id, position)
            VALUES (?, ?, ?)`,
           [collectionId, recipeId, pos],
         );
-        db.run(`UPDATE collections SET updated_at = ? WHERE id = ?`, [
-          nowIso(),
-          collectionId,
-        ]);
+        db.run(`UPDATE collections SET updated_at = ? WHERE id = ?`, [nowIso(), collectionId]);
       }, 'Could not add recipe to collection');
     },
 
     removeRecipe(collectionId: string, recipeId: string): void {
       withLocalPersist(() => {
-        db.run(
-          `DELETE FROM collection_recipes WHERE collection_id = ? AND recipe_id = ?`,
-          [collectionId, recipeId],
-        );
-        db.run(`UPDATE collections SET updated_at = ? WHERE id = ?`, [
-          nowIso(),
+        db.run(`DELETE FROM collection_recipes WHERE collection_id = ? AND recipe_id = ?`, [
           collectionId,
+          recipeId,
         ]);
+        db.run(`UPDATE collections SET updated_at = ? WHERE id = ?`, [nowIso(), collectionId]);
       }, 'Could not remove recipe from collection');
     },
 
@@ -120,10 +108,10 @@ export function createCollectionRepository(db: DbClient) {
 
     restore(id: string): Collection {
       return withLocalPersist(() => {
-        db.run(
-          `UPDATE collections SET deleted_at = NULL, updated_at = ? WHERE id = ?`,
-          [nowIso(), id],
-        );
+        db.run(`UPDATE collections SET deleted_at = NULL, updated_at = ? WHERE id = ?`, [
+          nowIso(),
+          id,
+        ]);
         const row = db.get<Parameters<typeof mapCollection>[0]>(
           `SELECT * FROM collections WHERE id = ?`,
           [id],

@@ -1,9 +1,4 @@
-import {
-  DarkTheme,
-  DefaultTheme,
-  Stack,
-  ThemeProvider as NavThemeProvider,
-} from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider as NavThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';

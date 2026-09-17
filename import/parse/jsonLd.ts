@@ -2,11 +2,7 @@ import type { CookStep, IngredientInput } from '@/data/contracts';
 import { createId, nowIso } from '@/data/util';
 
 import { parseIngredientLine } from '@/import/parse/ingredients';
-import type {
-  FieldConfidence,
-  ImportDraft,
-  ImportWarning,
-} from '@/import/types';
+import type { FieldConfidence, ImportDraft, ImportWarning } from '@/import/types';
 
 type JsonLd = Record<string, unknown>;
 
@@ -53,11 +49,7 @@ export function parseDurationMinutes(value: unknown): number | null {
   if (typeof value !== 'string') return null;
   const match = value.match(/^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?)?$/i);
   if (!match) return null;
-  return (
-    Number(match[1] ?? 0) * 1440 +
-    Number(match[2] ?? 0) * 60 +
-    Number(match[3] ?? 0)
-  );
+  return Number(match[1] ?? 0) * 1440 + Number(match[2] ?? 0) * 60 + Number(match[3] ?? 0);
 }
 
 function parseNumber(value: unknown): number | null {
@@ -72,10 +64,7 @@ function parseServings(value: unknown): number | null {
 
 function flattenInstructions(value: unknown): string[] {
   if (typeof value === 'string') {
-    return value
-      .split(/\r?\n/)
-      .map(cleanText)
-      .filter(Boolean);
+    return value.split(/\r?\n/).map(cleanText).filter(Boolean);
   }
   if (!Array.isArray(value)) return [];
   return value.flatMap((item) => {
@@ -127,14 +116,9 @@ export type ExtractedRecipe = {
  * Parse schema.org Recipe JSON-LD from HTML.
  * Returns null when no recipe node exists — callers must not invent one.
  */
-export function extractRecipeJsonLd(
-  html: string,
-  _sourceUrl: string,
-): ExtractedRecipe | null {
+export function extractRecipeJsonLd(html: string, _sourceUrl: string): ExtractedRecipe | null {
   const scripts = [
-    ...html.matchAll(
-      /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi,
-    ),
+    ...html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi),
   ];
 
   for (const script of scripts) {
@@ -149,9 +133,7 @@ export function extractRecipeJsonLd(
       const ingredientLines = Array.isArray(recipe.recipeIngredient)
         ? recipe.recipeIngredient.map(cleanText).filter(Boolean)
         : [];
-      const ingredients = ingredientLines.map((line, index) =>
-        parseIngredientLine(line, index),
-      );
+      const ingredients = ingredientLines.map((line, index) => parseIngredientLine(line, index));
       const stepTexts = flattenInstructions(recipe.recipeInstructions);
       const instructions: CookStep[] = stepTexts.map((text, index) => ({
         id: createId(),
@@ -222,13 +204,9 @@ export function extractPageMetadata(html: string): {
       `<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${escaped}["'][^>]*>`,
       'i',
     );
-    return (
-      cleanText(html.match(pattern)?.[1] ?? html.match(reverse)?.[1]) ||
-      undefined
-    );
+    return cleanText(html.match(pattern)?.[1] ?? html.match(reverse)?.[1]) || undefined;
   };
-  const titleTag =
-    cleanText(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]) || undefined;
+  const titleTag = cleanText(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]) || undefined;
   return {
     title: meta('og:title') ?? titleTag,
     description: meta('og:description') ?? meta('description'),

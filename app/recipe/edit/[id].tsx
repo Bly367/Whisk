@@ -29,21 +29,17 @@ export default function RecipeEditScreen() {
   };
 
   const onDelete = () => {
-    Alert.alert(
-      'Move to trash?',
-      'You can restore this recipe later from trash.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Move to trash',
-          style: 'destructive',
-          onPress: () => {
-            editor.softDelete();
-            router.replace('/recipes');
-          },
+    Alert.alert('Move to trash?', 'You can restore this recipe later from trash.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Move to trash',
+        style: 'destructive',
+        onPress: () => {
+          editor.softDelete();
+          router.replace('/recipes');
         },
-      ],
-    );
+      },
+    ]);
   };
 
   return (
@@ -175,11 +171,7 @@ export default function RecipeEditScreen() {
           </View>
         ) : null}
 
-        <Button
-          label="Save recipe"
-          onPress={() => void onPublish()}
-          testID="edit-publish"
-        />
+        <Button label="Save recipe" onPress={() => void onPublish()} testID="edit-publish" />
         {editor.recipeId ? (
           <Button
             label="Move to trash"

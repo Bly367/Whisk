@@ -32,9 +32,7 @@ export function GuestModeBanner({ mode, testID = 'guest-mode-banner' }: Props) {
         importantForAccessibility="no"
       />
       <View style={styles.copy}>
-        <Text variant="headline">
-          {isGuest ? 'Guest · local only' : 'Signed in'}
-        </Text>
+        <Text variant="headline">{isGuest ? 'Guest · local only' : 'Signed in'}</Text>
         <Text variant="caption" tone="secondary">
           {isGuest
             ? 'Full core loop on this device — no account required. Recipes save locally and stay exportable.'

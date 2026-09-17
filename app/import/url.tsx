@@ -1,11 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import {
-  ActivityIndicator,
-  StyleSheet,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, StyleSheet, TextInput, View } from 'react-native';
 
 import { ImportFallbacks } from '@/components/import/ImportFallbacks';
 import { Button } from '@/components/ui/Button';
@@ -18,9 +13,7 @@ import { useTheme } from '@/theme/ThemeProvider';
 export default function ImportUrlScreen() {
   const { colors } = useTheme();
   const params = useLocalSearchParams<{ mode?: string; url?: string }>();
-  const [url, setUrl] = useState(
-    typeof params.url === 'string' ? params.url : '',
-  );
+  const [url, setUrl] = useState(typeof params.url === 'string' ? params.url : '');
   const [pasteText, setPasteText] = useState('');
   const showPaste = params.mode === 'paste' || pasteText.length > 0;
 
@@ -54,8 +47,8 @@ export default function ImportUrlScreen() {
   return (
     <Screen testID="screen-import-url" showSyncStatus={false}>
       <Text variant="body" tone="secondary">
-        Whisk extracts structured recipe data when the site provides it, then
-        asks you to review before anything is saved.
+        Whisk extracts structured recipe data when the site provides it, then asks you to review
+        before anything is saved.
       </Text>
 
       <View style={styles.field}>
@@ -86,8 +79,7 @@ export default function ImportUrlScreen() {
         <View style={styles.field}>
           <Text variant="headline">Paste recipe text</Text>
           <Text variant="caption" tone="secondary">
-            Use this when the page has no structured recipe, or to add a social
-            caption.
+            Use this when the page has no structured recipe, or to add a social caption.
           </Text>
           <TextInput
             value={pasteText}
@@ -121,10 +113,7 @@ export default function ImportUrlScreen() {
 
       {error && phase === 'failed' ? (
         <View
-          style={[
-            styles.errorCard,
-            { borderColor: colors.error, backgroundColor: colors.sunken },
-          ]}
+          style={[styles.errorCard, { borderColor: colors.error, backgroundColor: colors.sunken }]}
           testID="import-error"
         >
           <Text variant="headline" tone="error">

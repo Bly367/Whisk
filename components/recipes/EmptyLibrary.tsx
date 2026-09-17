@@ -29,13 +29,7 @@ export function EmptyLibrary({ onAdd }: EmptyLibraryProps) {
         ]}
       >
         <View style={[styles.eye, { backgroundColor: colors.textPrimary }]} />
-        <View
-          style={[
-            styles.eye,
-            styles.eyeRight,
-            { backgroundColor: colors.textPrimary },
-          ]}
-        />
+        <View style={[styles.eye, styles.eyeRight, { backgroundColor: colors.textPrimary }]} />
         <View style={[styles.beak, { backgroundColor: colors.brand.yolkPressed }]} />
       </View>
       <Text variant="title2">No recipes yet</Text>

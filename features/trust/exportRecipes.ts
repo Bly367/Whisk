@@ -1,8 +1,4 @@
-import type {
-  RecipeListItem,
-  RecipeWithIngredients,
-  Tag,
-} from '@/data/contracts';
+import type { RecipeListItem, RecipeWithIngredients, Tag } from '@/data/contracts';
 import type { OfflineReader } from '@/data/offline';
 import type { Repositories } from '@/data/repositories';
 
@@ -21,7 +17,7 @@ export type WhiskRecipeExport = {
   cookMinutes: number | null;
   rating: number | null;
   instructions: RecipeWithIngredients['instructions'];
-  ingredients: Array<{
+  ingredients: {
     name: string;
     quantity: string | null;
     unit: string | null;
@@ -29,7 +25,7 @@ export type WhiskRecipeExport = {
     aisle: string | null;
     groupName: string | null;
     position: number;
-  }>;
+  }[];
   tags: string[];
   status: RecipeWithIngredients['status'];
   isFavorite: boolean;
@@ -43,14 +39,11 @@ export type WhiskExportPayload = {
   version: typeof WHISK_EXPORT_VERSION;
   exportedAt: string;
   mode: 'guest' | 'signed_in';
-  tags: Array<{ id: string; name: string }>;
+  tags: { id: string; name: string }[];
   recipes: WhiskRecipeExport[];
 };
 
-function tagNamesFor(
-  recipe: RecipeWithIngredients,
-  tagsById: Map<string, Tag>,
-): string[] {
+function tagNamesFor(recipe: RecipeWithIngredients, tagsById: Map<string, Tag>): string[] {
   return recipe.tagIds
     .map((id) => tagsById.get(id)?.name)
     .filter((name): name is string => Boolean(name));

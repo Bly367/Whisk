@@ -77,10 +77,7 @@ export function gateImportAction(usage: FreeTierUsage): LimitGateResult {
 }
 
 /** Actions that must never show an upgrade interrupt. */
-export const NO_UPGRADE_INTERRUPT_CONTEXTS = [
-  'cook_mode',
-  'unfinished_import',
-] as const;
+export const NO_UPGRADE_INTERRUPT_CONTEXTS = ['cook_mode', 'unfinished_import'] as const;
 
 export type NoUpgradeContext = (typeof NO_UPGRADE_INTERRUPT_CONTEXTS)[number];
 

@@ -32,9 +32,7 @@ export function unmergeGroceryItem(
     }
     reportLocalPersistSuccess();
   } catch (error) {
-    reportLocalPersistFailure(
-      error instanceof Error ? error.message : 'Could not split item',
-    );
+    reportLocalPersistFailure(error instanceof Error ? error.message : 'Could not split item');
     throw error;
   }
 

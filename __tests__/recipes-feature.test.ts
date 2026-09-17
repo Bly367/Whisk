@@ -7,10 +7,7 @@ import {
   preferUnit,
   scaleQuantityDisplay,
 } from '@/features/recipes/scale';
-import {
-  applyLibraryFilters,
-  DEFAULT_LIBRARY_FILTERS,
-} from '@/features/recipes/libraryFilters';
+import { applyLibraryFilters, DEFAULT_LIBRARY_FILTERS } from '@/features/recipes/libraryFilters';
 import { createRepositories } from '@/data/repositories';
 import { createTestDbClient } from '@/data/testing/createTestDb';
 import type { RecipeListItem } from '@/data/contracts';

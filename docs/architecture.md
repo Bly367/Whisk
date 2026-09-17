@@ -4,13 +4,13 @@ Short engineering map for agents and contributors. Matches the locked stack in t
 
 ## Stack
 
-| Layer | Choice | Notes |
-| --- | --- | --- |
-| App | Expo + React Native + TypeScript (strict) | One codebase for iOS/Android |
-| Navigation | Expo Router | Five tabs: Home · Recipes · Add · Plan · Shop |
-| Persistence | expo-sqlite + typed repositories | Local-first; offline by default |
-| UI / session | Zustand | Ephemeral UI only—not domain storage |
-| Quality | ESLint + Prettier; Jest + React Native Testing Library | GitHub Actions on every PR |
+| Layer        | Choice                                                 | Notes                                         |
+| ------------ | ------------------------------------------------------ | --------------------------------------------- |
+| App          | Expo + React Native + TypeScript (strict)              | One codebase for iOS/Android                  |
+| Navigation   | Expo Router                                            | Five tabs: Home · Recipes · Add · Plan · Shop |
+| Persistence  | expo-sqlite + typed repositories                       | Local-first; offline by default               |
+| UI / session | Zustand                                                | Ephemeral UI only—not domain storage          |
+| Quality      | ESLint + Prettier; Jest + React Native Testing Library | GitHub Actions on every PR                    |
 
 ## Source of truth
 
@@ -40,16 +40,16 @@ Adapters live behind a stable import API so social parsers can be swapped when u
 
 ## Workstream boundaries
 
-| ID | Owns | Avoid |
-| --- | --- | --- |
-| W1 | Expo scaffold, tokens, five-tab shell, a11y primitives | Domain schema, feature CRUD |
-| W2 | SQLite schema, repositories, autosave, offline read, sync-status model | Feature screens beyond stubs |
-| W3 | Manual recipe CRUD, library, tags, search, serving scale | Import parsers, grocery merge |
-| W4 | Import adapters, preview/confidence, share sheet + OCR | Meal plan / shop logic |
-| W5 | Weekly meal planner | Grocery merge implementation |
-| W6 | Grocery generate/merge/aisle/provenance/undo | Cook mode / export |
-| W7 | Cook mode, guest mode, export, free-tier limits UX | Competing nav shells |
-| W8 | CI, ESLint/Prettier/Jest/TS configs, CONTRIBUTING, PR template, this doc | App entrypoints owned by W1 |
+| ID  | Owns                                                                     | Avoid                         |
+| --- | ------------------------------------------------------------------------ | ----------------------------- |
+| W1  | Expo scaffold, tokens, five-tab shell, a11y primitives                   | Domain schema, feature CRUD   |
+| W2  | SQLite schema, repositories, autosave, offline read, sync-status model   | Feature screens beyond stubs  |
+| W3  | Manual recipe CRUD, library, tags, search, serving scale                 | Import parsers, grocery merge |
+| W4  | Import adapters, preview/confidence, share sheet + OCR                   | Meal plan / shop logic        |
+| W5  | Weekly meal planner                                                      | Grocery merge implementation  |
+| W6  | Grocery generate/merge/aisle/provenance/undo                             | Cook mode / export            |
+| W7  | Cook mode, guest mode, export, free-tier limits UX                       | Competing nav shells          |
+| W8  | CI, ESLint/Prettier/Jest/TS configs, CONTRIBUTING, PR template, this doc | App entrypoints owned by W1   |
 
 Feature modules (W3–W7) depend on **published W2 repository contracts**, not each other's internals.
 

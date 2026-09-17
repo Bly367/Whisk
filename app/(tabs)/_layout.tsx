@@ -19,13 +19,7 @@ type TabIconProps = {
 };
 
 function TabIcon({ color, ios, android, web }: TabIconProps) {
-  return (
-    <SymbolView
-      name={{ ios, android, web }}
-      tintColor={color}
-      size={26}
-    />
-  );
+  return <SymbolView name={{ ios, android, web }} tintColor={color} size={26} />;
 }
 
 export default function TabLayout() {
@@ -66,12 +60,7 @@ export default function TabLayout() {
           tabBarAccessibilityLabel: 'Home',
           tabBarButtonTestID: 'tab-home',
           tabBarIcon: ({ color }) => (
-            <TabIcon
-              color={color}
-              ios="house.fill"
-              android="home"
-              web="home"
-            />
+            <TabIcon color={color} ios="house.fill" android="home" web="home" />
           ),
           headerRight: () => <ProfileButton />,
         }}
@@ -83,12 +72,7 @@ export default function TabLayout() {
           tabBarAccessibilityLabel: 'Recipes',
           tabBarButtonTestID: 'tab-recipes',
           tabBarIcon: ({ color }) => (
-            <TabIcon
-              color={color}
-              ios="book.fill"
-              android="menu_book"
-              web="menu_book"
-            />
+            <TabIcon color={color} ios="book.fill" android="menu_book" web="menu_book" />
           ),
         }}
       />
@@ -99,12 +83,7 @@ export default function TabLayout() {
           tabBarAccessibilityLabel: 'Add recipe',
           tabBarButtonTestID: 'tab-add',
           tabBarIcon: ({ color }) => (
-            <TabIcon
-              color={color}
-              ios="plus.circle.fill"
-              android="add_circle"
-              web="add_circle"
-            />
+            <TabIcon color={color} ios="plus.circle.fill" android="add_circle" web="add_circle" />
           ),
         }}
       />
@@ -115,12 +94,7 @@ export default function TabLayout() {
           tabBarAccessibilityLabel: 'Meal plan',
           tabBarButtonTestID: 'tab-plan',
           tabBarIcon: ({ color }) => (
-            <TabIcon
-              color={color}
-              ios="calendar"
-              android="calendar_today"
-              web="calendar_today"
-            />
+            <TabIcon color={color} ios="calendar" android="calendar_today" web="calendar_today" />
           ),
         }}
       />
@@ -131,12 +105,7 @@ export default function TabLayout() {
           tabBarAccessibilityLabel: 'Grocery list',
           tabBarButtonTestID: 'tab-shop',
           tabBarIcon: ({ color }) => (
-            <TabIcon
-              color={color}
-              ios="cart.fill"
-              android="shopping_cart"
-              web="shopping_cart"
-            />
+            <TabIcon color={color} ios="cart.fill" android="shopping_cart" web="shopping_cart" />
           ),
         }}
       />

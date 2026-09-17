@@ -19,10 +19,7 @@ function includesQuery(haystack: string | null | undefined, query: string): bool
  * Explain why a recipe matched a search when the query is not in the title.
  * Returns null for empty query, title matches, or no explainable field match.
  */
-export function explainSearchMatch(
-  item: RecipeListItem,
-  rawQuery: string,
-): SearchMatch | null {
+export function explainSearchMatch(item: RecipeListItem, rawQuery: string): SearchMatch | null {
   const query = rawQuery.trim().toLowerCase();
   if (!query) return null;
 

@@ -19,10 +19,7 @@ export {
   createWebsiteAdapter,
   WEBSITE_ADAPTER_ID,
 } from '@/import/adapters/websiteAdapter';
-export {
-  shareSheetAdapter,
-  SHARE_SHEET_ADAPTER_ID,
-} from '@/import/adapters/shareSheetAdapter';
+export { shareSheetAdapter, SHARE_SHEET_ADAPTER_ID } from '@/import/adapters/shareSheetAdapter';
 export { ocrAdapter, OCR_ADAPTER_ID } from '@/import/adapters/ocrAdapter';
 
 export {
@@ -33,12 +30,7 @@ export {
 } from '@/import/commit';
 export { useImportSessionStore } from '@/import/sessionStore';
 
-export {
-  canonicalizeUrl,
-  detectSource,
-  extractUrl,
-  isSocialSource,
-} from '@/import/parse/url';
+export { canonicalizeUrl, detectSource, extractUrl, isSocialSource } from '@/import/parse/url';
 export { extractRecipeJsonLd, extractPageMetadata } from '@/import/parse/jsonLd';
 export { draftFromPastedText } from '@/import/parse/pasteText';
 export { parseIngredientLine } from '@/import/parse/ingredients';

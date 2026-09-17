@@ -25,39 +25,25 @@ describe('localPersistence contracts', () => {
 
   describe('mayCelebrateSuccess', () => {
     it('never celebrates when local persistence failed', () => {
-      expect(
-        mayCelebrateSuccess({ localPersisted: false, syncComplete: true }),
-      ).toBe(false);
+      expect(mayCelebrateSuccess({ localPersisted: false, syncComplete: true })).toBe(false);
     });
 
     it('allows celebration only after local persistence succeeds', () => {
       expect(mayCelebrateSuccess({ localPersisted: true })).toBe(true);
-      expect(
-        mayCelebrateSuccess({ localPersisted: true, syncComplete: false }),
-      ).toBe(true);
+      expect(mayCelebrateSuccess({ localPersisted: true, syncComplete: false })).toBe(true);
     });
   });
 
   describe('resolveSyncStatus', () => {
     it('keeps needs_attention when local write failed even if sync reports success', () => {
-      expect(
-        resolveSyncStatus({ localPersisted: false, sync: 'success' }),
-      ).toBe('needs_attention');
+      expect(resolveSyncStatus({ localPersisted: false, sync: 'success' })).toBe('needs_attention');
     });
 
     it('maps sync lifecycle after a successful local write', () => {
-      expect(resolveSyncStatus({ localPersisted: true, sync: 'idle' })).toBe(
-        'saved_locally',
-      );
-      expect(resolveSyncStatus({ localPersisted: true, sync: 'in_progress' })).toBe(
-        'syncing',
-      );
-      expect(resolveSyncStatus({ localPersisted: true, sync: 'success' })).toBe(
-        'synced',
-      );
-      expect(resolveSyncStatus({ localPersisted: true, sync: 'failure' })).toBe(
-        'needs_attention',
-      );
+      expect(resolveSyncStatus({ localPersisted: true, sync: 'idle' })).toBe('saved_locally');
+      expect(resolveSyncStatus({ localPersisted: true, sync: 'in_progress' })).toBe('syncing');
+      expect(resolveSyncStatus({ localPersisted: true, sync: 'success' })).toBe('synced');
+      expect(resolveSyncStatus({ localPersisted: true, sync: 'failure' })).toBe('needs_attention');
     });
   });
 
@@ -67,8 +53,8 @@ describe('localPersistence contracts', () => {
     });
 
     it('rejects Zustand and ad-hoc SQLite as domain write paths', () => {
-      expect(() => assertDomainWritePath('zustand')).toThrow(/repository/i);
-      expect(() => assertDomainWritePath('ad_hoc_sqlite')).toThrow(/repository/i);
+      expect(() => assertDomainWritePath('zustand')).toThrow(/Invalid domain write path/);
+      expect(() => assertDomainWritePath('ad_hoc_sqlite')).toThrow(/Invalid domain write path/);
     });
   });
 });

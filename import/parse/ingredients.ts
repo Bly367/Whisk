@@ -9,9 +9,7 @@ export function parseIngredientLine(line: string, position = 0): IngredientInput
     return { name: '', position };
   }
 
-  const match = cleaned.match(
-    /^(\d+(?:\.\d+)?(?:\s+\d+\/\d+)?|\d+\/\d+|[¼½¾⅓⅔⅛⅜⅝⅞])?\s*(.*)$/u,
-  );
+  const match = cleaned.match(/^(\d+(?:\.\d+)?(?:\s+\d+\/\d+)?|\d+\/\d+|[¼½¾⅓⅔⅛⅜⅝⅞])?\s*(.*)$/u);
   if (!match) {
     return { name: cleaned, position };
   }

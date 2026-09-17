@@ -27,9 +27,7 @@ describe('recipe repository', () => {
 
     const listed = recipes.list({ search: 'lemon' });
     expect(listed).toHaveLength(1);
-    expect(listed[0].ingredientNames).toEqual(
-      expect.arrayContaining(['spaghetti', 'lemon']),
-    );
+    expect(listed[0].ingredientNames).toEqual(expect.arrayContaining(['spaghetti', 'lemon']));
     expect(listed[0].tagNames).toContain('Weeknight');
 
     // Ingredient search matches even when absent from title

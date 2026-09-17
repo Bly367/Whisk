@@ -2,13 +2,7 @@ import { create } from 'zustand';
 
 import type { ImportAdapterError, ImportDraft } from '@/import/types';
 
-type ImportPhase =
-  | 'idle'
-  | 'importing'
-  | 'preview'
-  | 'failed'
-  | 'saving'
-  | 'saved';
+type ImportPhase = 'idle' | 'importing' | 'preview' | 'failed' | 'saving' | 'saved';
 
 type ImportSessionState = {
   phase: ImportPhase;
@@ -36,11 +30,9 @@ export const useImportSessionStore = create<ImportSessionState>((set, get) => ({
   savedRecipeId: null,
   savedDraftIds: new Set(),
 
-  setImporting: () =>
-    set({ phase: 'importing', error: null, savedRecipeId: null }),
+  setImporting: () => set({ phase: 'importing', error: null, savedRecipeId: null }),
 
-  setPreview: (draft) =>
-    set({ phase: 'preview', draft, error: null, savedRecipeId: null }),
+  setPreview: (draft) => set({ phase: 'preview', draft, error: null, savedRecipeId: null }),
 
   patchDraft: (patch) => {
     const current = get().draft;
@@ -48,8 +40,7 @@ export const useImportSessionStore = create<ImportSessionState>((set, get) => ({
     set({ draft: { ...current, ...patch } });
   },
 
-  setFailed: (error) =>
-    set({ phase: 'failed', error, draft: null, savedRecipeId: null }),
+  setFailed: (error) => set({ phase: 'failed', error, draft: null, savedRecipeId: null }),
 
   setSaving: () => set({ phase: 'saving' }),
 

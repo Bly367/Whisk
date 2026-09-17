@@ -1,8 +1,4 @@
-import type {
-  AutosaveDraftInput,
-  AutosaveResult,
-  RecipeWithIngredients,
-} from '@/data/contracts';
+import type { AutosaveDraftInput, AutosaveResult, RecipeWithIngredients } from '@/data/contracts';
 import type { DbClient } from '@/data/client';
 import { createRecipeRepository } from '@/data/repositories/recipes';
 import { reportLocalPersistFailure, reportLocalPersistSuccess } from '@/data/sync/statusStore';
@@ -15,10 +11,10 @@ export type AutosaveOptions = {
 type Pending = {
   timer: ReturnType<typeof setTimeout> | null;
   latest: AutosaveDraftInput;
-  resolvers: Array<{
+  resolvers: {
     resolve: (value: AutosaveResult) => void;
     reject: (reason?: unknown) => void;
-  }>;
+  }[];
 };
 
 const ANON_KEY = '__new__';
@@ -99,9 +95,7 @@ export function createRecipeAutosave(db: DbClient, options: AutosaveOptions = {}
         r.resolve(result);
       }
     } catch (error) {
-      reportLocalPersistFailure(
-        error instanceof Error ? error.message : 'Autosave failed',
-      );
+      reportLocalPersistFailure(error instanceof Error ? error.message : 'Autosave failed');
       for (const r of pending.resolvers) {
         r.reject(error);
       }

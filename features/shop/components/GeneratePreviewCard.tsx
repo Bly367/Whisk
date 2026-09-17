@@ -32,9 +32,7 @@ export function GeneratePreviewCard({
       <Text variant="body" tone="secondary">
         {preview.drafts.length} items from {preview.recipeCount} recipe
         {preview.recipeCount === 1 ? '' : 's'}
-        {preview.mergedCount > 0
-          ? ` · ${preview.mergedCount} merged where quantities matched`
-          : ''}
+        {preview.mergedCount > 0 ? ` · ${preview.mergedCount} merged where quantities matched` : ''}
       </Text>
 
       <View style={styles.sample}>

@@ -41,8 +41,7 @@ export function Button({
           ? colors.card
           : 'transparent';
 
-  const borderColor =
-    variant === 'secondary' ? colors.border : 'transparent';
+  const borderColor = variant === 'secondary' ? colors.border : 'transparent';
 
   const labelColor =
     variant === 'primary'
@@ -66,14 +65,11 @@ export function Button({
         const base: ViewStyle = {
           ...styles.base,
           backgroundColor:
-            variant === 'primary' && pressed
-              ? colors.brand.yolkPressed
-              : backgroundColor,
+            variant === 'primary' && pressed ? colors.brand.yolkPressed : backgroundColor,
           borderColor,
           opacity: isDisabled ? 0.45 : 1,
         };
-        const resolved =
-          typeof style === 'function' ? style(state) : style;
+        const resolved = typeof style === 'function' ? style(state) : style;
         return [ensureMinTouchTarget(base), resolved];
       }}
       {...rest}

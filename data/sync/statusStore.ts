@@ -74,9 +74,7 @@ export function withLocalPersist<T>(fn: () => T, failureDetail?: string): T {
     return result;
   } catch (error) {
     reportLocalPersistFailure(
-      error instanceof Error
-        ? error.message
-        : (failureDetail ?? 'Could not save on this device.'),
+      error instanceof Error ? error.message : (failureDetail ?? 'Could not save on this device.'),
     );
     throw error;
   }

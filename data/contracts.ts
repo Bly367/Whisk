@@ -4,18 +4,11 @@
  */
 
 /** Local persistence outcome. Cloud sync is future; never treat as cloud success. */
-export type LocalSyncStatus =
-  | 'synced_local'
-  | 'pending'
-  | 'needs_attention';
+export type LocalSyncStatus = 'synced_local' | 'pending' | 'needs_attention';
 
 /** Maps to SyncStatusBanner presentation (honest local states only). */
 export type SyncBannerStatus =
-  | 'saved_locally'
-  | 'syncing'
-  | 'synced'
-  | 'needs_attention'
-  | 'offline';
+  'saved_locally' | 'syncing' | 'synced' | 'needs_attention' | 'offline';
 
 export type RecipeStatus = 'draft' | 'published';
 
@@ -171,12 +164,7 @@ export type GroceryListWithItems = GroceryList & {
   items: GroceryItem[];
 };
 
-export type RecipeSort =
-  | 'newest'
-  | 'oldest'
-  | 'title_asc'
-  | 'recently_cooked'
-  | 'rating';
+export type RecipeSort = 'newest' | 'oldest' | 'title_asc' | 'recently_cooked' | 'rating';
 
 export type RecipeListQuery = {
   search?: string;

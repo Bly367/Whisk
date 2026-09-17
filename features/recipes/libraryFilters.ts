@@ -21,7 +21,7 @@ export const DEFAULT_LIBRARY_FILTERS: LibraryFilterState = {
   sort: 'newest',
 };
 
-export const SORT_OPTIONS: Array<{ value: RecipeSort; label: string }> = [
+export const SORT_OPTIONS: { value: RecipeSort; label: string }[] = [
   { value: 'newest', label: 'Newest' },
   { value: 'oldest', label: 'Oldest' },
   { value: 'title_asc', label: 'A–Z' },
@@ -29,14 +29,14 @@ export const SORT_OPTIONS: Array<{ value: RecipeSort; label: string }> = [
   { value: 'rating', label: 'Rating' },
 ];
 
-export const COOK_TIME_OPTIONS: Array<{ value: CookTimeFilter; label: string }> = [
+export const COOK_TIME_OPTIONS: { value: CookTimeFilter; label: string }[] = [
   { value: 'any', label: 'Any time' },
   { value: 'le15', label: '≤ 15 min' },
   { value: 'le30', label: '≤ 30 min' },
   { value: 'le60', label: '≤ 60 min' },
 ];
 
-export const DATE_ADDED_OPTIONS: Array<{ value: DateAddedFilter; label: string }> = [
+export const DATE_ADDED_OPTIONS: { value: DateAddedFilter; label: string }[] = [
   { value: 'any', label: 'Any date' },
   { value: 'week', label: 'This week' },
   { value: 'month', label: 'This month' },
@@ -73,8 +73,7 @@ export function applyLibraryFilters(
     if (filters.cookTime !== 'any') {
       const minutes = totalMinutes(item);
       if (minutes == null) return false;
-      const max =
-        filters.cookTime === 'le15' ? 15 : filters.cookTime === 'le30' ? 30 : 60;
+      const max = filters.cookTime === 'le15' ? 15 : filters.cookTime === 'le30' ? 30 : 60;
       if (minutes > max) return false;
     }
 

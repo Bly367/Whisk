@@ -43,11 +43,7 @@ export function ServingStepper({
         >
           <Text variant="headline">−</Text>
         </Pressable>
-        <Text
-          variant="headline"
-          style={styles.value}
-          accessibilityLabel={`${servings} servings`}
-        >
+        <Text variant="headline" style={styles.value} accessibilityLabel={`${servings} servings`}>
           {servings}
         </Text>
         <Pressable
@@ -104,10 +100,7 @@ export function IngredientLine({
   const amount = [scaled.scaled, displayUnit].filter(Boolean).join(' ');
 
   return (
-    <View
-      style={[styles.ingredient, { borderColor: colors.border }]}
-      testID={testID}
-    >
+    <View style={[styles.ingredient, { borderColor: colors.border }]} testID={testID}>
       <Text variant="body">
         {amount ? `${amount} ` : ''}
         {name}

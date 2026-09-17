@@ -1,16 +1,7 @@
 import { websiteAdapter } from '@/import/adapters/websiteAdapter';
 import { draftFromPastedText } from '@/import/parse/pasteText';
-import {
-  canonicalizeUrl,
-  detectSource,
-  extractUrl,
-  isSocialSource,
-} from '@/import/parse/url';
-import type {
-  ImportAdapter,
-  ImportAdapterInput,
-  ImportAdapterResult,
-} from '@/import/types';
+import { canonicalizeUrl, detectSource, extractUrl, isSocialSource } from '@/import/parse/url';
+import type { ImportAdapter, ImportAdapterInput, ImportAdapterResult } from '@/import/types';
 import { DEFAULT_FALLBACKS } from '@/import/types';
 
 export const SHARE_SHEET_ADAPTER_ID = 'share-sheet';
@@ -27,11 +18,7 @@ export const shareSheetAdapter: ImportAdapter = {
   label: 'Share sheet',
 
   canHandle(input: ImportAdapterInput): boolean {
-    return Boolean(
-      input.sharedContent?.trim() ||
-        input.url?.trim() ||
-        input.text?.trim(),
-    );
+    return Boolean(input.sharedContent?.trim() || input.url?.trim() || input.text?.trim());
   },
 
   async import(input: ImportAdapterInput): Promise<ImportAdapterResult> {

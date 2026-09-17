@@ -44,7 +44,7 @@ export function formatQuantity(value: number): string {
   const whole = Math.floor(nearest + 1e-9);
   const frac = nearest - whole;
 
-  const fractions: Array<[number, string]> = [
+  const fractions: [number, string][] = [
     [0, ''],
     [1 / 8, '1/8'],
     [1 / 4, '1/4'],

@@ -35,12 +35,7 @@ export function PlaceholderHero({
         {body}
       </Text>
       {actionLabel && onAction ? (
-        <Button
-          label={actionLabel}
-          onPress={onAction}
-          testID={actionTestID}
-          style={styles.cta}
-        />
+        <Button label={actionLabel} onPress={onAction} testID={actionTestID} style={styles.cta} />
       ) : null}
     </View>
   );

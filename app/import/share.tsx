@@ -8,11 +8,7 @@ import { PlaceholderHero } from '@/components/ui/PlaceholderHero';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { radius, spacing } from '@/constants/tokens';
-import {
-  runImport,
-  SHARE_SHEET_ADAPTER_ID,
-  useImportSessionStore,
-} from '@/import';
+import { runImport, SHARE_SHEET_ADAPTER_ID, useImportSessionStore } from '@/import';
 import { useTheme } from '@/theme/ThemeProvider';
 
 /**
@@ -82,8 +78,8 @@ export default function ImportShareScreen() {
       <View style={styles.field}>
         <Text variant="headline">Caption (optional)</Text>
         <Text variant="caption" tone="secondary">
-          Social posts often need the caption — Whisk will not invent ingredients
-          from a bare social URL.
+          Social posts often need the caption — Whisk will not invent ingredients from a bare social
+          URL.
         </Text>
         <TextInput
           value={caption}
@@ -129,12 +125,7 @@ export default function ImportShareScreen() {
         </View>
       ) : null}
 
-      <Button
-        label="Continue"
-        onPress={handleImport}
-        loading={loading}
-        testID="share-submit"
-      />
+      <Button label="Continue" onPress={handleImport} loading={loading} testID="share-submit" />
     </Screen>
   );
 }

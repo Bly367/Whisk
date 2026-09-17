@@ -7,19 +7,9 @@ import { Text } from '@/components/ui/Text';
 import { GuestModeBanner } from '@/components/trust/GuestModeBanner';
 import { LimitNotice } from '@/components/trust/LimitNotice';
 import { spacing } from '@/constants/tokens';
-import {
-  createOfflineReader,
-  getDatabase,
-  getRepositories,
-} from '@/data';
-import {
-  buildExportFromRepos,
-  exportPayloadToJson,
-} from '@/features/trust/exportRecipes';
-import {
-  describeTrialOffer,
-  FREE_TIER,
-} from '@/features/trust/freeTier';
+import { createOfflineReader, getDatabase, getRepositories } from '@/data';
+import { buildExportFromRepos, exportPayloadToJson } from '@/features/trust/exportRecipes';
+import { describeTrialOffer, FREE_TIER } from '@/features/trust/freeTier';
 import { useSessionStore } from '@/features/trust/sessionStore';
 
 function trialRenewalLabel(from = new Date()): string {
@@ -41,10 +31,7 @@ export default function ProfileScreen() {
   const [trashCount, setTrashCount] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
 
-  const trialCopy = useMemo(
-    () => describeTrialOffer(trialRenewalLabel()),
-    [],
-  );
+  const trialCopy = useMemo(() => describeTrialOffer(trialRenewalLabel()), []);
 
   useEffect(() => {
     void hydrate();
@@ -102,9 +89,7 @@ export default function ProfileScreen() {
     }
     setTrashCount(0);
     setMessage(
-      restored === 1
-        ? 'Restored 1 recipe from trash.'
-        : `Restored ${restored} recipes from trash.`,
+      restored === 1 ? 'Restored 1 recipe from trash.' : `Restored ${restored} recipes from trash.`,
     );
   }
 
@@ -136,8 +121,8 @@ export default function ProfileScreen() {
       <View style={styles.section}>
         <Text variant="headline">Portability</Text>
         <Text variant="body" tone="secondary">
-          Export recipes and tags as JSON anytime. Saved recipes stay viewable
-          and exportable after a free-tier limit or downgrade.
+          Export recipes and tags as JSON anytime. Saved recipes stay viewable and exportable after
+          a free-tier limit or downgrade.
         </Text>
         <Button
           label="Export recipes"
@@ -162,11 +147,7 @@ export default function ProfileScreen() {
           {trialCopy}
         </Text>
         <Button
-          label={
-            usage.isDowngraded
-              ? 'Simulate free plan (already on)'
-              : 'Simulate downgrade'
-          }
+          label={usage.isDowngraded ? 'Simulate free plan (already on)' : 'Simulate downgrade'}
           variant="tertiary"
           disabled={usage.isDowngraded}
           onPress={() => void setDowngraded(true)}

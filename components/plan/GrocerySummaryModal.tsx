@@ -43,10 +43,7 @@ export function GrocerySummaryModal({
     >
       <View style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
         <View
-          style={[
-            styles.sheet,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
+          style={[styles.sheet, { backgroundColor: colors.card, borderColor: colors.border }]}
           testID={testID}
         >
           <Text variant="title2">Create grocery list</Text>
@@ -60,10 +57,7 @@ export function GrocerySummaryModal({
             {lines.map((line) => (
               <View
                 key={line.recipeId}
-                style={[
-                  styles.row,
-                  { backgroundColor: colors.sunken, borderColor: colors.border },
-                ]}
+                style={[styles.row, { backgroundColor: colors.sunken, borderColor: colors.border }]}
                 testID={`${testID}-line-${line.recipeId}`}
               >
                 <Text variant="headline" numberOfLines={2}>
@@ -80,11 +74,7 @@ export function GrocerySummaryModal({
           </ScrollView>
 
           <Button
-            label={
-              lines.length === 0
-                ? 'Nothing to add yet'
-                : `Add ${totalIngredients} items`
-            }
+            label={lines.length === 0 ? 'Nothing to add yet' : `Add ${totalIngredients} items`}
             disabled={lines.length === 0 || confirming}
             loading={confirming}
             onPress={onConfirm}

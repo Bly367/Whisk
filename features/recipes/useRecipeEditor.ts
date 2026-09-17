@@ -1,16 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import type {
-  CookStep,
-  IngredientInput,
-  RecipeWithIngredients,
-} from '@/data/contracts';
-import {
-  createRecipeAutosave,
-  getDatabase,
-  getRepositories,
-  type RecipeAutosave,
-} from '@/data';
+import type { CookStep, IngredientInput, RecipeWithIngredients } from '@/data/contracts';
+import { createRecipeAutosave, getDatabase, getRepositories, type RecipeAutosave } from '@/data';
 import { createId } from '@/data/util';
 
 export type EditorDraft = {
@@ -61,9 +52,7 @@ function toInstructions(text: string): CookStep[] {
 
 function ingredientsToText(recipe: RecipeWithIngredients): string {
   return recipe.ingredients
-    .map((ing) =>
-      [ing.quantity, ing.unit, ing.name].filter(Boolean).join(' ').trim(),
-    )
+    .map((ing) => [ing.quantity, ing.unit, ing.name].filter(Boolean).join(' ').trim())
     .join('\n');
 }
 
@@ -90,10 +79,7 @@ function emptyDraft(): EditorDraft {
   };
 }
 
-function draftFromRecipe(
-  recipe: RecipeWithIngredients,
-  tagNames: string[],
-): EditorDraft {
+function draftFromRecipe(recipe: RecipeWithIngredients, tagNames: string[]): EditorDraft {
   return {
     title: recipe.title === 'Untitled draft' ? '' : recipe.title,
     notes: recipe.notes ?? '',
@@ -162,9 +148,7 @@ export function useRecipeEditor(initialId?: string | null): UseRecipeEditorResul
 
         const ownedCollections = repos.collections
           .list()
-          .filter((c) =>
-            repos.collections.listRecipeIds(c.id).includes(existing.id),
-          )
+          .filter((c) => repos.collections.listRecipeIds(c.id).includes(existing.id))
           .map((c) => c.id);
         if (ownedCollections.length) {
           const withCollections = { ...next, collectionIds: ownedCollections };
@@ -188,17 +172,12 @@ export function useRecipeEditor(initialId?: string | null): UseRecipeEditorResul
       .map((name) => repos.tags.upsertByName(name).id);
 
     const servings = Number(next.servings);
-    const prepMinutes = next.prepMinutes.trim()
-      ? Number(next.prepMinutes)
-      : null;
-    const cookMinutes = next.cookMinutes.trim()
-      ? Number(next.cookMinutes)
-      : null;
+    const prepMinutes = next.prepMinutes.trim() ? Number(next.prepMinutes) : null;
+    const cookMinutes = next.cookMinutes.trim() ? Number(next.cookMinutes) : null;
 
     // Prefer the id from the first successful saveDraft; fall back to W2
     // sessionAnonymousDraftId so stale closures cannot fork a second draft.
-    const knownId =
-      recipeIdRef.current ?? autosave.getSessionDraftId() ?? undefined;
+    const knownId = recipeIdRef.current ?? autosave.getSessionDraftId() ?? undefined;
 
     setSaving(true);
     setError(null);
@@ -210,14 +189,8 @@ export function useRecipeEditor(initialId?: string | null): UseRecipeEditorResul
           notes: next.notes.trim() || null,
           sourceUrl: next.sourceUrl.trim() || null,
           servings: Number.isFinite(servings) && servings > 0 ? servings : null,
-          prepMinutes:
-            prepMinutes != null && Number.isFinite(prepMinutes)
-              ? prepMinutes
-              : null,
-          cookMinutes:
-            cookMinutes != null && Number.isFinite(cookMinutes)
-              ? cookMinutes
-              : null,
+          prepMinutes: prepMinutes != null && Number.isFinite(prepMinutes) ? prepMinutes : null,
+          cookMinutes: cookMinutes != null && Number.isFinite(cookMinutes) ? cookMinutes : null,
           ingredients: toIngredients(next.ingredientsText),
           instructions: toInstructions(next.instructionsText),
           tagIds,
@@ -250,9 +223,7 @@ export function useRecipeEditor(initialId?: string | null): UseRecipeEditorResul
 
   const queuePersist = useCallback(
     (next: EditorDraft) => {
-      saveChainRef.current = saveChainRef.current
-        .then(() => persist(next))
-        .catch(() => undefined);
+      saveChainRef.current = saveChainRef.current.then(() => persist(next)).catch(() => undefined);
     },
     [persist],
   );
@@ -294,21 +265,15 @@ export function useRecipeEditor(initialId?: string | null): UseRecipeEditorResul
       notes: current.notes.trim() || null,
       sourceUrl: current.sourceUrl.trim() || null,
       servings: Number.isFinite(servings) && servings > 0 ? servings : null,
-      prepMinutes: current.prepMinutes.trim()
-        ? Number(current.prepMinutes)
-        : null,
-      cookMinutes: current.cookMinutes.trim()
-        ? Number(current.cookMinutes)
-        : null,
+      prepMinutes: current.prepMinutes.trim() ? Number(current.prepMinutes) : null,
+      cookMinutes: current.cookMinutes.trim() ? Number(current.cookMinutes) : null,
       ingredients: toIngredients(current.ingredientsText),
       instructions: toInstructions(current.instructionsText),
       tagIds,
       status: 'published' as const,
     };
 
-    const published = id
-      ? repos.recipes.update(id, patch)
-      : repos.recipes.create(patch);
+    const published = id ? repos.recipes.update(id, patch) : repos.recipes.create(patch);
 
     recipeIdRef.current = published.id;
     setRecipeId(published.id);

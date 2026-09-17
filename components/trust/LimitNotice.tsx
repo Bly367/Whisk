@@ -2,11 +2,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/ui/Text';
 import { radius, spacing } from '@/constants/tokens';
-import {
-  describeImportLimit,
-  FREE_TIER,
-  type FreeTierUsage,
-} from '@/features/trust/freeTier';
+import { describeImportLimit, FREE_TIER, type FreeTierUsage } from '@/features/trust/freeTier';
 import { useTheme } from '@/theme/ThemeProvider';
 
 type Props = {
