@@ -79,6 +79,10 @@ describe('recipe repository', () => {
 });
 
 describe('meal plan + grocery repositories', () => {
+  beforeEach(() => {
+    useSyncStatusStore.getState().resetToLocalOk();
+  });
+
   it('persists plan entries and grocery lists offline', () => {
     const db = createTestDbClient();
     const { recipes, mealPlans, grocery } = createRepositories(db);
@@ -92,9 +96,13 @@ describe('meal plan + grocery repositories', () => {
       slot: 'dinner',
     });
     expect(entry.slot).toBe('dinner');
+    expect(useSyncStatusStore.getState().status).toBe('saved_locally');
 
     const reloaded = mealPlans.getById(plan.id);
     expect(reloaded?.entries).toHaveLength(1);
+
+    useSyncStatusStore.getState().markPersistFailed('stale');
+    expect(useSyncStatusStore.getState().status).toBe('needs_attention');
 
     const list = grocery.create({
       name: 'Week of Sep 14',
@@ -110,6 +118,7 @@ describe('meal plan + grocery repositories', () => {
       ],
     });
     expect(list.items[0].recipeTitle).toBe('Tacos');
+    expect(useSyncStatusStore.getState().status).toBe('saved_locally');
 
     const completed = grocery.setCompleted(list.items[0].id, true);
     expect(completed.isCompleted).toBe(true);
@@ -144,6 +153,27 @@ describe('autosave + offline reader', () => {
     expect(fromDisk?.notes).toBe('smoky + beans');
     expect(fromDisk?.status).toBe('draft');
   });
+
+  it('reuses the same draft when saveDraft omits recipeId after first create', async () => {
+    const db = createTestDbClient();
+    const autosave = createRecipeAutosave(db, { debounceMs: 0 });
+    const { recipes } = createRepositories(db);
+
+    const first = await autosave.saveDraft({
+      patch: { title: 'Soup draft', notes: 'v1' },
+    });
+    const second = await autosave.saveDraft({
+      patch: { notes: 'v2 — still anonymous' },
+    });
+
+    expect(second.recipe.id).toBe(first.recipe.id);
+    expect(second.recipe.notes).toBe('v2 — still anonymous');
+    expect(autosave.getSessionDraftId()).toBe(first.recipe.id);
+
+    const drafts = recipes.list({ status: 'draft' });
+    expect(drafts).toHaveLength(1);
+    expect(drafts[0].id).toBe(first.recipe.id);
+  });
 });
 
 describe('sync status mapping', () => {
@@ -151,5 +181,13 @@ describe('sync status mapping', () => {
     expect(bannerStatusFromLocal('synced_local')).toBe('saved_locally');
     expect(bannerStatusFromLocal('pending')).toBe('saved_locally');
     expect(bannerStatusFromLocal('needs_attention')).toBe('needs_attention');
+  });
+
+  it('setStatus type excludes cloud synced (local helpers only)', () => {
+    useSyncStatusStore.getState().resetToLocalOk();
+    useSyncStatusStore.getState().setStatus('needs_attention', 'check');
+    expect(useSyncStatusStore.getState().status).toBe('needs_attention');
+    useSyncStatusStore.getState().markLocalPersisted();
+    expect(useSyncStatusStore.getState().status).toBe('saved_locally');
   });
 });

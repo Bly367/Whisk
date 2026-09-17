@@ -1,6 +1,7 @@
 import type { Tag } from '@/data/contracts';
 import type { DbClient } from '@/data/client';
 import { mapTag } from '@/data/mappers';
+import { withLocalPersist } from '@/data/sync/statusStore';
 import { createId, nowIso } from '@/data/util';
 
 export function createTagRepository(db: DbClient) {
@@ -34,18 +35,22 @@ export function createTagRepository(db: DbClient) {
       if (existing) {
         return mapTag(existing);
       }
-      const id = createId();
-      const createdAt = nowIso();
-      db.run(`INSERT INTO tags (id, name, created_at) VALUES (?, ?, ?)`, [
-        id,
-        trimmed,
-        createdAt,
-      ]);
-      return { id, name: trimmed, createdAt };
+      return withLocalPersist(() => {
+        const id = createId();
+        const createdAt = nowIso();
+        db.run(`INSERT INTO tags (id, name, created_at) VALUES (?, ?, ?)`, [
+          id,
+          trimmed,
+          createdAt,
+        ]);
+        return { id, name: trimmed, createdAt };
+      }, 'Could not save tag');
     },
 
     delete(id: string): void {
-      db.run('DELETE FROM tags WHERE id = ?', [id]);
+      withLocalPersist(() => {
+        db.run('DELETE FROM tags WHERE id = ?', [id]);
+      }, 'Could not delete tag');
     },
   };
 }

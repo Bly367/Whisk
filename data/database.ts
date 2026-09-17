@@ -21,7 +21,11 @@ export function migrate(db: DbClient): void {
   });
 }
 
-/** Open (or reuse) the app database and apply migrations. */
+/**
+ * Open (or reuse) the app database and apply migrations.
+ * Prefer the client cached by `migrateDbIfNeeded` (SQLiteProvider boot) so
+ * repositories share one connection with the provider.
+ */
 export function getDatabase(): DbClient {
   if (cachedClient) {
     return cachedClient;
@@ -42,8 +46,13 @@ export function setDatabaseForTests(client: DbClient | null): void {
   cachedClient = client;
 }
 
+/**
+ * SQLiteProvider `onInit`: migrate and cache this connection as the app write path.
+ */
 export async function migrateDbIfNeeded(
   db: import('expo-sqlite').SQLiteDatabase,
 ): Promise<void> {
-  migrate(createExpoDbClient(db));
+  const client = createExpoDbClient(db);
+  migrate(client);
+  cachedClient = client;
 }
