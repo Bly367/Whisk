@@ -56,6 +56,25 @@ function RootNavigator() {
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen
+          name="recipe/[id]"
+          options={{
+            title: 'Recipe',
+            headerShadowVisible: false,
+            headerStyle: { backgroundColor: colors.canvas },
+            headerTintColor: colors.textPrimary,
+          }}
+        />
+        <Stack.Screen
+          name="recipe/edit/[id]"
+          options={{
+            title: 'Edit recipe',
+            presentation: 'modal',
+            headerShadowVisible: false,
+            headerStyle: { backgroundColor: colors.canvas },
+            headerTintColor: colors.textPrimary,
+          }}
+        />
+        <Stack.Screen
           name="profile"
           options={{
             title: 'Account',
