@@ -12,6 +12,7 @@ import { Text } from '@/components/ui/Text';
 import { radius, spacing } from '@/constants/tokens';
 import { getRepositories } from '@/data';
 import type { UnitSystem } from '@/features/recipes/scale';
+import { isUnitSystemAvailable } from '@/features/recipes/scale';
 import { useUnitPreferenceStore } from '@/features/recipes/unitPreferenceStore';
 import { useTheme } from '@/theme/ThemeProvider';
 
@@ -20,6 +21,9 @@ const UNIT_OPTIONS: Array<{ value: UnitSystem; label: string }> = [
   { value: 'metric', label: 'Metric' },
   { value: 'imperial', label: 'Imperial' },
 ];
+
+const UNIT_UNAVAILABLE_HINT =
+  'Unit conversion coming later — amounts stay as written so they stay accurate.';
 
 export default function RecipeDetailScreen() {
   const { colors } = useTheme();
@@ -128,16 +132,26 @@ export default function RecipeDetailScreen() {
         <View style={styles.unitBlock}>
           <Text variant="callout">Units</Text>
           <ChipRow>
-            {UNIT_OPTIONS.map((option) => (
-              <Chip
-                key={option.value}
-                label={option.label}
-                selected={system === option.value}
-                onPress={() => setSystem(option.value)}
-                testID={`unit-${option.value}`}
-              />
-            ))}
+            {UNIT_OPTIONS.map((option) => {
+              const available = isUnitSystemAvailable(option.value);
+              return (
+                <Chip
+                  key={option.value}
+                  label={option.label}
+                  selected={system === option.value}
+                  disabled={!available}
+                  onPress={
+                    available ? () => setSystem(option.value) : undefined
+                  }
+                  accessibilityHint={available ? undefined : UNIT_UNAVAILABLE_HINT}
+                  testID={`unit-${option.value}`}
+                />
+              );
+            })}
           </ChipRow>
+          <Text variant="caption" tone="secondary">
+            Metric and Imperial conversion isn’t ready yet. Amounts stay as written.
+          </Text>
         </View>
 
         <Text variant="title2">Ingredients</Text>

@@ -9,6 +9,7 @@ import { useTheme } from '@/theme/ThemeProvider';
 export type ChipProps = {
   label: string;
   selected?: boolean;
+  disabled?: boolean;
   onPress?: () => void;
   testID?: string;
   accessibilityHint?: string;
@@ -17,20 +18,22 @@ export type ChipProps = {
 export function Chip({
   label,
   selected = false,
+  disabled = false,
   onPress,
   testID,
   accessibilityHint,
 }: ChipProps) {
   const { colors } = useTheme();
+  const isDisabled = disabled || !onPress;
 
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityState={{ selected }}
+      accessibilityState={{ selected, disabled: isDisabled }}
       accessibilityHint={accessibilityHint}
       hitSlop={hitSlop}
-      disabled={!onPress}
+      disabled={isDisabled}
       onPress={onPress}
       testID={testID}
       style={(state) =>
@@ -38,7 +41,7 @@ export function Chip({
           ...styles.chip,
           backgroundColor: selected ? colors.brand.yolkSoft : colors.sunken,
           borderColor: selected ? colors.brand.yolk : colors.border,
-          opacity: state.pressed ? 0.85 : 1,
+          opacity: isDisabled ? 0.45 : state.pressed ? 0.85 : 1,
         })
       }
     >

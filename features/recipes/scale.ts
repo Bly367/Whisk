@@ -118,43 +118,21 @@ export function scaleQuantityDisplay(
   };
 }
 
-/** Lightweight unit preference remapping for common volume/mass units. */
+/**
+ * Unit preference display.
+ *
+ * Metric / Imperial conversion is not shipped yet. Never remap unit labels
+ * without converting the numeric quantity (that would lie about amounts).
+ * Always return the recipe’s written unit until real conversion lands.
+ */
 export function preferUnit(
   unit: string | null | undefined,
-  system: UnitSystem,
+  _system: UnitSystem = 'original',
 ): string | null {
-  if (!unit) return null;
-  if (system === 'original') return unit;
+  return unit?.trim() || null;
+}
 
-  const key = unit.trim().toLowerCase();
-  const toMetric: Record<string, string> = {
-    tsp: 'ml',
-    teaspoon: 'ml',
-    teaspoons: 'ml',
-    tbsp: 'ml',
-    tablespoon: 'ml',
-    tablespoons: 'ml',
-    cup: 'ml',
-    cups: 'ml',
-    oz: 'g',
-    ounce: 'g',
-    ounces: 'g',
-    lb: 'g',
-    pound: 'g',
-    pounds: 'g',
-  };
-  const toImperial: Record<string, string> = {
-    ml: 'tsp',
-    milliliter: 'tsp',
-    milliliters: 'tsp',
-    g: 'oz',
-    gram: 'oz',
-    grams: 'oz',
-    kg: 'lb',
-    kilogram: 'lb',
-    kilograms: 'lb',
-  };
-
-  if (system === 'metric') return toMetric[key] ?? unit;
-  return toImperial[key] ?? unit;
+/** True when a unit system can safely change displayed amounts. */
+export function isUnitSystemAvailable(system: UnitSystem): boolean {
+  return system === 'original';
 }

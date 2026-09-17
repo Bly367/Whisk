@@ -2,8 +2,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/ui/Text';
 import { radius, spacing } from '@/constants/tokens';
-import { scaleQuantityDisplay, preferUnit } from '@/features/recipes/scale';
-import { useUnitPreferenceStore } from '@/features/recipes/unitPreferenceStore';
+import { scaleQuantityDisplay } from '@/features/recipes/scale';
 import { ensureMinTouchTarget, hitSlop } from '@/theme/a11y';
 import { useTheme } from '@/theme/ThemeProvider';
 
@@ -98,9 +97,9 @@ export function IngredientLine({
   testID,
 }: IngredientLineProps) {
   const { colors } = useTheme();
-  const system = useUnitPreferenceStore((s) => s.system);
   const scaled = scaleQuantityDisplay(quantity, baseServings, targetServings);
-  const displayUnit = preferUnit(unit, system);
+  // Always show the recipe’s written unit — no label remap without conversion.
+  const displayUnit = unit?.trim() || null;
 
   const amount = [scaled.scaled, displayUnit].filter(Boolean).join(' ');
 

@@ -2,7 +2,9 @@ import { createRecipeAutosave } from '@/data/autosave';
 import { explainSearchMatch } from '@/features/recipes/matchReason';
 import {
   formatQuantity,
+  isUnitSystemAvailable,
   parseQuantity,
+  preferUnit,
   scaleQuantityDisplay,
 } from '@/features/recipes/scale';
 import {
@@ -89,6 +91,16 @@ describe('serving scale', () => {
     const scaled = scaleQuantityDisplay('to taste', 4, 8);
     expect(scaled.isScaled).toBe(false);
     expect(scaled.scaled).toBe('to taste');
+  });
+
+  it('does not remap unit labels without converting quantities', () => {
+    expect(preferUnit('tsp', 'metric')).toBe('tsp');
+    expect(preferUnit('oz', 'metric')).toBe('oz');
+    expect(preferUnit('ml', 'imperial')).toBe('ml');
+    expect(preferUnit('2 cups', 'metric')).toBe('2 cups');
+    expect(isUnitSystemAvailable('original')).toBe(true);
+    expect(isUnitSystemAvailable('metric')).toBe(false);
+    expect(isUnitSystemAvailable('imperial')).toBe(false);
   });
 });
 
