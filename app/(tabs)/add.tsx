@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/ui/Button';
@@ -8,10 +9,30 @@ import { radius, spacing } from '@/constants/tokens';
 import { useTheme } from '@/theme/ThemeProvider';
 
 const SOURCES = [
-  { id: 'link', label: 'Paste a link', hint: 'From a recipe site' },
-  { id: 'social', label: 'Import from social', hint: 'Share sheet or saved post' },
-  { id: 'scan', label: 'Scan a photo', hint: 'Cookbook page or screenshot' },
-  { id: 'manual', label: 'Create manually', hint: 'Type it in yourself' },
+  {
+    id: 'link',
+    label: 'Paste a link',
+    hint: 'From a recipe site',
+    href: '/import/url',
+  },
+  {
+    id: 'social',
+    label: 'Import from social',
+    hint: 'Share sheet or saved post',
+    href: '/import/share',
+  },
+  {
+    id: 'scan',
+    label: 'Scan a photo',
+    hint: 'Cookbook page or screenshot',
+    href: '/import/ocr',
+  },
+  {
+    id: 'manual',
+    label: 'Create manually',
+    hint: 'Type it in yourself',
+    href: '/import/manual',
+  },
 ] as const;
 
 export default function AddScreen() {
@@ -42,11 +63,11 @@ export default function AddScreen() {
               </Text>
             </View>
             <Button
-              label="Soon"
+              label="Start"
               variant="secondary"
-              disabled
               testID={`add-source-${source.id}`}
-              accessibilityHint="Available in a later update"
+              accessibilityHint={`Open ${source.label}`}
+              onPress={() => router.push(source.href)}
             />
           </View>
         ))}
