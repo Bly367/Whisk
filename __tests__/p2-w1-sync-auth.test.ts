@@ -141,6 +141,20 @@ describe('P2-W1 auth session', () => {
     expect(await storage.read()).toBeNull();
     expect(useSessionStore.getState().mode).toBe('guest');
   });
+
+  it('hydrate with empty secure storage forces trust session back to guest', async () => {
+    // Stale UI/session flag after cold start / keychain wipe — tokens gone.
+    useSessionStore.getState().resetSessionForTests({ mode: 'signed_in' });
+    const storage = createMemorySecureTokenStorage();
+    await storage.clear();
+    useAuthSessionStore.getState().configureForTests({ storage });
+
+    await useAuthSessionStore.getState().hydrate();
+
+    expect(useAuthSessionStore.getState().mode).toBe('guest');
+    expect(useAuthSessionStore.getState().identity).toBeNull();
+    expect(useSessionStore.getState().mode).toBe('guest');
+  });
 });
 
 describe('P2-W1 sync status vs local persist', () => {
@@ -247,5 +261,42 @@ describe('P2-W1 sync client contracts', () => {
     expect(useSyncStatusStore.getState().status).toBe('needs_attention');
     expect(useSyncStatusStore.getState().status).not.toBe('synced');
     expect(transport.calls.push).toHaveLength(0);
+  });
+
+  it('partial remote accept+reject does not celebrate synced', async () => {
+    useSyncStatusStore.setState({ lastLocalPersistAt: null, status: 'offline', detail: null });
+    const transport = createStubSyncTransport();
+    transport.push = async (request, tokens) => {
+      transport.calls.push.push({ request, tokens });
+      return {
+        accepted: ['recipe-1'],
+        rejected: [{ localId: 'recipe-2', reason: 'conflict' }],
+      };
+    };
+    const client = createSyncClient({
+      transport,
+      getTokens: async () => SAMPLE_TOKENS,
+    });
+
+    const pushRequest: SyncPushRequest = {
+      householdId: null,
+      items: [
+        { kind: 'recipe', localId: 'recipe-1', revision: 1, body: { title: 'A' } },
+        { kind: 'recipe', localId: 'recipe-2', revision: 1, body: { title: 'B' } },
+      ],
+    };
+
+    const result = await client.persistLocalThenSync({
+      localWrite: () => 'saved',
+      pushRequest,
+    });
+
+    expect(result.remote).toEqual({
+      accepted: ['recipe-1'],
+      rejected: [{ localId: 'recipe-2', reason: 'conflict' }],
+    });
+    expect(useSyncStatusStore.getState().lastLocalPersistAt).not.toBeNull();
+    expect(useSyncStatusStore.getState().status).not.toBe('synced');
+    expect(useSyncStatusStore.getState().status).toBe('needs_attention');
   });
 });
