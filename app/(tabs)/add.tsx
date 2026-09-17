@@ -13,25 +13,25 @@ const SOURCES = [
     id: 'link',
     label: 'Paste a link',
     hint: 'From a recipe site',
-    enabled: false,
+    href: '/import/url',
   },
   {
     id: 'social',
     label: 'Import from social',
     hint: 'Share sheet or saved post',
-    enabled: false,
+    href: '/import/share',
   },
   {
     id: 'scan',
     label: 'Scan a photo',
     hint: 'Cookbook page or screenshot',
-    enabled: false,
+    href: '/import/ocr',
   },
   {
     id: 'manual',
     label: 'Create manually',
     hint: 'Type it in yourself',
-    enabled: true,
+    href: '/import/manual',
   },
 ] as const;
 
@@ -62,22 +62,13 @@ export default function AddScreen() {
                 {source.hint}
               </Text>
             </View>
-            {source.enabled ? (
-              <Button
-                label="Start"
-                variant="primary"
-                testID={`add-source-${source.id}`}
-                onPress={() => router.push('/recipe/edit/new')}
-              />
-            ) : (
-              <Button
-                label="Soon"
-                variant="secondary"
-                disabled
-                testID={`add-source-${source.id}`}
-                accessibilityHint="Available in a later update"
-              />
-            )}
+            <Button
+              label="Start"
+              variant={source.id === 'manual' ? 'primary' : 'secondary'}
+              testID={`add-source-${source.id}`}
+              accessibilityHint={`Open ${source.label}`}
+              onPress={() => router.push(source.href)}
+            />
           </View>
         ))}
       </View>

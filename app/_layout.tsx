@@ -55,6 +55,7 @@ function RootNavigator() {
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="import" options={{ headerShown: false }} />
         <Stack.Screen
           name="recipe/[id]"
           options={{
