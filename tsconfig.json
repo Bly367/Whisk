@@ -1,8 +1,26 @@
 {
+<<<<<<< HEAD
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "noEmit": true
   },
   "include": ["**/*.ts", "**/*.tsx"],
   "exclude": ["node_modules", "dist", "web-build", ".expo", "coverage", "android", "ios"]
+=======
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "@/*": [
+        "./*"
+      ]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ]
+>>>>>>> origin/cursor/w1-expo-foundation-8acf
 }
