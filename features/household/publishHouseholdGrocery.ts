@@ -5,6 +5,7 @@ import {
   type GroceryItem,
 } from '@/data';
 import { getAuthTokens, useAuthSessionStore } from '@/data/sync/authSession';
+import { householdCollaborationCloudOptions } from '@/data/sync/appCloudWiring';
 import { getSharedGroceryRealtimeTransport } from '@/features/household/useHouseholdGrocerySync';
 
 /** Best-effort publish after a local grocery mutation on a household list. */
@@ -27,7 +28,10 @@ export async function publishHouseholdGroceryUpsert(input: {
       return;
     }
     const repos = getRepositories();
-    const collab = createHouseholdCollaboration(repos);
+    const collab = createHouseholdCollaboration(
+      repos,
+      householdCollaborationCloudOptions(getAuthTokens),
+    );
     if (!collab.isActiveMember(input.householdId, userId)) {
       return;
     }

@@ -10,6 +10,7 @@ import { GuestModeBanner } from '@/components/trust/GuestModeBanner';
 import { LimitNotice } from '@/components/trust/LimitNotice';
 import { spacing } from '@/constants/tokens';
 import { createOfflineReader, getDatabase, getRepositories } from '@/data';
+import { useAuthSessionStore } from '@/data/sync/authSession';
 import { HouseholdCollabCard } from '@/features/household/HouseholdCollabCard';
 import { buildExportFromRepos, exportPayloadToJson } from '@/features/trust/exportRecipes';
 import { describeUnlockOffer, PAYMENT } from '@/features/trust/freeTier';
@@ -25,23 +26,32 @@ export default function ProfileScreen() {
   const unlockWithPurchase = useSessionStore((s) => s.unlockWithPurchase);
   const applyInfluencerCode = useSessionStore((s) => s.applyInfluencerCode);
   const clearDiscountCode = useSessionStore((s) => s.clearDiscountCode);
+  const authMode = useAuthSessionStore((s) => s.mode);
+  const identity = useAuthSessionStore((s) => s.identity);
+  const authHydrate = useAuthSessionStore((s) => s.hydrate);
+  const signIn = useAuthSessionStore((s) => s.signIn);
+  const signOut = useAuthSessionStore((s) => s.signOut);
   const [exporting, setExporting] = useState(false);
   const [trashCount, setTrashCount] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
   const [codeInput, setCodeInput] = useState('');
   const [applyingCode, setApplyingCode] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [authBusy, setAuthBusy] = useState(false);
 
   const unlockCopy = useMemo(() => describeUnlockOffer(unlockPricing), [unlockPricing]);
 
   useEffect(() => {
     void hydrate();
+    void authHydrate();
     try {
       const reader = createOfflineReader(getDatabase());
       setTrashCount(reader.listTrashedRecipes().length);
     } catch {
       setTrashCount(0);
     }
-  }, [hydrate]);
+  }, [hydrate, authHydrate]);
 
   async function handleExport() {
     setExporting(true);
@@ -96,7 +106,9 @@ export default function ProfileScreen() {
   function handleDeleteAccountStub() {
     Alert.alert(
       'Deletion coming later — export first',
-      'Guest mode has no cloud account yet. Account and local-data deletion is not available in this build — nothing will be removed. Export your recipes anytime so you keep a copy.',
+      authMode === 'signed_in'
+        ? 'Account and local-data deletion is not available in this build — nothing will be removed. Export your recipes anytime so you keep a copy.'
+        : 'Guest mode has no cloud account yet. Account and local-data deletion is not available in this build — nothing will be removed. Export your recipes anytime so you keep a copy.',
       [
         { text: 'OK', style: 'cancel' },
         {
@@ -124,13 +136,89 @@ export default function ProfileScreen() {
     }
   }
 
+  async function handleSignIn() {
+    setAuthBusy(true);
+    setMessage(null);
+    try {
+      await signIn({ email, password });
+      setPassword('');
+      setMessage('Signed in. Household sync and unlock can follow this account across devices.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not sign in.');
+    } finally {
+      setAuthBusy(false);
+    }
+  }
+
+  async function handleSignOut() {
+    setAuthBusy(true);
+    setMessage(null);
+    try {
+      await signOut();
+      setMessage('Signed out. Guest mode still works offline on this device.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not sign out.');
+    } finally {
+      setAuthBusy(false);
+    }
+  }
+
   const isUnlocked = entitlement === 'unlocked' || entitlement === 'admin';
+  const accountUserId = identity?.user.id ?? null;
 
   return (
     <Screen testID="screen-profile" showSyncStatus>
       <Text variant="title2">Account</Text>
 
       <GuestModeBanner mode={mode} />
+
+      <View style={styles.section} testID="profile-sign-in">
+        <Text variant="headline">Sign in</Text>
+        <Text variant="body" tone="secondary">
+          Optional. Sign in so household grocery sync and unlock follow your account across devices.
+          Guest cooking still works with the network off.
+        </Text>
+        {authMode === 'signed_in' && identity ? (
+          <>
+            <Text variant="callout" testID="profile-signed-in-email">
+              {identity.user.email ?? identity.user.displayName ?? identity.user.id}
+            </Text>
+            <Button
+              label="Sign out"
+              variant="secondary"
+              loading={authBusy}
+              onPress={() => void handleSignOut()}
+              testID="profile-sign-out"
+            />
+          </>
+        ) : (
+          <>
+            <Field
+              label="Email"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              testID="profile-email"
+            />
+            <Field
+              label="Password"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              testID="profile-password"
+            />
+            <Button
+              label="Sign in"
+              variant="secondary"
+              loading={authBusy}
+              disabled={!email.trim() || !password}
+              onPress={() => void handleSignIn()}
+              testID="profile-sign-in-button"
+            />
+          </>
+        )}
+      </View>
 
       <HouseholdCollabCard />
 
@@ -179,10 +267,20 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.section}>
-        <Text variant="headline">Unlock (preview)</Text>
+        <Text variant="headline">Unlock</Text>
         <Text variant="body" tone="secondary" testID="profile-unlock-copy">
           {unlockCopy}
         </Text>
+        {authMode === 'signed_in' ? (
+          <Text variant="caption" tone="secondary" testID="profile-unlock-account-note">
+            Unlock is bound to your account so other signed-in devices restore it. Store billing
+            receipt validation comes next; this build records the entitlement on the sync backend.
+          </Text>
+        ) : (
+          <Text variant="caption" tone="secondary" testID="profile-unlock-guest-note">
+            Without sign-in, unlock stays on this device only.
+          </Text>
+        )}
         {unlockPricing.isDiscounted ? (
           <Text variant="caption" tone="secondary" testID="profile-discount-active">
             Active influencer code: {unlockPricing.influencerCode} → {unlockPricing.priceLabel}{' '}
@@ -229,13 +327,17 @@ export default function ProfileScreen() {
               ? entitlement === 'admin'
                 ? 'Unlocked (admin)'
                 : 'Unlocked (purchased)'
-              : `Simulate unlock (${unlockPricing.priceLabel})`
+              : `Unlock (${unlockPricing.priceLabel})`
           }
           variant="primary"
           disabled={isUnlocked}
           onPress={() => {
-            void unlockWithPurchase().then(() =>
-              setMessage(`Unlocked for ${unlockPricing.priceLabel} one time.`),
+            void unlockWithPurchase(accountUserId).then(() =>
+              setMessage(
+                accountUserId
+                  ? `Unlocked for ${unlockPricing.priceLabel} one time. Other devices restore this after sign-in.`
+                  : `Unlocked for ${unlockPricing.priceLabel} one time on this device.`,
+              ),
             );
           }}
           testID="profile-simulate-unlock"

@@ -13,11 +13,17 @@ import {
   createSecureTokenStorage,
   createMemorySecureTokenStorage,
 } from '@/data/sync/secureTokenStorage';
+import {
+  createSharedCloudBackend,
+  type SharedCloudBackend,
+} from '@/data/sync/cloudBackend';
+import { createAppAuthTransport, createAppEntitlementClient, getAppCloudBackend } from '@/data/sync/appCloudWiring';
 import { useSessionStore } from '@/features/trust/sessionStore';
 
 type AuthSessionDeps = {
   storage: SecureTokenStorage;
   transport: AuthTransport;
+  cloud: SharedCloudBackend | null;
 };
 
 export type AuthSessionState = {
@@ -34,18 +40,29 @@ export type AuthSessionState = {
   resetForTests: () => Promise<void>;
 };
 
-let deps: AuthSessionDeps = {
-  storage: createSecureTokenStorage(),
-  transport: createStubAuthTransport(),
-};
+function createDefaultDeps(): AuthSessionDeps {
+  const storage = createSecureTokenStorage();
+  return {
+    storage,
+    cloud: getAppCloudBackend(),
+    transport: createAppAuthTransport(storage),
+  };
+}
+
+let deps: AuthSessionDeps = createDefaultDeps();
+
+// Align entitlement client with HTTP vs process-shared backend.
+useSessionStore.getState().configureEntitlementClientForTests(
+  createAppEntitlementClient(() => deps.storage.read()),
+);
 
 function identityFrom(user: AuthUser, hasTokens: boolean): AuthIdentity {
   return { user, hasTokens };
 }
 
 /**
- * Default stub auth transport for local/dev until a real SDK is wired.
- * Accepts any non-empty email/password (not a security boundary); does not call the network.
+ * Dev/test stub auth transport — accepts any non-empty email/password; no network.
+ * Prefer createCloudAuthTransport / HTTP for cross-device sessions.
  */
 export function createStubAuthTransport(
   preset?: { user?: AuthUser; tokens?: AuthTokens },
@@ -87,12 +104,16 @@ export const useAuthSessionStore = create<AuthSessionState>((set, get) => ({
     deps = {
       storage: partial.storage ?? deps.storage,
       transport: partial.transport ?? deps.transport,
+      cloud: partial.cloud !== undefined ? partial.cloud : deps.cloud,
     };
   },
 
   async resetForTests() {
+    const cloud = createSharedCloudBackend();
+    const storage = createMemorySecureTokenStorage();
     deps = {
-      storage: createMemorySecureTokenStorage(),
+      storage,
+      cloud,
       transport: createStubAuthTransport(),
     };
     await deps.storage.clear();
@@ -103,17 +124,19 @@ export const useAuthSessionStore = create<AuthSessionState>((set, get) => ({
     try {
       const tokens = await deps.storage.read();
       if (tokens) {
-        // Tokens prove a prior sign-in; full user profile can be refreshed later.
-        const identity = identityFrom(
-          {
+        const restored =
+          deps.cloud?.resolveUser(tokens) ??
+          ({
             id: 'restored',
             email: null,
             displayName: null,
-          },
-          true,
-        );
+          } satisfies AuthUser);
+        const identity = identityFrom(restored, true);
         set({ mode: 'signed_in', identity, hydrated: true });
         await useSessionStore.getState().setMode('signed_in');
+        if (restored.id !== 'restored') {
+          await useSessionStore.getState().restoreEntitlementFromAccount(restored.id);
+        }
         return;
       }
     } catch {
@@ -134,6 +157,7 @@ export const useAuthSessionStore = create<AuthSessionState>((set, get) => ({
       hydrated: true,
     });
     await useSessionStore.getState().setMode('signed_in');
+    await useSessionStore.getState().restoreEntitlementFromAccount(user.id);
   },
 
   async signOut() {
@@ -155,4 +179,19 @@ export const useAuthSessionStore = create<AuthSessionState>((set, get) => ({
 /** Imperative access for sync client wiring outside React. */
 export function getAuthTokens(): Promise<AuthTokens | null> {
   return useAuthSessionStore.getState().getTokens();
+}
+
+export {
+  createAppAuthTransport,
+  createAppEntitlementClient,
+  createAppGroceryRealtimeTransport,
+  getAppCloudBackend,
+  householdCollaborationCloudOptions,
+  describeSyncBackend,
+  isHttpSyncConfigured,
+} from '@/data/sync/appCloudWiring';
+
+/** Cloud backend used by the live auth session (null when HTTP sync URL is set). */
+export function getAuthCloudBackend(): SharedCloudBackend | null {
+  return deps.cloud;
 }

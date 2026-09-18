@@ -1,17 +1,34 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import {
   createGroceryRealtimeHub,
   createHouseholdCollaboration,
-  createInMemoryGroceryRealtimeTransport,
   getRepositories,
   type GroceryRealtimeEvent,
+  type GroceryRealtimeTransport,
   type GroceryRealtimeUnsubscribe,
 } from '@/data';
 import { getAuthTokens, useAuthSessionStore } from '@/data/sync/authSession';
+import {
+  createAppGroceryRealtimeTransport,
+  householdCollaborationCloudOptions,
+} from '@/data/sync/appCloudWiring';
+import { isHttpSyncConfigured } from '@/data/sync/httpTransports';
+import {
+  createCloudGroceryRealtimeTransport,
+  getProcessSharedCloudBackend,
+} from '@/data/sync/cloudBackend';
 
-/** Process-wide in-memory bus so local multi-client tests / same-app peers can share events. */
-const sharedTransport = createInMemoryGroceryRealtimeTransport();
+const processSharedTransport = createCloudGroceryRealtimeTransport(
+  getProcessSharedCloudBackend(),
+);
+
+function appGroceryTransport(): GroceryRealtimeTransport {
+  if (isHttpSyncConfigured()) {
+    return createAppGroceryRealtimeTransport(getAuthTokens);
+  }
+  return processSharedTransport;
+}
 
 /**
  * Subscribe to household grocery realtime when the active list is tenant-scoped
@@ -26,6 +43,7 @@ export function useHouseholdGrocerySync(input: {
   const userId = useAuthSessionStore((s) => s.identity?.user.id ?? null);
   const mode = useAuthSessionStore((s) => s.mode);
   const { listId, householdId, onApplied } = input;
+  const transportRef = useRef(appGroceryTransport());
 
   useEffect(() => {
     if (mode !== 'signed_in' || !userId || !householdId || !listId) {
@@ -38,7 +56,10 @@ export function useHouseholdGrocerySync(input: {
     void (async () => {
       try {
         const repos = getRepositories();
-        const collab = createHouseholdCollaboration(repos);
+        const collab = createHouseholdCollaboration(
+          repos,
+          householdCollaborationCloudOptions(getAuthTokens),
+        );
         if (!collab.isActiveMember(householdId, userId)) {
           return;
         }
@@ -47,7 +68,7 @@ export function useHouseholdGrocerySync(input: {
           return;
         }
         const hub = createGroceryRealtimeHub({
-          transport: sharedTransport,
+          transport: transportRef.current,
           collaboration: collab,
           grocery: repos.grocery,
         });
@@ -74,7 +95,7 @@ export function useHouseholdGrocerySync(input: {
   }, [mode, userId, householdId, listId, onApplied]);
 }
 
-/** Test/helper access to the shared in-memory bus. */
+/** Test/helper access to the shared grocery bus. */
 export function getSharedGroceryRealtimeTransport() {
-  return sharedTransport;
+  return appGroceryTransport();
 }
