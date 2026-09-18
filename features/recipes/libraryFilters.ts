@@ -1,4 +1,5 @@
 import type { Collection, RecipeListItem, RecipeSort, Tag } from '@/data/contracts';
+import type { PantrySearchMode } from '@/features/pantry';
 
 export type CookTimeFilter = 'any' | 'le15' | 'le30' | 'le60';
 export type DateAddedFilter = 'any' | 'week' | 'month';
@@ -10,6 +11,8 @@ export type LibraryFilterState = {
   cookTime: CookTimeFilter;
   dateAdded: DateAddedFilter;
   sort: RecipeSort;
+  /** P2-W4: boost/filter recipes by pantry coverage (explicit copy in UI). */
+  pantryMode: PantrySearchMode;
 };
 
 export const DEFAULT_LIBRARY_FILTERS: LibraryFilterState = {
@@ -19,7 +22,14 @@ export const DEFAULT_LIBRARY_FILTERS: LibraryFilterState = {
   cookTime: 'any',
   dateAdded: 'any',
   sort: 'newest',
+  pantryMode: 'off',
 };
+
+export const PANTRY_MODE_OPTIONS: { value: PantrySearchMode; label: string }[] = [
+  { value: 'off', label: 'Pantry off' },
+  { value: 'boost', label: 'Boost by pantry' },
+  { value: 'filter', label: 'Only pantry matches' },
+];
 
 export const SORT_OPTIONS: { value: RecipeSort; label: string }[] = [
   { value: 'newest', label: 'Newest' },
@@ -91,6 +101,7 @@ export function activeFilterCount(filters: LibraryFilterState): number {
   if (filters.collectionId) count += 1;
   if (filters.cookTime !== 'any') count += 1;
   if (filters.dateAdded !== 'any') count += 1;
+  if (filters.pantryMode !== 'off') count += 1;
   return count;
 }
 
