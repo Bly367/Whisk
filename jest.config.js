@@ -20,6 +20,7 @@ module.exports = {
     'features/**/*.{ts,tsx}',
     'import/**/*.{ts,tsx}',
     'lib/**/*.{ts,tsx}',
+    'extension/**/*.{js,ts,tsx}',
     '!**/*.d.ts',
   ],
   clearMocks: true,

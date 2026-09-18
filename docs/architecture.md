@@ -38,6 +38,15 @@ Importers are **replaceable adapters** behind a shared interface (website, socia
 
 Adapters live behind a stable import API so social parsers can be swapped when upstream APIs change.
 
+## Browser extension & web/desktop (P2-W7)
+
+- Protocol + validation: `@/lib/extension` (`whisk.extension.capture` v1).
+- Extension shell: `extension/` (MV3, CSP, `activeTab` + `scripting` only).
+- Capture landing: `app/extension/capture` → validates → import session preview (`/import/preview`).
+- **SOT:** web/desktop is a capture/preview relay (`WEB_DESKTOP_SOT_POLICY`); mobile SQLite remains canonical until P2-W1/W2 sync contracts are used. Do not treat the web shell as a second recipe database.
+- Schemes: allow `https:` and documented `whisk:` only; reject `javascript:`, `file:`, `data:`, cleartext `http:`.
+- Web CSP: `WHISK_WEB_CSP` applied in `app/+html.tsx`.
+
 ## Workstream boundaries
 
 | ID  | Owns                                                                     | Avoid                         |

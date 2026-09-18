@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Whisk Capture</title>
+    <style>
+      :root {
+        --yolk: #f7b928;
+        --canvas: #fffdf8;
+        --text: #241f18;
+        --secondary: #6b6257;
+        --border: #e8e0d4;
+        --error: #b42318;
+      }
+      body {
+        margin: 0;
+        min-width: 280px;
+        font: 14px/1.4 system-ui, sans-serif;
+        color: var(--text);
+        background: var(--canvas);
+        padding: 16px;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 18px;
+        font-weight: 700;
+      }
+      p {
+        margin: 0 0 12px;
+        color: var(--secondary);
+      }
+      button {
+        display: block;
+        width: 100%;
+        min-height: 44px;
+        border: none;
+        border-radius: 12px;
+        background: var(--yolk);
+        color: var(--text);
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button:disabled {
+        opacity: 0.55;
+        cursor: default;
+      }
+      #status {
+        margin-top: 12px;
+        font-size: 13px;
+        color: var(--secondary);
+      }
+      #status.error {
+        color: var(--error);
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Whisk</h1>
+    <p>Capture this page as a recipe draft. Whisk opens import preview — nothing saves until you confirm.</p>
+    <button id="capture" type="button">Send to Whisk preview</button>
+    <div id="status" role="status"></div>
+    <script src="popup.js"></script>
+  </body>
+</html>

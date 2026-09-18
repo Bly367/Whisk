@@ -27,7 +27,13 @@ export type ImportWarning = {
   field?: ImportFieldKey;
 };
 
-export type ImportSourceKind = 'website' | 'share_sheet' | 'ocr' | 'manual' | 'paste_text';
+export type ImportSourceKind =
+  | 'website'
+  | 'share_sheet'
+  | 'ocr'
+  | 'manual'
+  | 'paste_text'
+  | 'browser_extension';
 
 export type ImportFallbackAction = 'try_again' | 'paste_text' | 'scan' | 'manual';
 

@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Whisk Recipe Capture",
+  "version": "0.1.0",
+  "description": "Capture a recipe draft from the current page and send it into Whisk import preview.",
+  "permissions": ["activeTab", "scripting"],
+  "action": {
+    "default_title": "Send recipe to Whisk",
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'; base-uri 'self'"
+  },
+  "externally_connectable": {
+    "matches": []
+  }
+}
