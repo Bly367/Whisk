@@ -34,3 +34,11 @@ export { canonicalizeUrl, detectSource, extractUrl, isSocialSource } from '@/imp
 export { extractRecipeJsonLd, extractPageMetadata } from '@/import/parse/jsonLd';
 export { draftFromPastedText } from '@/import/parse/pasteText';
 export { parseIngredientLine } from '@/import/parse/ingredients';
+
+/** Phase 2 compatibility packs (Paprika / JSON / Markdown) — see `@/import/compat`. */
+export {
+  listCompatAdapters,
+  previewCompatImport,
+  commitCompatImport,
+  buildCompatExportPack,
+} from '@/import/compat';

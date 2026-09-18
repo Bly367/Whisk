@@ -46,7 +46,7 @@ import {
 | **P2-W3 Household** | `Household`, `HouseholdMember`, `getRepositories().households`                                                             |
 | **P2-W4 Pantry**    | `PantryItem`, `PantryListQuery`, `getRepositories().pantry`                                                                |
 | **P2-W5 Templates** | `MealPlanTemplate`, `LeftoversLink`, `getRepositories().templates` / `.leftovers`                                          |
-| **P2-W6 Compat**    | `CompatImportJob`, `CompatExportPack`, `getRepositories().compat` (parsers land in P2-W6)                                  |
+| **P2-W6 Compat**    | `CompatImportJob`, `CompatExportPack`, `getRepositories().compat`; parsers/export in `@/import/compat` (see `docs/compat-io.md`) |
 
 ## Key modules
 
