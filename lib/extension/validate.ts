@@ -5,14 +5,12 @@ import {
   EXTENSION_MESSAGE_VERSION,
   type ExtensionCaptureMessage,
   type ExtensionCapturePayload,
+  type ExtensionValidationErrorCode,
   type ExtensionValidationResult,
 } from '@/lib/extension/protocol';
 import { assertAllowedCaptureSourceUrl } from '@/lib/extension/schemes';
 
-function fail(
-  code: ExtensionValidationResult extends { ok: false; error: infer E } ? E['code'] : never,
-  message: string,
-): ExtensionValidationResult {
+function fail(code: ExtensionValidationErrorCode, message: string): ExtensionValidationResult {
   return { ok: false, error: { code, message } };
 }
 
