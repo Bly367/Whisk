@@ -1,6 +1,7 @@
 import type { GroceryListWithItems, HouseholdMember, HouseholdWithMembers } from '@/data/contracts';
 import type { Repositories } from '@/data/repositories';
-import { createId } from '@/data/util';
+import type { CloudHouseholdSnapshot, SharedCloudBackend } from '@/data/sync/cloudBackend';
+import { createId, nowIso } from '@/data/util';
 
 /** Generic authz denial — never include foreign row bodies in the message. */
 export class HouseholdAuthzError extends Error {
@@ -27,6 +28,23 @@ export type JoinHouseholdInput = {
   displayName?: string | null;
 };
 
+export type HouseholdCollaborationOptions = {
+  /**
+   * Shared cloud registry so invite/join works across devices.
+   * Local SQLite remains the on-device SOT; cloud mirrors membership.
+   */
+  cloud?: SharedCloudBackend;
+  /** Optional remote invite lookup (HTTP sync server). */
+  resolveInviteRemote?: (inviteCode: string) => Promise<CloudHouseholdSnapshot | null>;
+  /** Optional remote household register (HTTP sync server). */
+  registerHouseholdRemote?: (snapshot: CloudHouseholdSnapshot) => Promise<void>;
+  /** Optional remote member add after local join (HTTP sync server). */
+  addMemberRemote?: (input: {
+    inviteCode: string;
+    displayName: string | null;
+  }) => Promise<CloudHouseholdSnapshot | null>;
+};
+
 const INVITE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 export function normalizeInviteCode(code: string): string {
@@ -42,7 +60,64 @@ export function generateInviteCode(length = 8): string {
   return out;
 }
 
-export function createHouseholdCollaboration(repos: Repositories) {
+function mirrorCloudHouseholdLocally(
+  repos: Repositories,
+  remote: {
+    id: string;
+    name: string;
+    ownerUserId: string;
+    inviteCode: string;
+    members: {
+      userId: string;
+      displayName: string | null;
+      role: 'owner' | 'member';
+      status: 'active' | 'invited' | 'removed';
+    }[];
+  },
+): HouseholdWithMembers {
+  const existing = repos.households.getById(remote.id);
+  if (!existing) {
+    const owner = remote.members.find((m) => m.role === 'owner' && m.status === 'active');
+    repos.households.create({
+      id: remote.id,
+      name: remote.name,
+      ownerUserId: owner?.userId ?? remote.ownerUserId,
+      ownerDisplayName: owner?.displayName ?? null,
+      inviteCode: remote.inviteCode,
+    });
+  }
+  for (const member of remote.members) {
+    if (member.status !== 'active') continue;
+    const household = repos.households.getById(remote.id);
+    const already = household?.members.find(
+      (m) => m.userId === member.userId && m.status === 'active',
+    );
+    if (already) continue;
+    // Owner row is created with the household; skip duplicate owner insert.
+    if (member.role === 'owner' && household?.members.some((m) => m.role === 'owner')) {
+      continue;
+    }
+    repos.households.addMember({
+      householdId: remote.id,
+      userId: member.userId,
+      displayName: member.displayName,
+      role: member.role === 'owner' ? 'owner' : 'member',
+      status: 'active',
+    });
+  }
+  const hydrated = repos.households.getById(remote.id);
+  if (!hydrated) {
+    throw new Error('Invite code is invalid or expired.');
+  }
+  return hydrated;
+}
+
+export function createHouseholdCollaboration(
+  repos: Repositories,
+  options: HouseholdCollaborationOptions = {},
+) {
+  const cloud = options.cloud;
+
   function assertActiveMember(
     householdId: string,
     userId: string,
@@ -105,6 +180,28 @@ export function createHouseholdCollaboration(repos: Repositories) {
     });
   }
 
+  function publishHouseholdToCloud(household: HouseholdWithMembers): void {
+    if (!household.inviteCode) return;
+    const snapshot: CloudHouseholdSnapshot = {
+      id: household.id,
+      name: household.name,
+      ownerUserId:
+        household.ownerUserId ?? household.members.find((m) => m.role === 'owner')?.userId ?? '',
+      inviteCode: household.inviteCode,
+      members: household.members
+        .filter((m) => m.userId)
+        .map((m) => ({
+          userId: m.userId!,
+          displayName: m.displayName,
+          role: m.role === 'owner' ? 'owner' : 'member',
+          status: m.status === 'removed' ? 'removed' : m.status === 'invited' ? 'invited' : 'active',
+        })),
+      updatedAtIso: household.updatedAt ?? nowIso(),
+    };
+    cloud?.registerHousehold(snapshot);
+    void options.registerHouseholdRemote?.(snapshot);
+  }
+
   return {
     assertActiveMember,
     isActiveMember,
@@ -122,7 +219,9 @@ export function createHouseholdCollaboration(repos: Repositories) {
         inviteCode,
       });
       ensureSharedGroceryList(household.id);
-      return repos.households.getById(household.id) ?? household;
+      const refreshed = repos.households.getById(household.id) ?? household;
+      publishHouseholdToCloud(refreshed);
+      return refreshed;
     },
 
     joinByInviteCode(input: JoinHouseholdInput): {
@@ -133,7 +232,13 @@ export function createHouseholdCollaboration(repos: Repositories) {
       if (!inviteCode) {
         throw new Error('Invite code is invalid or expired.');
       }
-      const household = repos.households.findByInviteCode(inviteCode);
+      let household = repos.households.findByInviteCode(inviteCode);
+      if (!household && cloud) {
+        const remote = cloud.resolveInvite(inviteCode);
+        if (remote) {
+          household = mirrorCloudHouseholdLocally(repos, remote);
+        }
+      }
       if (!household) {
         throw new Error('Invite code is invalid or expired.');
       }
@@ -151,16 +256,52 @@ export function createHouseholdCollaboration(repos: Repositories) {
           role: 'member',
           status: 'active',
         });
+        cloud?.addHouseholdMember(household.id, {
+          userId: input.userId,
+          displayName: input.displayName ?? null,
+          role: 'member',
+          status: 'active',
+        });
       }
       const refreshed = repos.households.getById(household.id);
       if (!refreshed) {
         throw new Error('Invite code is invalid or expired.');
       }
       ensureSharedGroceryList(refreshed.id);
+      publishHouseholdToCloud(repos.households.getById(refreshed.id) ?? refreshed);
       return {
         household: repos.households.getById(refreshed.id) ?? refreshed,
         member,
       };
+    },
+
+    async joinByInviteCodeAsync(input: JoinHouseholdInput): Promise<{
+      household: HouseholdWithMembers;
+      member: HouseholdMember;
+    }> {
+      const inviteCode = normalizeInviteCode(input.inviteCode);
+      if (!inviteCode) {
+        throw new Error('Invite code is invalid or expired.');
+      }
+      if (!repos.households.findByInviteCode(inviteCode)) {
+        let remote = cloud?.resolveInvite(inviteCode) ?? null;
+        if (!remote && options.addMemberRemote) {
+          remote = await options.addMemberRemote({
+            inviteCode,
+            displayName: input.displayName ?? null,
+          });
+        }
+        if (!remote && options.resolveInviteRemote) {
+          remote = await options.resolveInviteRemote(inviteCode);
+        }
+        if (remote) {
+          mirrorCloudHouseholdLocally(repos, remote);
+        }
+      }
+      return createHouseholdCollaboration(repos, {
+        cloud,
+        registerHouseholdRemote: options.registerHouseholdRemote,
+      }).joinByInviteCode(input);
     },
 
     listSharedGroceryLists(input: { householdId: string; userId: string }): GroceryListWithItems[] {

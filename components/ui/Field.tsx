@@ -10,7 +10,8 @@ export type FieldProps = {
   onChangeText: (text: string) => void;
   placeholder?: string;
   multiline?: boolean;
-  keyboardType?: 'default' | 'numeric' | 'url';
+  keyboardType?: 'default' | 'numeric' | 'url' | 'email-address';
+  secureTextEntry?: boolean;
   testID?: string;
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
 };
@@ -22,6 +23,7 @@ export function Field({
   placeholder,
   multiline = false,
   keyboardType = 'default',
+  secureTextEntry = false,
   testID,
   autoCapitalize = 'sentences',
 }: FieldProps) {
@@ -37,6 +39,7 @@ export function Field({
         placeholderTextColor={colors.textSecondary}
         multiline={multiline}
         keyboardType={keyboardType}
+        secureTextEntry={secureTextEntry}
         autoCapitalize={autoCapitalize}
         testID={testID}
         accessibilityLabel={label}

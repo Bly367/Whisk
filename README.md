@@ -47,7 +47,9 @@ npm test
 SQLite is the source of truth for recipes, meal plans, grocery lists, and trash/recovery.
 Feature workstreams import shared types and repositories from `@/data` (see `docs/data-layer.md`).
 
-Sync-status UI reflects **local** persistence (`Saved on this device` / needs attention) — it does not claim cloud sync success.
+Sync-status UI reflects **local** persistence (`Saved on this device` / needs attention) — it does not claim cloud sync success until a remote push is accepted.
+
+Optional sign-in + shared sync backend: see [`docs/p2-w1-real-sync.md`](./docs/p2-w1-real-sync.md). For two physical devices, run `npm run sync-server` and set `EXPO_PUBLIC_WHISK_SYNC_URL`.
 
 ## Standards
 

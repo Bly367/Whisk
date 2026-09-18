@@ -54,12 +54,34 @@ export {
   useAuthSessionStore,
   createStubAuthTransport,
   getAuthTokens,
+  getAuthCloudBackend,
 } from '@/data/sync/authSession';
 export {
   createSyncClient,
   createStubSyncTransport,
   reportSyncBlockedByLocalFailure,
 } from '@/data/sync/syncClient';
+export {
+  createSharedCloudBackend,
+  createCloudAuthTransport,
+  createCloudSyncTransport,
+  createCloudGroceryRealtimeTransport,
+  createCloudEntitlementClient,
+  createDefaultCloudStack,
+  getProcessSharedCloudBackend,
+  resetProcessSharedCloudBackendForTests,
+  type SharedCloudBackend,
+  type EntitlementClient,
+} from '@/data/sync/cloudBackend';
+export {
+  createAppAuthTransport,
+  createAppEntitlementClient,
+  createAppGroceryRealtimeTransport,
+  getAppCloudBackend,
+  householdCollaborationCloudOptions,
+  describeSyncBackend,
+  isHttpSyncConfigured,
+} from '@/data/sync/appCloudWiring';
 export {
   GROCERY_CONFLICT_POLICY,
   resolveGroceryItemConflict,

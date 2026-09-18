@@ -63,9 +63,13 @@ import {
 - `data/sync/secureTokenStorage.ts` — secure token storage (not AsyncStorage)
 - `data/sync/authSession.ts` — optional sign-in / sign-out; guest remains default
 - `data/sync/syncClient.ts` — sync client + stub transport (`createStubSyncTransport`)
+- `data/sync/cloudBackend.ts` — **real** shared cloud backend (auth, push/pull, household registry, grocery bus, entitlements)
+- `data/sync/httpTransports.ts` — HTTP client for `npm run sync-server` (`EXPO_PUBLIC_WHISK_SYNC_URL`)
+- `data/sync/appCloudWiring.ts` — picks process-shared vs HTTP backends
+- `docs/p2-w1-real-sync.md` — how cross-device sync + unlock work
 - `data/sync/groceryConflict.ts` — P2-W3 LWW conflict policy for grocery items
 - `data/sync/groceryRealtime.ts` — membership-gated realtime grocery hub + in-memory transport
-- `features/household/collaboration.ts` — invite/join + shared-list authz (`HouseholdAuthzError`)
+- `features/household/collaboration.ts` — invite/join + shared-list authz (`HouseholdAuthzError`); optional cloud registry
 - `docs/household-collab.md` — invite/join, authz, realtime, conflict policy
 - `data/DatabaseProvider.tsx` — boots SQLite, runs migrations, caches the write connection
 

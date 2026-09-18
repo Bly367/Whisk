@@ -97,10 +97,12 @@ Aligned at a high level with **OWASP MASVS** (storage, auth, network, platform, 
 When accounts / household sync land:
 
 - Use a maintained auth SDK (e.g. Supabase Auth / Sign in with Apple/Google) — do not roll custom crypto.
+- Until that SDK is provisioned, Whisk’s replaceable **sync backend** (`data/sync/cloudBackend.ts` + optional `npm run sync-server`) is the real transport behind P2-W1 contracts — treat passwords there as **dev/test only**, not production auth.
 - Store refresh/session tokens in **hardware-backed secure storage** where the platform allows.
 - Every sync mutation must enforce **tenant isolation** (user/household id) on the server; client filters are not authorization.
 - Real-time grocery sync channels must authorize membership before subscribe/publish.
 - Sign-out clears tokens and cancels in-flight sync; guest mode remains usable offline without an account.
+- One-time unlock entitlements are **account-bound** on the sync backend when signed in; local flags remain a cache (see §8).
 
 ---
 

@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/Button';
 import { Field } from '@/components/ui/Field';
 import { Text } from '@/components/ui/Text';
 import { createHouseholdCollaboration, getRepositories, type HouseholdWithMembers } from '@/data';
+import { getAuthTokens, useAuthSessionStore } from '@/data/sync/authSession';
+import { householdCollaborationCloudOptions } from '@/data/sync/appCloudWiring';
 import { spacing } from '@/constants/tokens';
-import { useAuthSessionStore } from '@/data/sync/authSession';
 
 type Props = {
   testID?: string;
@@ -53,13 +54,18 @@ export function HouseholdCollabCard({ testID = 'household-collab' }: Props) {
     return true;
   };
 
+  const collab = () =>
+    createHouseholdCollaboration(
+      getRepositories(),
+      householdCollaborationCloudOptions(getAuthTokens),
+    );
+
   const handleCreate = () => {
     if (!requireSignedIn() || !userId) return;
     setBusy(true);
     setMessage(null);
     try {
-      const collab = createHouseholdCollaboration(getRepositories());
-      const created = collab.createHousehold({
+      const created = collab().createHousehold({
         name: 'Our Kitchen',
         ownerUserId: userId,
         ownerDisplayName: displayName,
@@ -77,21 +83,22 @@ export function HouseholdCollabCard({ testID = 'household-collab' }: Props) {
     if (!requireSignedIn() || !userId) return;
     setBusy(true);
     setMessage(null);
-    try {
-      const collab = createHouseholdCollaboration(getRepositories());
-      const joined = collab.joinByInviteCode({
-        inviteCode: joinCode,
-        userId,
-        displayName,
-      });
-      setHousehold(joined.household);
-      setJoinCode('');
-      setMessage(`Joined ${joined.household.name}. Shared grocery updates will appear on Shop.`);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not join household.');
-    } finally {
-      setBusy(false);
-    }
+    void (async () => {
+      try {
+        const joined = await collab().joinByInviteCodeAsync({
+          inviteCode: joinCode,
+          userId,
+          displayName,
+        });
+        setHousehold(joined.household);
+        setJoinCode('');
+        setMessage(`Joined ${joined.household.name}. Shared grocery updates will appear on Shop.`);
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : 'Could not join household.');
+      } finally {
+        setBusy(false);
+      }
+    })();
   };
 
   return (

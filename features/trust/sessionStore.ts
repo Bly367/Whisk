@@ -1,6 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 
+import type { EntitlementClient } from '@/data/sync/cloudBackend';
+import {
+  createCloudEntitlementClient,
+  getProcessSharedCloudBackend,
+} from '@/data/sync/cloudBackend';
 import {
   currentWeekStartIso,
   defaultUnlockPricing,
@@ -28,12 +33,19 @@ export type SessionState = {
   setMode: (mode: SessionMode) => Promise<void>;
   recordImportStarted: () => Promise<void>;
   setDowngraded: (value: boolean) => Promise<void>;
-  /** Simulate a successful one-time purchase at the current (possibly discounted) price. */
-  unlockWithPurchase: () => Promise<void>;
+  /**
+   * One-time unlock at the current (possibly discounted) price.
+   * When signed in with a userId, writes entitlement to the cloud account so
+   * other devices restore it after sign-in.
+   */
+  unlockWithPurchase: (accountUserId?: string | null) => Promise<void>;
   /** Clear paid unlock (not admin). Used for downgrade simulation. */
   clearPaidUnlock: () => Promise<void>;
+  /** Pull account-bound entitlement after sign-in / hydrate. */
+  restoreEntitlementFromAccount: (userId: string) => Promise<void>;
   applyInfluencerCode: (raw: string) => Promise<RedeemCodeResult>;
   clearDiscountCode: () => Promise<void>;
+  configureEntitlementClientForTests: (client: EntitlementClient | null) => void;
   resetUsageForTests: (usage?: Partial<FreeTierUsage>) => void;
   resetSessionForTests: (partial?: {
     mode?: SessionMode;
@@ -42,6 +54,10 @@ export type SessionState = {
     unlockPricing?: UnlockPricing;
   }) => void;
 };
+
+let entitlementClient: EntitlementClient | null = createCloudEntitlementClient(
+  getProcessSharedCloudBackend(),
+);
 
 type PersistedSession = {
   mode: SessionMode;
@@ -184,7 +200,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     });
   },
 
-  async unlockWithPurchase() {
+  async unlockWithPurchase(accountUserId) {
     const usage = { ...normalizeUsage(get().usage), isDowngraded: false };
     set({ entitlement: 'unlocked', usage });
     await writePersisted({
@@ -193,6 +209,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       entitlement: 'unlocked',
       unlockPricing: get().unlockPricing,
     });
+    const userId = accountUserId?.trim();
+    if (userId && entitlementClient && get().mode === 'signed_in') {
+      await entitlementClient.setEntitlement(userId, 'unlocked');
+    }
   },
 
   async clearPaidUnlock() {
@@ -207,6 +227,28 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       entitlement: 'free',
       unlockPricing: get().unlockPricing,
     });
+  },
+
+  async restoreEntitlementFromAccount(userId) {
+    if (!entitlementClient || !userId.trim()) {
+      return;
+    }
+    const remote = await entitlementClient.getEntitlement(userId);
+    if (remote === 'free') {
+      return;
+    }
+    const usage = { ...normalizeUsage(get().usage), isDowngraded: false };
+    set({ entitlement: remote, usage });
+    await writePersisted({
+      mode: get().mode,
+      usage,
+      entitlement: remote,
+      unlockPricing: get().unlockPricing,
+    });
+  },
+
+  configureEntitlementClientForTests(client) {
+    entitlementClient = client;
   },
 
   async applyInfluencerCode(raw) {
@@ -267,6 +309,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   resetSessionForTests(partial = {}) {
+    entitlementClient = createCloudEntitlementClient(getProcessSharedCloudBackend());
     set({
       hydrated: true,
       mode: partial.mode ?? 'guest',

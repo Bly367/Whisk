@@ -5,6 +5,8 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
 import { DatabaseProvider } from '@/data/DatabaseProvider';
+import { useAuthSessionStore } from '@/data/sync/authSession';
+import { useSessionStore } from '@/features/trust/sessionStore';
 import { AppThemeProvider, useTheme } from '@/theme/ThemeProvider';
 
 export { ErrorBoundary } from 'expo-router';
@@ -18,6 +20,11 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   useEffect(() => {
     SplashScreen.hideAsync();
+  }, []);
+
+  useEffect(() => {
+    void useSessionStore.getState().hydrate();
+    void useAuthSessionStore.getState().hydrate();
   }, []);
 
   return (
