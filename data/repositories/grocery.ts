@@ -240,6 +240,145 @@ export function createGroceryRepository(db: DbClient) {
       }, 'Could not delete grocery item');
     },
 
+    /** Include soft-deleted rows (realtime LWW / restore). */
+    getItemById(id: string): GroceryItem | null {
+      const row = db.get<ItemRow>(`SELECT * FROM grocery_items WHERE id = ?`, [id]);
+      return row ? mapGroceryItem(row) : null;
+    },
+
+    /**
+     * Upsert a synced grocery item by stable id (P2-W3 realtime apply).
+     * Preserves the remote `updatedAt` for conflict comparisons.
+     */
+    upsertSyncedItem(
+      listId: string,
+      input: {
+        id: string;
+        name: string;
+        quantity?: string | null;
+        unit?: string | null;
+        aisle?: string | null;
+        isCompleted?: boolean;
+        completedAt?: string | null;
+        recipeId?: string | null;
+        recipeTitle?: string | null;
+        mergeKey?: string | null;
+        position?: number;
+        updatedAt: string;
+      },
+    ): GroceryItem {
+      return withLocalPersist(() => {
+        const list = db.get<ListRow>(
+          `SELECT * FROM grocery_lists WHERE id = ? AND deleted_at IS NULL`,
+          [listId],
+        );
+        if (!list) {
+          throw new Error(`Grocery list not found: ${listId}`);
+        }
+        const existing = db.get<ItemRow>(`SELECT * FROM grocery_items WHERE id = ?`, [input.id]);
+        const createdAt = existing?.created_at ?? input.updatedAt;
+        const isCompleted = input.isCompleted ?? false;
+        return db.withTransaction(() => {
+          if (existing) {
+            db.run(
+              `UPDATE grocery_items SET
+                list_id = ?,
+                name = ?,
+                quantity = ?,
+                unit = ?,
+                aisle = ?,
+                is_completed = ?,
+                completed_at = ?,
+                recipe_id = ?,
+                recipe_title = ?,
+                merge_key = ?,
+                position = ?,
+                updated_at = ?,
+                deleted_at = NULL
+               WHERE id = ?`,
+              [
+                listId,
+                input.name.trim(),
+                input.quantity ?? null,
+                input.unit ?? null,
+                input.aisle ?? null,
+                fromBool(isCompleted),
+                isCompleted ? (input.completedAt ?? input.updatedAt) : null,
+                input.recipeId ?? null,
+                input.recipeTitle ?? null,
+                input.mergeKey ?? null,
+                input.position ?? existing.position,
+                input.updatedAt,
+                input.id,
+              ],
+            );
+          } else {
+            db.run(
+              `INSERT INTO grocery_items (
+                id, list_id, name, quantity, unit, aisle, is_completed, completed_at,
+                recipe_id, recipe_title, merge_key, position, created_at, updated_at, deleted_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+              [
+                input.id,
+                listId,
+                input.name.trim(),
+                input.quantity ?? null,
+                input.unit ?? null,
+                input.aisle ?? null,
+                fromBool(isCompleted),
+                isCompleted ? (input.completedAt ?? input.updatedAt) : null,
+                input.recipeId ?? null,
+                input.recipeTitle ?? null,
+                input.mergeKey ?? null,
+                input.position ?? 0,
+                createdAt,
+                input.updatedAt,
+              ],
+            );
+          }
+          db.run(
+            `UPDATE grocery_lists SET updated_at = ?, sync_status = 'synced_local' WHERE id = ?`,
+            [input.updatedAt, listId],
+          );
+          const row = db.get<ItemRow>(`SELECT * FROM grocery_items WHERE id = ?`, [input.id]);
+          if (!row) {
+            throw new Error('Failed to upsert grocery item');
+          }
+          return mapGroceryItem(row);
+        });
+      }, 'Could not apply grocery sync');
+    },
+
+    /** Apply remote reorder positions (P2-W3). */
+    reorderItems(
+      listId: string,
+      positions: { itemId: string; position: number }[],
+      updatedAtIso?: string,
+    ): void {
+      withLocalPersist(() => {
+        const list = db.get<ListRow>(
+          `SELECT * FROM grocery_lists WHERE id = ? AND deleted_at IS NULL`,
+          [listId],
+        );
+        if (!list) {
+          throw new Error(`Grocery list not found: ${listId}`);
+        }
+        const now = updatedAtIso ?? nowIso();
+        db.withTransaction(() => {
+          for (const entry of positions) {
+            db.run(
+              `UPDATE grocery_items SET position = ?, updated_at = ? WHERE id = ? AND list_id = ?`,
+              [entry.position, now, entry.itemId, listId],
+            );
+          }
+          db.run(
+            `UPDATE grocery_lists SET updated_at = ?, sync_status = 'synced_local' WHERE id = ?`,
+            [now, listId],
+          );
+        });
+      }, 'Could not reorder grocery items');
+    },
+
     /** Undo soft-delete or restore a completed item to active. */
     restoreItem(id: string): GroceryItem {
       return withLocalPersist(() => {

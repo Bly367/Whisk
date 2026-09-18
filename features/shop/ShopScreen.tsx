@@ -24,6 +24,8 @@ import {
 import { completedItems, groupGroceryItems, type ShopGroupMode } from '@/features/shop/groupItems';
 import { replaceGroceryListFromPreview, undoReplaceGroceryList } from '@/features/shop/replaceList';
 import { unmergeGroceryItem } from '@/features/shop/unmerge';
+import { useHouseholdGrocerySync } from '@/features/household/useHouseholdGrocerySync';
+import { publishHouseholdGroceryUpsert } from '@/features/household/publishHouseholdGrocery';
 import { ensureMinTouchTarget, hitSlop } from '@/theme/a11y';
 import { useTheme } from '@/theme/ThemeProvider';
 
@@ -76,6 +78,12 @@ export function ShopScreen() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  useHouseholdGrocerySync({
+    listId: list?.id ?? null,
+    householdId: list?.householdId ?? null,
+    onApplied: refresh,
+  });
 
   const clearUndoTimer = () => {
     if (undoTimer.current) {
@@ -147,17 +155,21 @@ export function ShopScreen() {
   const handleToggleComplete = (item: GroceryItem) => {
     try {
       const { grocery } = getRepositories();
-      if (!item.isCompleted) {
-        grocery.setCompleted(item.id, true);
-        reportLocalPersistSuccess();
+      const nextCompleted = !item.isCompleted;
+      const updated = grocery.setCompleted(item.id, nextCompleted);
+      reportLocalPersistSuccess();
+      if (nextCompleted) {
         showUndo({ kind: 'complete', itemId: item.id, name: item.name });
       } else {
-        grocery.setCompleted(item.id, false);
-        reportLocalPersistSuccess();
         clearUndoTimer();
         setUndo(null);
       }
       refresh();
+      void publishHouseholdGroceryUpsert({
+        householdId: list?.householdId,
+        listId: item.listId,
+        item: updated,
+      });
     } catch (error) {
       reportLocalPersistFailure(error instanceof Error ? error.message : 'Could not update item');
     }
@@ -170,6 +182,12 @@ export function ShopScreen() {
       reportLocalPersistSuccess();
       showUndo({ kind: 'delete', itemId: item.id, name: item.name });
       refresh();
+      void publishHouseholdGroceryUpsert({
+        householdId: list?.householdId,
+        listId: item.listId,
+        item,
+        deleted: true,
+      });
     } catch (error) {
       reportLocalPersistFailure(error instanceof Error ? error.message : 'Could not remove item');
     }

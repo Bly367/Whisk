@@ -43,7 +43,7 @@ import {
 | **W5 Plan**         | `MealPlan`, `MealPlanEntry`, `MealSlot`, `getRepositories().mealPlans`                                                     |
 | **W6 Shop**         | `GroceryList`, `GroceryItem`, `getRepositories().grocery`                                                                  |
 | **W7 Cook + trust** | `RecipeWithIngredients`, `CookStep`, offline `getRecipe`; trash via `recipes.restore`                                      |
-| **P2-W3 Household** | `Household`, `HouseholdMember`, `getRepositories().households`                                                             |
+| **P2-W3 Household** | `Household`, `HouseholdMember`, `getRepositories().households`, `createHouseholdCollaboration`, `createGroceryRealtimeHub`, `GROCERY_CONFLICT_POLICY` |
 | **P2-W4 Pantry**    | `PantryItem`, `PantryListQuery`, `getRepositories().pantry`                                                                |
 | **P2-W5 Templates** | `MealPlanTemplate`, `LeftoversLink`, `getRepositories().templates` / `.leftovers`                                          |
 | **P2-W6 Compat**    | `CompatImportJob`, `CompatExportPack`, `getRepositories().compat` (parsers land in P2-W6)                                  |
@@ -60,6 +60,10 @@ import {
 - `data/sync/secureTokenStorage.ts` — secure token storage (not AsyncStorage)
 - `data/sync/authSession.ts` — optional sign-in / sign-out; guest remains default
 - `data/sync/syncClient.ts` — sync client + stub transport (`createStubSyncTransport`)
+- `data/sync/groceryConflict.ts` — P2-W3 LWW conflict policy for grocery items
+- `data/sync/groceryRealtime.ts` — membership-gated realtime grocery hub + in-memory transport
+- `features/household/collaboration.ts` — invite/join + shared-list authz (`HouseholdAuthzError`)
+- `docs/household-collab.md` — invite/join, authz, realtime, conflict policy
 - `data/DatabaseProvider.tsx` — boots SQLite, runs migrations, caches the write connection
 
 ## Database connection

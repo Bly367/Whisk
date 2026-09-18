@@ -24,3 +24,12 @@ export {
   withLocalPersist,
   bannerStatusFromLocal,
 } from '@/data/sync/statusStore';
+export {
+  GROCERY_CONFLICT_POLICY,
+  resolveGroceryItemConflict,
+  shouldApplyRemoteGroceryWrite,
+} from '@/data/sync/groceryConflict';
+export {
+  createGroceryRealtimeHub,
+  createInMemoryGroceryRealtimeTransport,
+} from '@/data/sync/groceryRealtime';

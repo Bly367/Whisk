@@ -54,4 +54,23 @@ export {
   createStubSyncTransport,
   reportSyncBlockedByLocalFailure,
 } from '@/data/sync/syncClient';
+export {
+  GROCERY_CONFLICT_POLICY,
+  resolveGroceryItemConflict,
+  shouldApplyRemoteGroceryWrite,
+} from '@/data/sync/groceryConflict';
+export {
+  createGroceryRealtimeHub,
+  createInMemoryGroceryRealtimeTransport,
+  type GroceryRealtimeEvent,
+  type GroceryRealtimeHub,
+  type GroceryRealtimeTransport,
+  type GroceryRealtimeUnsubscribe,
+} from '@/data/sync/groceryRealtime';
+export {
+  HouseholdAuthzError,
+  createHouseholdCollaboration,
+  generateInviteCode,
+  normalizeInviteCode,
+} from '@/features/household/collaboration';
 export { createId, nowIso } from '@/data/util';

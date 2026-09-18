@@ -29,13 +29,15 @@ function hydrate(db: DbClient, household: Household): HouseholdWithMembers {
 export function createHouseholdRepository(db: DbClient) {
   return {
     create(input: {
+      /** Optional stable id for sync mirrors / tests. */
+      id?: string;
       name: string;
       ownerUserId?: string | null;
       ownerDisplayName?: string | null;
       inviteCode?: string | null;
     }): HouseholdWithMembers {
       return withLocalPersist(() => {
-        const id = createId();
+        const id = input.id?.trim() || createId();
         const now = nowIso();
         const ownerUserId = input.ownerUserId ?? null;
         return db.withTransaction(() => {
@@ -74,6 +76,24 @@ export function createHouseholdRepository(db: DbClient) {
       const row = db.get<HouseholdRow>(
         `SELECT * FROM households WHERE id = ? AND deleted_at IS NULL`,
         [id],
+      );
+      return row ? hydrate(db, mapHousehold(row)) : null;
+    },
+
+    /**
+     * Lookup by normalized invite code (case-insensitive). Returns null when
+     * unknown — callers must not probe other household rows on failure.
+     */
+    findByInviteCode(inviteCode: string): HouseholdWithMembers | null {
+      const normalized = inviteCode.trim().toUpperCase();
+      if (!normalized) {
+        return null;
+      }
+      const row = db.get<HouseholdRow>(
+        `SELECT * FROM households
+         WHERE deleted_at IS NULL AND UPPER(TRIM(invite_code)) = ?
+         LIMIT 1`,
+        [normalized],
       );
       return row ? hydrate(db, mapHousehold(row)) : null;
     },

@@ -270,29 +270,28 @@ describe('P2-W3 real-time grocery sync', () => {
       ownerDisplayName: 'A',
       inviteCode: 'SHARE1',
     });
-    // Mirror household + membership on device B (joined remotely).
-    const collabB = createHouseholdCollaboration(reposB);
-    const homeB = collabB.createHousehold({
-      name: 'Shared',
-      ownerUserId: 'u-a',
-      ownerDisplayName: 'A',
-      inviteCode: 'SHARE1',
-    });
-    // Force same household id for the test bus by joining B as member on both DBs
-    // via invite on A, and recreating membership on B with shared id.
     collabA.joinByInviteCode({
       inviteCode: 'SHARE1',
       userId: 'u-b',
       displayName: 'B',
     });
+
+    // Mirror same household id + membership onto device B (sync bootstrap).
+    const collabB = createHouseholdCollaboration(reposB);
+    collabB.createHousehold({
+      id: home.id,
+      name: 'Shared',
+      ownerUserId: 'u-a',
+      ownerDisplayName: 'A',
+      inviteCode: 'SHARE1',
+    });
     reposB.households.addMember({
-      householdId: homeB.id,
+      householdId: home.id,
       userId: 'u-b',
       displayName: 'B',
       role: 'member',
     });
 
-    // Use a shared household id token for the channel (transport scopes by id string).
     const householdId = home.id;
     const listA = reposA.grocery.create({
       name: 'Shop',
@@ -314,7 +313,6 @@ describe('P2-W3 real-time grocery sync', () => {
       transport,
       collaboration: collabB,
       grocery: reposB.grocery,
-      // Device B maps remote household channel id → local list for this test fixture.
       resolveLocalListId: () => listB.id,
     });
 
@@ -352,7 +350,10 @@ describe('P2-W3 real-time grocery sync', () => {
     });
 
     expect(received).toHaveLength(1);
-    expect(received[0].kind).toBe('item_upsert');
+    expect(received[0]!.kind).toBe('item_upsert');
+    if (received[0]!.kind !== 'item_upsert') {
+      throw new Error('expected item_upsert');
+    }
     expect(received[0].item.name).toBe('Tomatoes');
 
     const applied = hubB.applyEvent(received[0]);
@@ -524,6 +525,9 @@ describe('P2-W3 real-time grocery sync', () => {
     });
 
     expect(result.applied).toBe(false);
+    if (result.applied) {
+      throw new Error('expected stale');
+    }
     expect(result.reason).toBe('stale');
     expect(repos.grocery.getById(list.id)?.items[0].quantity).toBe('local-2');
   });

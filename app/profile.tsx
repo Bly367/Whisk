@@ -9,6 +9,7 @@ import { GuestModeBanner } from '@/components/trust/GuestModeBanner';
 import { LimitNotice } from '@/components/trust/LimitNotice';
 import { spacing } from '@/constants/tokens';
 import { createOfflineReader, getDatabase, getRepositories } from '@/data';
+import { HouseholdCollabCard } from '@/features/household/HouseholdCollabCard';
 import { buildExportFromRepos, exportPayloadToJson } from '@/features/trust/exportRecipes';
 import { describeUnlockOffer, PAYMENT } from '@/features/trust/freeTier';
 import { useSessionStore } from '@/features/trust/sessionStore';
@@ -129,6 +130,8 @@ export default function ProfileScreen() {
       <Text variant="title2">Account</Text>
 
       <GuestModeBanner mode={mode} />
+
+      <HouseholdCollabCard />
 
       <LimitNotice
         usage={usage}
