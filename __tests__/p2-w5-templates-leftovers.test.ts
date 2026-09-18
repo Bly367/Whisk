@@ -22,7 +22,10 @@ import {
 import {
   scheduleLeftovers,
   undoScheduleLeftovers,
+  defaultLaterTargetDate,
+  filterLaterWeekDates,
 } from '@/features/plan-templates/leftoversWorkflow';
+import { weekDays } from '@/components/plan/weekUtils';
 
 function seedWeekPlan() {
   const db = createTestDbClient();
@@ -256,5 +259,73 @@ describe('P2-W5 leftovers → plan entries', () => {
     expect(repos.leftovers.getById(result.link.id)).toBeNull();
     // Source entry still present
     expect(after?.entries.find((e) => e.id === monDinner.id)).toBeTruthy();
+  });
+
+  it('rejects a target date on or before the source meal date', () => {
+    const { repos, monDinner } = seedWeekPlan();
+
+    expect(() =>
+      scheduleLeftovers(repos, {
+        sourceMealPlanEntryId: monDinner.id,
+        targetPlanDate: '2026-09-14',
+        targetSlot: 'lunch',
+      }),
+    ).toThrow(/later/i);
+
+    expect(() =>
+      scheduleLeftovers(repos, {
+        sourceMealPlanEntryId: monDinner.id,
+        targetPlanDate: '2026-09-13',
+        targetSlot: 'dinner',
+      }),
+    ).toThrow(/later/i);
+  });
+
+  it('does not allow last-day-of-week leftovers to fall back to an earlier weekday', () => {
+    const db = createTestDbClient();
+    const repos = createRepositories(db);
+    const roast = repos.recipes.create({ title: 'Sunday Roast' });
+    // Week Mon 2026-09-14 … Sun 2026-09-20
+    const plan = repos.mealPlans.getOrCreateForWeek('2026-09-14');
+    const sundayDinner = repos.mealPlans.addEntry({
+      mealPlanId: plan.id,
+      recipeId: roast.id,
+      planDate: '2026-09-20',
+      slot: 'dinner',
+    });
+
+    const week = weekDays('2026-09-14');
+    expect(filterLaterWeekDates('2026-09-20', week)).toEqual([]);
+    // Must not return Monday (days[0]) — that would schedule leftovers earlier.
+    expect(defaultLaterTargetDate('2026-09-20', week)).toBeNull();
+
+    expect(() =>
+      scheduleLeftovers(repos, {
+        sourceMealPlanEntryId: sundayDinner.id,
+        targetPlanDate: '2026-09-14',
+        targetSlot: 'lunch',
+        label: 'Roast leftovers',
+      }),
+    ).toThrow(/later/i);
+
+    // Explicit next-week date (after source) is allowed.
+    const nextWeek = scheduleLeftovers(repos, {
+      sourceMealPlanEntryId: sundayDinner.id,
+      targetPlanDate: '2026-09-21',
+      targetSlot: 'lunch',
+      targetMealPlanId: repos.mealPlans.getOrCreateForWeek('2026-09-21').id,
+      label: 'Roast leftovers',
+    });
+    expect(nextWeek.targetEntry.planDate).toBe('2026-09-21');
+    expect(repos.recipes.getById(roast.id)?.title).toBe('Sunday Roast');
+  });
+
+  it('defaults leftovers target to the next later day in the week when available', () => {
+    const week = weekDays('2026-09-14');
+    expect(defaultLaterTargetDate('2026-09-14', week)).toBe('2026-09-15');
+    expect(filterLaterWeekDates('2026-09-18', week).map((d) => d.date)).toEqual([
+      '2026-09-19',
+      '2026-09-20',
+    ]);
   });
 });
