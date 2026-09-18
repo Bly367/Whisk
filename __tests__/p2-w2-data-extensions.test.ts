@@ -88,6 +88,16 @@ describe('P2-W2 schema version + migrations', () => {
       ) VALUES (?, ?, '[]', 'published', 0, ?, ?, 1, 'synced_local')`,
       ['recipe-mvp', 'MVP Chili', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z'],
     );
+    db.run(
+      `INSERT INTO meal_plans (id, week_start, created_at, updated_at, deleted_at, sync_status)
+       VALUES (?, ?, ?, ?, NULL, 'synced_local')`,
+      ['plan-mvp', '2026-01-05', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z'],
+    );
+    db.run(
+      `INSERT INTO grocery_lists (id, name, meal_plan_id, created_at, updated_at, deleted_at, sync_status)
+       VALUES (?, ?, NULL, ?, ?, NULL, 'synced_local')`,
+      ['list-mvp', 'MVP Shop', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z'],
+    );
 
     migrate(db);
 
@@ -101,14 +111,33 @@ describe('P2-W2 schema version + migrations', () => {
       `SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'pantry_items'`,
     );
     expect(pantry?.name).toBe('pantry_items');
+
+    // Tenant columns must exist on MVP-upgraded tables (not only empty-DB path).
+    for (const table of ['recipes', 'meal_plans', 'grocery_lists']) {
+      const cols = db.all<{ name: string }>(`PRAGMA table_info(${table})`).map((c) => c.name);
+      expect(cols).toContain('household_id');
+      expect(cols).toContain('remote_id');
+    }
   });
 
-  it('is idempotent: running migrate twice leaves schema at VERSION 2', () => {
+  it('is idempotent: re-running V2 DDL and tenant columns is safe', () => {
     const db = createTestDbClient();
     migrate(db);
     migrate(db);
+
+    // Exercise V2 extensions again (not only user_version early return).
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { applySchemaV2Extensions } = require('@/data') as typeof import('@/data');
+    expect(() => applySchemaV2Extensions(db)).not.toThrow();
+    expect(() => applySchemaV2Extensions(db)).not.toThrow();
+
     const version = db.get<{ user_version: number }>('PRAGMA user_version');
     expect(version?.user_version).toBe(2);
+    for (const table of ['recipes', 'meal_plans', 'grocery_lists']) {
+      const cols = db.all<{ name: string }>(`PRAGMA table_info(${table})`).map((c) => c.name);
+      expect(cols).toContain('household_id');
+      expect(cols).toContain('remote_id');
+    }
   });
 
   it('adds tenant columns (household_id, remote_id) on sync-ready domain tables', () => {
@@ -118,6 +147,80 @@ describe('P2-W2 schema version + migrations', () => {
       expect(cols).toContain('household_id');
       expect(cols).toContain('remote_id');
     }
+  });
+});
+
+describe('P2-W2 core domain tenant fields', () => {
+  beforeEach(() => {
+    useSyncStatusStore.getState().resetToLocalOk();
+  });
+
+  it('publishes nullable householdId and remoteId on Recipe, MealPlan, GroceryList', () => {
+    const db = createTestDbClient();
+    const { recipes, mealPlans, grocery } = createRepositories(db);
+
+    const recipe = recipes.create({ title: 'Soup' });
+    expect(recipe).toEqual(
+      expect.objectContaining({
+        householdId: null,
+        remoteId: null,
+      }),
+    );
+
+    const plan = mealPlans.getOrCreateForWeek('2026-10-05');
+    expect(plan).toEqual(
+      expect.objectContaining({
+        householdId: null,
+        remoteId: null,
+      }),
+    );
+
+    const list = grocery.create({ name: 'Shop' });
+    expect(list).toEqual(
+      expect.objectContaining({
+        householdId: null,
+        remoteId: null,
+      }),
+    );
+  });
+
+  it('persists householdId via repositories; remoteId stays null until sync', () => {
+    const db = createTestDbClient();
+    const { recipes, mealPlans, grocery, households } = createRepositories(db);
+    const household = households.create({
+      name: 'Tenant Home',
+      ownerUserId: 'u-tenant',
+      ownerDisplayName: 'T',
+    });
+
+    const recipe = recipes.create({
+      title: 'Tenant Chili',
+      householdId: household.id,
+    });
+    expect(recipe.householdId).toBe(household.id);
+    expect(recipe.remoteId).toBeNull();
+    expect(recipes.getById(recipe.id)?.householdId).toBe(household.id);
+    expect(recipes.getById(recipe.id)?.remoteId).toBeNull();
+
+    const moved = recipes.update(recipe.id, { householdId: null });
+    expect(moved.householdId).toBeNull();
+    expect(moved.remoteId).toBeNull();
+
+    const plan = mealPlans.getOrCreateForWeek('2026-10-12', { householdId: household.id });
+    expect(plan.householdId).toBe(household.id);
+    expect(plan.remoteId).toBeNull();
+    const reloadedPlan = mealPlans.setTenantFields(plan.id, { householdId: household.id });
+    expect(reloadedPlan.householdId).toBe(household.id);
+    expect(reloadedPlan.remoteId).toBeNull();
+    expect(mealPlans.getById(plan.id)?.remoteId).toBeNull();
+
+    const list = grocery.create({ name: 'Tenant Shop', householdId: household.id });
+    expect(list.householdId).toBe(household.id);
+    expect(list.remoteId).toBeNull();
+    const updatedList = grocery.setTenantFields(list.id, { householdId: household.id });
+    expect(updatedList.householdId).toBe(household.id);
+    expect(updatedList.remoteId).toBeNull();
+    expect(grocery.getById(list.id)?.remoteId).toBeNull();
   });
 });
 
