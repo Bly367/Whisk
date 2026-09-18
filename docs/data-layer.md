@@ -47,7 +47,7 @@ import {
 | **P2-W3 Household** | `Household`, `HouseholdMember`, `getRepositories().households`, `createHouseholdCollaboration`, `createGroceryRealtimeHub`, `GROCERY_CONFLICT_POLICY` |
 | **P2-W4 Pantry**    | `PantryItem`, `PantryListQuery`, `getRepositories().pantry`; feature helpers in `@/features/pantry` (`scorePantryCoverage`, `applyPantryAwareSearch`, `describePantrySearchMode`) |
 | **P2-W5 Templates** | `MealPlanTemplate`, `LeftoversLink`, `getRepositories().templates` / `.leftovers`, feature helpers in `@/features/plan-templates` (save week/selection, preview/apply/undo, leftovers → plan) |
-| **P2-W6 Compat**    | `CompatImportJob`, `CompatExportPack`, `getRepositories().compat` (parsers land in P2-W6)                                                             |
+| **P2-W6 Compat**    | `CompatImportJob`, `CompatExportPack`, `getRepositories().compat`; parsers/export in `@/import/compat` (see `docs/compat-io.md`) |
 
 ## Key modules
 

@@ -1,0 +1,25 @@
+{
+  "format": "whisk-compat-json",
+  "version": 1,
+  "recipes": [
+    {
+      "title": "Lemon Pasta",
+      "notes": "Bright and quick.",
+      "sourceUrl": "https://example.com/lemon-pasta",
+      "sourceName": "Weeknight Box",
+      "servings": 2,
+      "prepMinutes": 5,
+      "cookMinutes": 15,
+      "ingredients": [
+        { "name": "spaghetti", "quantity": "8", "unit": "oz" },
+        { "name": "lemon", "quantity": "1", "unit": null },
+        { "name": "olive oil", "quantity": "2", "unit": "tbsp" }
+      ],
+      "instructions": [
+        { "text": "Boil pasta until al dente.", "position": 0 },
+        { "text": "Toss with lemon zest, juice, and olive oil.", "position": 1 }
+      ],
+      "tags": ["Pasta", "Weeknight"]
+    }
+  ]
+}
