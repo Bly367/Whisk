@@ -45,7 +45,7 @@ import {
 | **W7 Cook + trust** | `RecipeWithIngredients`, `CookStep`, offline `getRecipe`; trash via `recipes.restore`                                      |
 | **P2-W3 Household** | `Household`, `HouseholdMember`, `getRepositories().households`                                                             |
 | **P2-W4 Pantry**    | `PantryItem`, `PantryListQuery`, `getRepositories().pantry`                                                                |
-| **P2-W5 Templates** | `MealPlanTemplate`, `LeftoversLink`, `getRepositories().templates` / `.leftovers`                                          |
+| **P2-W5 Templates** | `MealPlanTemplate`, `LeftoversLink`, `getRepositories().templates` / `.leftovers`, feature helpers in `@/features/plan-templates` (save week/selection, preview/apply/undo, leftovers → plan) |
 | **P2-W6 Compat**    | `CompatImportJob`, `CompatExportPack`, `getRepositories().compat` (parsers land in P2-W6)                                  |
 
 ## Key modules
