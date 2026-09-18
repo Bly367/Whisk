@@ -45,14 +45,7 @@ export function createGroceryRepository(db: DbClient) {
               id, name, meal_plan_id, created_at, updated_at, deleted_at, sync_status,
               household_id, remote_id
             ) VALUES (?, ?, ?, ?, ?, NULL, 'synced_local', ?, NULL)`,
-            [
-              id,
-              input.name.trim(),
-              input.mealPlanId ?? null,
-              now,
-              now,
-              input.householdId ?? null,
-            ],
+            [id, input.name.trim(), input.mealPlanId ?? null, now, now, input.householdId ?? null],
           );
           input.items?.forEach((item, index) => {
             db.run(
@@ -85,10 +78,7 @@ export function createGroceryRepository(db: DbClient) {
       }, 'Could not save grocery list');
     },
 
-    setTenantFields(
-      id: string,
-      fields: { householdId?: string | null },
-    ): GroceryListWithItems {
+    setTenantFields(id: string, fields: { householdId?: string | null }): GroceryListWithItems {
       return withLocalPersist(() => {
         const existing = db.get<ListRow>(
           `SELECT * FROM grocery_lists WHERE id = ? AND deleted_at IS NULL`,
@@ -105,7 +95,7 @@ export function createGroceryRepository(db: DbClient) {
             sync_status = 'synced_local'
            WHERE id = ?`,
           [
-            fields.householdId !== undefined ? fields.householdId : existing.household_id ?? null,
+            fields.householdId !== undefined ? fields.householdId : (existing.household_id ?? null),
             now,
             id,
           ],

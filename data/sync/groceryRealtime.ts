@@ -105,8 +105,7 @@ export function createInMemoryGroceryRealtimeTransport(): GroceryRealtimeTranspo
 }
 
 export type GroceryRealtimeApplyResult =
-  | { applied: true }
-  | { applied: false; reason: 'stale' | 'unknown_list' | 'ignored' };
+  { applied: true } | { applied: false; reason: 'stale' | 'unknown_list' | 'ignored' };
 
 type HubDeps = {
   transport: GroceryRealtimeTransport;
@@ -117,7 +116,10 @@ type HubDeps = {
 };
 
 function itemToCandidate(
-  item: Pick<GroceryItem, 'id' | 'name' | 'quantity' | 'isCompleted' | 'position' | 'updatedAt' | 'deletedAt'>,
+  item: Pick<
+    GroceryItem,
+    'id' | 'name' | 'quantity' | 'isCompleted' | 'position' | 'updatedAt' | 'deletedAt'
+  >,
   revision: number,
 ): GroceryConflictCandidate {
   return {

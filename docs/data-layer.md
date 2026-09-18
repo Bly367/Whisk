@@ -4,13 +4,14 @@ Feature workstreams (W3–W7 / P2-W3–W6) should import domain types and reposi
 
 ## Source of truth
 
-| Concern                               | Location                                                  |
-| ------------------------------------- | --------------------------------------------------------- |
-| SQLite (recipes, plans, lists, trash) | `@/data` repositories                                     |
+| Concern                                                              | Location                                                                           |
+| -------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| SQLite (recipes, plans, lists, trash)                                | `@/data` repositories                                                              |
 | Phase 2 extensions (household, pantry, templates, leftovers, compat) | `@/data` repositories (`households`, `pantry`, `templates`, `leftovers`, `compat`) |
-| UI / session (sync banner, sheets)    | Zustand — `useSyncStatusStore` for sync chrome            |
-| Auth tokens (Phase 2)                 | `expo-secure-store` via `createSecureTokenStorage` — never AsyncStorage |
-| Never                                 | Zustand as a recipe/plan/list database                    |
+| UI / session (sync banner, sheets)                                   | Zustand — `useSyncStatusStore` for sync chrome                                     |
+| Auth tokens (Phase 2)                                                | `expo-secure-store` via `createSecureTokenStorage` — never AsyncStorage            |
+| Never                                                                | Zustand as a recipe/plan/list database                                             |
+
 ## Import paths
 
 ```ts
@@ -36,17 +37,17 @@ import {
 } from '@/data';
 ```
 
-| Workstream          | Primary contracts / APIs                                                                                                   |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| **W3 Recipes**      | `Recipe`, `RecipeCreateInput`, `RecipeUpdateInput`, `RecipeListQuery`, `getRepositories().recipes`, `createRecipeAutosave` |
-| **W4 Import**       | `RecipeCreateInput`, `IngredientInput`, `getRepositories().recipes.create` (after preview commit)                          |
-| **W5 Plan**         | `MealPlan`, `MealPlanEntry`, `MealSlot`, `getRepositories().mealPlans`                                                     |
-| **W6 Shop**         | `GroceryList`, `GroceryItem`, `getRepositories().grocery`                                                                  |
-| **W7 Cook + trust** | `RecipeWithIngredients`, `CookStep`, offline `getRecipe`; trash via `recipes.restore`                                      |
+| Workstream          | Primary contracts / APIs                                                                                                                              |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **W3 Recipes**      | `Recipe`, `RecipeCreateInput`, `RecipeUpdateInput`, `RecipeListQuery`, `getRepositories().recipes`, `createRecipeAutosave`                            |
+| **W4 Import**       | `RecipeCreateInput`, `IngredientInput`, `getRepositories().recipes.create` (after preview commit)                                                     |
+| **W5 Plan**         | `MealPlan`, `MealPlanEntry`, `MealSlot`, `getRepositories().mealPlans`                                                                                |
+| **W6 Shop**         | `GroceryList`, `GroceryItem`, `getRepositories().grocery`                                                                                             |
+| **W7 Cook + trust** | `RecipeWithIngredients`, `CookStep`, offline `getRecipe`; trash via `recipes.restore`                                                                 |
 | **P2-W3 Household** | `Household`, `HouseholdMember`, `getRepositories().households`, `createHouseholdCollaboration`, `createGroceryRealtimeHub`, `GROCERY_CONFLICT_POLICY` |
-| **P2-W4 Pantry**    | `PantryItem`, `PantryListQuery`, `getRepositories().pantry`                                                                |
-| **P2-W5 Templates** | `MealPlanTemplate`, `LeftoversLink`, `getRepositories().templates` / `.leftovers`                                          |
-| **P2-W6 Compat**    | `CompatImportJob`, `CompatExportPack`, `getRepositories().compat` (parsers land in P2-W6)                                  |
+| **P2-W4 Pantry**    | `PantryItem`, `PantryListQuery`, `getRepositories().pantry`                                                                                           |
+| **P2-W5 Templates** | `MealPlanTemplate`, `LeftoversLink`, `getRepositories().templates` / `.leftovers`                                                                     |
+| **P2-W6 Compat**    | `CompatImportJob`, `CompatExportPack`, `getRepositories().compat` (parsers land in P2-W6)                                                             |
 
 ## Key modules
 

@@ -53,14 +53,7 @@ export function createHouseholdRepository(db: DbClient) {
               `INSERT INTO household_members (
                 id, household_id, user_id, display_name, role, status, created_at, updated_at
               ) VALUES (?, ?, ?, ?, 'owner', 'active', ?, ?)`,
-              [
-                createId(),
-                id,
-                ownerUserId,
-                input.ownerDisplayName ?? null,
-                now,
-                now,
-              ],
+              [createId(), id, ownerUserId, input.ownerDisplayName ?? null, now, now],
             );
           }
           const row = db.get<HouseholdRow>(`SELECT * FROM households WHERE id = ?`, [id]);

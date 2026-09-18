@@ -1,8 +1,4 @@
-import type {
-  GroceryListWithItems,
-  HouseholdMember,
-  HouseholdWithMembers,
-} from '@/data/contracts';
+import type { GroceryListWithItems, HouseholdMember, HouseholdWithMembers } from '@/data/contracts';
 import type { Repositories } from '@/data/repositories';
 import { createId } from '@/data/util';
 
@@ -47,7 +43,10 @@ export function generateInviteCode(length = 8): string {
 }
 
 export function createHouseholdCollaboration(repos: Repositories) {
-  function assertActiveMember(householdId: string, userId: string): {
+  function assertActiveMember(
+    householdId: string,
+    userId: string,
+  ): {
     household: HouseholdWithMembers;
     member: HouseholdMember;
   } {
@@ -55,9 +54,7 @@ export function createHouseholdCollaboration(repos: Repositories) {
     if (!household) {
       throw new HouseholdAuthzError();
     }
-    const member = household.members.find(
-      (m) => m.userId === userId && m.status === 'active',
-    );
+    const member = household.members.find((m) => m.userId === userId && m.status === 'active');
     if (!member) {
       throw new HouseholdAuthzError();
     }
@@ -125,10 +122,7 @@ export function createHouseholdCollaboration(repos: Repositories) {
       return { household: refreshed, member };
     },
 
-    listSharedGroceryLists(input: {
-      householdId: string;
-      userId: string;
-    }): GroceryListWithItems[] {
+    listSharedGroceryLists(input: { householdId: string; userId: string }): GroceryListWithItems[] {
       assertActiveMember(input.householdId, input.userId);
       return repos.grocery
         .list()
@@ -137,10 +131,7 @@ export function createHouseholdCollaboration(repos: Repositories) {
         .filter((list): list is GroceryListWithItems => list != null);
     },
 
-    getSharedGroceryList(input: {
-      listId: string;
-      userId: string;
-    }): GroceryListWithItems {
+    getSharedGroceryList(input: { listId: string; userId: string }): GroceryListWithItems {
       const list = repos.grocery.getById(input.listId);
       if (!list?.householdId) {
         throw new HouseholdAuthzError();

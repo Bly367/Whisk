@@ -37,10 +37,7 @@ Non-members receive `HouseholdAuthzError` (`code: HOUSEHOLD_AUTHZ_DENIED`) with 
 ## Real-time grocery channel
 
 ```ts
-import {
-  createGroceryRealtimeHub,
-  createInMemoryGroceryRealtimeTransport,
-} from '@/data';
+import { createGroceryRealtimeHub, createInMemoryGroceryRealtimeTransport } from '@/data';
 
 const hub = createGroceryRealtimeHub({
   transport: createInMemoryGroceryRealtimeTransport(), // replace behind SyncTransport-era backend
@@ -59,13 +56,13 @@ Subscribe/publish **assert active membership** before touching the transport (cl
 
 See `GROCERY_CONFLICT_POLICY` in `data/sync/groceryConflict.ts`:
 
-| Rule | Behavior |
-| --- | --- |
-| Strategy | **Last-write-wins** per grocery item |
-| Clock | `updatedAtIso` (later wins) |
-| Tie-breaker | Higher `revision` |
-| Distinct ids | **Merge** (both apply) |
-| Soft-delete | Treated as a write under the same LWW rules |
+| Rule         | Behavior                                    |
+| ------------ | ------------------------------------------- |
+| Strategy     | **Last-write-wins** per grocery item        |
+| Clock        | `updatedAtIso` (later wins)                 |
+| Tie-breaker  | Higher `revision`                           |
+| Distinct ids | **Merge** (both apply)                      |
+| Soft-delete  | Treated as a write under the same LWW rules |
 
 Documented constant + `resolveGroceryItemConflict` / `shouldApplyRemoteGroceryWrite` are the contract for apply paths and tests.
 

@@ -7,19 +7,13 @@
  * - Authz failures never leak another household’s rows
  * - Membership boundary + realtime apply / reorder
  */
-import {
-  createRepositories,
-  useSyncStatusStore,
-} from '@/data';
+import { createRepositories, useSyncStatusStore } from '@/data';
 import { createTestDbClient } from '@/data/testing/createTestDb';
 import {
   HouseholdAuthzError,
   createHouseholdCollaboration,
 } from '@/features/household/collaboration';
-import {
-  GROCERY_CONFLICT_POLICY,
-  resolveGroceryItemConflict,
-} from '@/data/sync/groceryConflict';
+import { GROCERY_CONFLICT_POLICY, resolveGroceryItemConflict } from '@/data/sync/groceryConflict';
 import {
   createGroceryRealtimeHub,
   createInMemoryGroceryRealtimeTransport,

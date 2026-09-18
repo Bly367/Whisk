@@ -4,11 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { Button } from '@/components/ui/Button';
 import { Field } from '@/components/ui/Field';
 import { Text } from '@/components/ui/Text';
-import {
-  createHouseholdCollaboration,
-  getRepositories,
-  type HouseholdWithMembers,
-} from '@/data';
+import { createHouseholdCollaboration, getRepositories, type HouseholdWithMembers } from '@/data';
 import { spacing } from '@/constants/tokens';
 import { useAuthSessionStore } from '@/data/sync/authSession';
 
