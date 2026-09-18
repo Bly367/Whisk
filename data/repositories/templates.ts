@@ -40,6 +40,59 @@ function hydrate(db: DbClient, template: MealPlanTemplate): MealPlanTemplateWith
   return { ...template, entries };
 }
 
+type TemplateEntryInput = {
+  recipeId?: string | null;
+  dayOffset: number;
+  slot: MealSlot;
+  note?: string | null;
+  position?: number;
+};
+
+function insertTemplateWithEntries(
+  db: DbClient,
+  input: {
+    name: string;
+    sourceMealPlanId: string | null;
+    householdId?: string | null;
+    entries: TemplateEntryInput[];
+  },
+): MealPlanTemplateWithEntries {
+  const id = createId();
+  const now = nowIso();
+  return db.withTransaction(() => {
+    db.run(
+      `INSERT INTO meal_plan_templates (
+        id, household_id, name, source_meal_plan_id, created_at, updated_at,
+        deleted_at, local_revision, sync_status, remote_id
+      ) VALUES (?, ?, ?, ?, ?, ?, NULL, 1, 'synced_local', NULL)`,
+      [id, input.householdId ?? null, input.name.trim(), input.sourceMealPlanId, now, now],
+    );
+    for (const entry of input.entries) {
+      db.run(
+        `INSERT INTO meal_plan_template_entries (
+          id, template_id, recipe_id, day_offset, slot, note, position, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          createId(),
+          id,
+          entry.recipeId ?? null,
+          entry.dayOffset,
+          entry.slot,
+          entry.note ?? null,
+          entry.position ?? 0,
+          now,
+          now,
+        ],
+      );
+    }
+    const row = db.get<TemplateRow>(`SELECT * FROM meal_plan_templates WHERE id = ?`, [id]);
+    if (!row) {
+      throw new Error('Failed to create meal plan template');
+    }
+    return hydrate(db, mapMealPlanTemplate(row));
+  });
+}
+
 export function createMealPlanTemplateRepository(db: DbClient) {
   return {
     createFromMealPlan(input: {
@@ -62,39 +115,37 @@ export function createMealPlanTemplateRepository(db: DbClient) {
            ORDER BY plan_date ASC, slot ASC, position ASC`,
           [input.mealPlanId],
         );
-        const id = createId();
-        const now = nowIso();
-        return db.withTransaction(() => {
-          db.run(
-            `INSERT INTO meal_plan_templates (
-              id, household_id, name, source_meal_plan_id, created_at, updated_at,
-              deleted_at, local_revision, sync_status, remote_id
-            ) VALUES (?, ?, ?, ?, ?, ?, NULL, 1, 'synced_local', NULL)`,
-            [id, input.householdId ?? null, input.name.trim(), input.mealPlanId, now, now],
-          );
-          for (const source of sources) {
-            db.run(
-              `INSERT INTO meal_plan_template_entries (
-                id, template_id, recipe_id, day_offset, slot, note, position, created_at, updated_at
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-              [
-                createId(),
-                id,
-                source.recipe_id,
-                dayOffsetFromWeekStart(input.weekStart, source.plan_date),
-                source.slot,
-                source.note,
-                source.position,
-                now,
-                now,
-              ],
-            );
-          }
-          const row = db.get<TemplateRow>(`SELECT * FROM meal_plan_templates WHERE id = ?`, [id]);
-          if (!row) {
-            throw new Error('Failed to create meal plan template');
-          }
-          return hydrate(db, mapMealPlanTemplate(row));
+        return insertTemplateWithEntries(db, {
+          name: input.name,
+          sourceMealPlanId: input.mealPlanId,
+          householdId: input.householdId,
+          entries: sources.map((source) => ({
+            recipeId: source.recipe_id,
+            dayOffset: dayOffsetFromWeekStart(input.weekStart, source.plan_date),
+            slot: source.slot,
+            note: source.note,
+            position: source.position,
+          })),
+        });
+      }, 'Could not save meal plan template');
+    },
+
+    /** Create a template from an explicit entry list (selection / partial week). */
+    createFromEntries(input: {
+      name: string;
+      sourceMealPlanId?: string | null;
+      householdId?: string | null;
+      entries: TemplateEntryInput[];
+    }): MealPlanTemplateWithEntries {
+      return withLocalPersist(() => {
+        if (input.entries.length === 0) {
+          throw new Error('Template requires at least one entry');
+        }
+        return insertTemplateWithEntries(db, {
+          name: input.name,
+          sourceMealPlanId: input.sourceMealPlanId ?? null,
+          householdId: input.householdId,
+          entries: input.entries,
         });
       }, 'Could not save meal plan template');
     },

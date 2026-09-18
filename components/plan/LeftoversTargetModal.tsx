@@ -3,46 +3,36 @@ import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { Button } from '@/components/ui/Button';
 import { Text } from '@/components/ui/Text';
 import type { MealSlot } from '@/data/contracts';
+import { MEAL_SLOTS } from '@/components/plan/planHelpers';
 import { radius, spacing } from '@/constants/tokens';
 import { ensureMinTouchTarget, hitSlop } from '@/theme/a11y';
 import { useTheme } from '@/theme/ThemeProvider';
 
-const SLOTS: { slot: MealSlot; label: string }[] = [
-  { slot: 'breakfast', label: 'Breakfast' },
-  { slot: 'lunch', label: 'Lunch' },
-  { slot: 'dinner', label: 'Dinner' },
-  { slot: 'snack', label: 'Snack' },
-];
-
-export type EntryOptionsModalProps = {
+export type LeftoversTargetModalProps = {
   visible: boolean;
   recipeTitle: string;
-  currentSlot: MealSlot;
   weekDates: { date: string; shortLabel: string }[];
+  selectedDate: string | null;
+  selectedSlot: MealSlot;
+  onSelectDate: (date: string) => void;
+  onSelectSlot: (slot: MealSlot) => void;
   onClose: () => void;
-  onDuplicate: () => void;
-  onRemove: () => void;
-  onPlanLeftovers: () => void;
-  onSaveAsTemplate: () => void;
-  onMoveToDay: (planDate: string) => void;
-  onChangeSlot: (slot: MealSlot) => void;
+  onConfirm: () => void;
   testID?: string;
 };
 
-export function EntryOptionsModal({
+export function LeftoversTargetModal({
   visible,
   recipeTitle,
-  currentSlot,
   weekDates,
+  selectedDate,
+  selectedSlot,
+  onSelectDate,
+  onSelectSlot,
   onClose,
-  onDuplicate,
-  onRemove,
-  onPlanLeftovers,
-  onSaveAsTemplate,
-  onMoveToDay,
-  onChangeSlot,
-  testID = 'entry-options',
-}: EntryOptionsModalProps) {
+  onConfirm,
+  testID = 'leftovers-target',
+}: LeftoversTargetModalProps) {
   const { colors } = useTheme();
 
   return (
@@ -64,50 +54,58 @@ export function EntryOptionsModal({
           onPress={(e) => e.stopPropagation()}
           testID={testID}
         >
-          <Text variant="title2" numberOfLines={2}>
-            {recipeTitle}
-          </Text>
+          <Text variant="title2">Plan leftovers</Text>
           <Text variant="caption" tone="secondary">
-            Move, duplicate, plan leftovers, or remove this meal.
+            Keeps {recipeTitle} on the source day and adds a leftovers slot on a later day.
           </Text>
 
-          <Text variant="headline">Move to day</Text>
-          <View style={styles.chipRow}>
-            {weekDates.map((day) => (
-              <Pressable
-                key={day.date}
-                accessibilityRole="button"
-                accessibilityLabel={`Move to ${day.shortLabel}`}
-                hitSlop={hitSlop}
-                testID={`${testID}-day-${day.date}`}
-                onPress={() => onMoveToDay(day.date)}
-                style={({ pressed }) => [
-                  ensureMinTouchTarget(styles.chip),
-                  {
-                    backgroundColor: colors.sunken,
-                    borderColor: colors.border,
-                    opacity: pressed ? 0.8 : 1,
-                  },
-                ]}
-              >
-                <Text variant="caption">{day.shortLabel}</Text>
-              </Pressable>
-            ))}
-          </View>
+          <Text variant="headline">Day</Text>
+          {weekDates.length === 0 ? (
+            <Text variant="body" tone="secondary" testID={`${testID}-no-later-days`}>
+              No later days left this week. Switch to next week to plan leftovers after a Sunday meal.
+            </Text>
+          ) : (
+            <View style={styles.chipRow}>
+              {weekDates.map((day) => {
+                const active = day.date === selectedDate;
+                return (
+                  <Pressable
+                    key={day.date}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Leftovers on ${day.shortLabel}`}
+                    accessibilityState={{ selected: active }}
+                    hitSlop={hitSlop}
+                    testID={`${testID}-day-${day.date}`}
+                    onPress={() => onSelectDate(day.date)}
+                    style={({ pressed }) => [
+                      ensureMinTouchTarget(styles.chip),
+                      {
+                        backgroundColor: active ? colors.brand.yolkSoft : colors.sunken,
+                        borderColor: active ? colors.brand.yolk : colors.border,
+                        opacity: pressed ? 0.85 : 1,
+                      },
+                    ]}
+                  >
+                    <Text variant="caption">{day.shortLabel}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
 
-          <Text variant="headline">Change slot</Text>
+          <Text variant="headline">Slot</Text>
           <View style={styles.chipRow}>
-            {SLOTS.map(({ slot, label }) => {
-              const active = slot === currentSlot;
+            {MEAL_SLOTS.map(({ slot, label }) => {
+              const active = slot === selectedSlot;
               return (
                 <Pressable
                   key={slot}
                   accessibilityRole="button"
-                  accessibilityLabel={`Change slot to ${label}`}
+                  accessibilityLabel={`Leftovers ${label}`}
                   accessibilityState={{ selected: active }}
                   hitSlop={hitSlop}
                   testID={`${testID}-slot-${slot}`}
-                  onPress={() => onChangeSlot(slot)}
+                  onPress={() => onSelectSlot(slot)}
                   style={({ pressed }) => [
                     ensureMinTouchTarget(styles.chip),
                     {
@@ -124,28 +122,10 @@ export function EntryOptionsModal({
           </View>
 
           <Button
-            label="Duplicate meal"
-            variant="secondary"
-            onPress={onDuplicate}
-            testID={`${testID}-duplicate`}
-          />
-          <Button
-            label="Plan leftovers"
-            variant="secondary"
-            onPress={onPlanLeftovers}
-            testID={`${testID}-leftovers`}
-          />
-          <Button
-            label="Save meal as template"
-            variant="secondary"
-            onPress={onSaveAsTemplate}
-            testID={`${testID}-save-template`}
-          />
-          <Button
-            label="Remove meal"
-            variant="destructive"
-            onPress={onRemove}
-            testID={`${testID}-remove`}
+            label="Add leftovers"
+            onPress={onConfirm}
+            disabled={!selectedDate || weekDates.length === 0}
+            testID={`${testID}-confirm`}
           />
           <Button label="Cancel" variant="tertiary" onPress={onClose} testID={`${testID}-cancel`} />
         </Pressable>

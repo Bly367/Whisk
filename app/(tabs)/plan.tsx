@@ -4,6 +4,9 @@ import { useFocusEffect } from 'expo-router';
 
 import { EntryOptionsModal } from '@/components/plan/EntryOptionsModal';
 import { GrocerySummaryModal } from '@/components/plan/GrocerySummaryModal';
+import { ApplyTemplateModal } from '@/components/plan/ApplyTemplateModal';
+import { LeftoversTargetModal } from '@/components/plan/LeftoversTargetModal';
+import { SaveTemplateModal } from '@/components/plan/SaveTemplateModal';
 import {
   MEAL_SLOTS,
   buildGroceryPreview,
@@ -25,11 +28,24 @@ import { Text } from '@/components/ui/Text';
 import { radius, spacing } from '@/constants/tokens';
 import type {
   MealPlanEntry,
+  MealPlanTemplate,
   MealPlanWithEntries,
   MealSlot,
   RecipeListItem,
 } from '@/data/contracts';
 import { getRepositories, reportLocalPersistFailure, reportLocalPersistSuccess } from '@/data';
+import {
+  applyTemplateToWeek,
+  defaultLaterTargetDate,
+  filterLaterWeekDates,
+  previewApplyTemplate,
+  saveSelectionAsTemplate,
+  saveWeekAsTemplate,
+  scheduleLeftovers,
+  undoApplyTemplate,
+  undoScheduleLeftovers,
+  type TemplateApplyPreview,
+} from '@/features/plan-templates';
 import { ensureMinTouchTarget, hitSlop } from '@/theme/a11y';
 import { useTheme } from '@/theme/ThemeProvider';
 
@@ -47,11 +63,20 @@ export default function PlanScreen() {
 
   const [plan, setPlan] = useState<MealPlanWithEntries | null>(null);
   const [recipes, setRecipes] = useState<RecipeListItem[]>([]);
+  const [templates, setTemplates] = useState<MealPlanTemplate[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [picker, setPicker] = useState<PickerTarget | null>(null);
   const [entryAction, setEntryAction] = useState<EntryActionTarget | null>(null);
   const [groceryOpen, setGroceryOpen] = useState(false);
   const [groceryBusy, setGroceryBusy] = useState(false);
+  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
+  const [saveSelectionIds, setSaveSelectionIds] = useState<string[] | null>(null);
+  const [saveTemplateDefaultName, setSaveTemplateDefaultName] = useState('');
+  const [applyTemplateOpen, setApplyTemplateOpen] = useState(false);
+  const [templatePreview, setTemplatePreview] = useState<TemplateApplyPreview | null>(null);
+  const [leftoversSource, setLeftoversSource] = useState<EntryActionTarget | null>(null);
+  const [leftoversDate, setLeftoversDate] = useState<string | null>(null);
+  const [leftoversSlot, setLeftoversSlot] = useState<MealSlot>('lunch');
   const [snack, setSnack] = useState<PlanSnack | null>(null);
 
   const days = useMemo(() => weekDays(weekStart), [weekStart]);
@@ -59,11 +84,12 @@ export default function PlanScreen() {
 
   const reload = useCallback(() => {
     try {
-      const { mealPlans, recipes: recipeRepo } = getRepositories();
+      const { mealPlans, recipes: recipeRepo, templates: templateRepo } = getRepositories();
       const nextPlan = mealPlans.getOrCreateForWeek(weekStart);
       const nextRecipes = recipeRepo.list({ status: 'published', sort: 'newest' });
       setPlan(nextPlan);
       setRecipes(nextRecipes);
+      setTemplates(templateRepo.list());
       setLoadError(null);
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : 'Could not load this week’s plan.');
@@ -222,6 +248,122 @@ export default function PlanScreen() {
       { message: 'Slot updated' },
     );
     setEntryAction(null);
+  };
+
+  const openPlanLeftovers = () => {
+    if (!entryAction) return;
+    const sourceDate = entryAction.planDate;
+    setLeftoversSource(entryAction);
+    // Never fall back to an earlier weekday (e.g. Monday when source is Sunday).
+    setLeftoversDate(defaultLaterTargetDate(sourceDate, days));
+    setLeftoversSlot('lunch');
+    setEntryAction(null);
+  };
+
+  const leftoversLaterDays = useMemo(() => {
+    if (!leftoversSource) return [];
+    return filterLaterWeekDates(leftoversSource.planDate, days);
+  }, [leftoversSource, days]);
+
+  const confirmLeftovers = () => {
+    if (!leftoversSource || !leftoversDate) return;
+    const source = leftoversSource;
+    const targetDate = leftoversDate;
+    const targetSlot = leftoversSlot;
+    try {
+      const result = scheduleLeftovers(getRepositories(), {
+        sourceMealPlanEntryId: source.entryId,
+        targetPlanDate: targetDate,
+        targetSlot,
+        label: `${source.recipeTitle} leftovers`,
+      });
+      reportLocalPersistSuccess();
+      reload();
+      showSnack({
+        message: 'Leftovers added',
+        actionLabel: 'Undo',
+        onAction: () => {
+          persist(() => {
+            undoScheduleLeftovers(getRepositories(), result);
+          }, { message: 'Leftovers removed' });
+        },
+      });
+      setLeftoversSource(null);
+    } catch (error) {
+      reportLocalPersistFailure(
+        error instanceof Error ? error.message : 'Could not schedule leftovers',
+      );
+      showSnack({ message: 'Could not schedule leftovers.' });
+    }
+  };
+
+  const confirmSaveTemplate = (name: string) => {
+    if (!plan) return;
+    const selectionIds = saveSelectionIds;
+    persist(
+      () => {
+        if (selectionIds && selectionIds.length > 0) {
+          saveSelectionAsTemplate(getRepositories(), {
+            name,
+            weekStart,
+            entryIds: selectionIds,
+            sourceMealPlanId: plan.id,
+          });
+        } else {
+          saveWeekAsTemplate(getRepositories(), {
+            name,
+            mealPlanId: plan.id,
+            weekStart,
+          });
+        }
+      },
+      { message: `Saved “${name}” template` },
+    );
+    setSaveTemplateOpen(false);
+    setSaveSelectionIds(null);
+  };
+
+  const selectTemplateForPreview = (templateId: string) => {
+    try {
+      const preview = previewApplyTemplate(getRepositories(), {
+        templateId,
+        targetWeekStart: weekStart,
+      });
+      setTemplatePreview(preview);
+    } catch (error) {
+      showSnack({
+        message: error instanceof Error ? error.message : 'Could not preview template.',
+      });
+    }
+  };
+
+  const confirmApplyTemplate = () => {
+    if (!templatePreview) return;
+    const preview = templatePreview;
+    try {
+      const applied = applyTemplateToWeek(getRepositories(), {
+        templateId: preview.templateId,
+        targetWeekStart: weekStart,
+      });
+      reportLocalPersistSuccess();
+      reload();
+      showSnack({
+        message: `Applied “${preview.templateName}”`,
+        actionLabel: 'Undo',
+        onAction: () => {
+          persist(() => {
+            undoApplyTemplate(getRepositories(), applied);
+          }, { message: 'Template apply undone' });
+        },
+      });
+      setApplyTemplateOpen(false);
+      setTemplatePreview(null);
+    } catch (error) {
+      reportLocalPersistFailure(
+        error instanceof Error ? error.message : 'Could not apply template',
+      );
+      showSnack({ message: 'Could not apply template.' });
+    }
   };
 
   const groceryPreview = useMemo(() => {
@@ -470,6 +612,26 @@ export default function PlanScreen() {
 
       <View style={styles.footerCta}>
         <Button
+          label="Save week as template"
+          variant="secondary"
+          onPress={() => {
+            setSaveSelectionIds(null);
+            setSaveTemplateDefaultName(`Week of ${formatWeekRange(weekStart)}`);
+            setSaveTemplateOpen(true);
+          }}
+          disabled={!plan || isEmpty}
+          testID="plan-save-template"
+        />
+        <Button
+          label="Apply template"
+          variant="secondary"
+          onPress={() => {
+            setTemplatePreview(null);
+            setApplyTemplateOpen(true);
+          }}
+          testID="plan-apply-template"
+        />
+        <Button
           label="Create grocery list"
           onPress={() => setGroceryOpen(true)}
           testID="plan-create-grocery"
@@ -502,8 +664,53 @@ export default function PlanScreen() {
         onClose={() => setEntryAction(null)}
         onDuplicate={duplicateEntry}
         onRemove={() => entryAction && removeEntry(entryAction.entryId)}
+        onPlanLeftovers={openPlanLeftovers}
+        onSaveAsTemplate={() => {
+          if (!entryAction) return;
+          setSaveSelectionIds([entryAction.entryId]);
+          setSaveTemplateDefaultName(`${entryAction.recipeTitle} template`);
+          setEntryAction(null);
+          setSaveTemplateOpen(true);
+        }}
         onMoveToDay={moveToDay}
         onChangeSlot={changeSlot}
+      />
+
+      <SaveTemplateModal
+        visible={saveTemplateOpen}
+        defaultName={saveTemplateDefaultName || `Week of ${formatWeekRange(weekStart)}`}
+        selectionCount={saveSelectionIds?.length}
+        onClose={() => {
+          setSaveTemplateOpen(false);
+          setSaveSelectionIds(null);
+        }}
+        onSave={confirmSaveTemplate}
+      />
+
+      <ApplyTemplateModal
+        visible={applyTemplateOpen}
+        templates={templates}
+        preview={templatePreview}
+        targetWeekLabel={formatWeekRange(weekStart)}
+        onClose={() => {
+          setApplyTemplateOpen(false);
+          setTemplatePreview(null);
+        }}
+        onSelectTemplate={selectTemplateForPreview}
+        onConfirmApply={confirmApplyTemplate}
+        onClearPreview={() => setTemplatePreview(null)}
+      />
+
+      <LeftoversTargetModal
+        visible={leftoversSource !== null}
+        recipeTitle={leftoversSource?.recipeTitle ?? 'this meal'}
+        weekDates={leftoversLaterDays}
+        selectedDate={leftoversDate}
+        selectedSlot={leftoversSlot}
+        onSelectDate={setLeftoversDate}
+        onSelectSlot={setLeftoversSlot}
+        onClose={() => setLeftoversSource(null)}
+        onConfirm={confirmLeftovers}
       />
 
       <GrocerySummaryModal
@@ -606,5 +813,6 @@ const styles = StyleSheet.create({
   },
   footerCta: {
     marginTop: spacing.sm,
+    gap: spacing.sm,
   },
 });
