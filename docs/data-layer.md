@@ -37,19 +37,19 @@ import {
 } from '@/data';
 ```
 
-| Workstream          | Primary contracts / APIs                                                                                                                              |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **W3 Recipes**      | `Recipe`, `RecipeCreateInput`, `RecipeUpdateInput`, `RecipeListQuery`, `getRepositories().recipes`, `createRecipeAutosave`                            |
-| **W4 Import**       | `RecipeCreateInput`, `IngredientInput`, `getRepositories().recipes.create` (after preview commit)                                                     |
-| **W5 Plan**         | `MealPlan`, `MealPlanEntry`, `MealSlot`, `getRepositories().mealPlans`                                                                                |
-| **W6 Shop**         | `GroceryList`, `GroceryItem`, `getRepositories().grocery`                                                                                             |
-| **W7 Cook + trust** | `RecipeWithIngredients`, `CookStep`, offline `getRecipe`; trash via `recipes.restore`                                                                 |
-| **P2-W3 Household** | `Household`, `HouseholdMember`, `getRepositories().households`, `createHouseholdCollaboration`, `createGroceryRealtimeHub`, `GROCERY_CONFLICT_POLICY` |
-| **P2-W4 Pantry**    | `PantryItem`, `PantryListQuery`, `getRepositories().pantry`; feature helpers in `@/features/pantry` (`scorePantryCoverage`, `applyPantryAwareSearch`, `describePantrySearchMode`) |
+| Workstream          | Primary contracts / APIs                                                                                                                                                                      |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **W3 Recipes**      | `Recipe`, `RecipeCreateInput`, `RecipeUpdateInput`, `RecipeListQuery`, `getRepositories().recipes`, `createRecipeAutosave`                                                                    |
+| **W4 Import**       | `RecipeCreateInput`, `IngredientInput`, `getRepositories().recipes.create` (after preview commit)                                                                                             |
+| **W5 Plan**         | `MealPlan`, `MealPlanEntry`, `MealSlot`, `getRepositories().mealPlans`                                                                                                                        |
+| **W6 Shop**         | `GroceryList`, `GroceryItem`, `getRepositories().grocery`                                                                                                                                     |
+| **W7 Cook + trust** | `RecipeWithIngredients`, `CookStep`, offline `getRecipe`; trash via `recipes.restore`                                                                                                         |
+| **P2-W3 Household** | `Household`, `HouseholdMember`, `getRepositories().households`, `createHouseholdCollaboration`, `createGroceryRealtimeHub`, `GROCERY_CONFLICT_POLICY`                                         |
+| **P2-W4 Pantry**    | `PantryItem`, `PantryListQuery`, `getRepositories().pantry`; feature helpers in `@/features/pantry` (`scorePantryCoverage`, `applyPantryAwareSearch`, `describePantrySearchMode`)             |
 | **P2-W5 Templates** | `MealPlanTemplate`, `LeftoversLink`, `getRepositories().templates` / `.leftovers`, feature helpers in `@/features/plan-templates` (save week/selection, preview/apply/undo, leftovers → plan) |
-| **P2-W6 Compat**    | `CompatImportJob`, `CompatExportPack`, `getRepositories().compat`; parsers/export in `@/import/compat` (see `docs/compat-io.md`) |
-| **P2-W7 Extension** | `@/lib/extension` message validation + `applyExtensionCaptureToPreview` → import session (preview only; not domain SOT)   |
-| **P2-W8 Cook v2**   | Multi-timer session + hands-free step nav in `@/features/cook` (`cookTimers`, `cookTimerSession`, `cookStepNavigation`) |
+| **P2-W6 Compat**    | `CompatImportJob`, `CompatExportPack`, `getRepositories().compat`; parsers/export in `@/import/compat` (see `docs/compat-io.md`)                                                              |
+| **P2-W7 Extension** | `@/lib/extension` message validation + `applyExtensionCaptureToPreview` → import session (preview only; not domain SOT)                                                                       |
+| **P2-W8 Cook v2**   | Multi-timer session + hands-free step nav in `@/features/cook` (`cookTimers`, `cookTimerSession`, `cookStepNavigation`)                                                                       |
 
 ## Key modules
 
