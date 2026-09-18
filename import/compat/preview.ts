@@ -4,6 +4,9 @@ import type { CompatRepository } from '@/data/repositories/compat';
 import { resolveCompatAdapter } from '@/import/compat/registry';
 import type { CompatImportDraft } from '@/import/compat/types';
 
+/** Soft cap for untrusted compat pack text (SECURITY.md size guidance). */
+export const MAX_COMPAT_PAYLOAD_CHARS = 1_000_000;
+
 export type PreviewCompatImportInput = {
   format: CompatFormat;
   payload: string;
@@ -35,6 +38,16 @@ export type PreviewCompatImportResult = PreviewCompatImportSuccess | PreviewComp
 export async function previewCompatImport(
   input: PreviewCompatImportInput,
 ): Promise<PreviewCompatImportResult> {
+  if (input.payload.length > MAX_COMPAT_PAYLOAD_CHARS) {
+    return {
+      ok: false,
+      error: {
+        code: 'parse_failed',
+        message: 'Compatibility pack is too large to import safely.',
+      },
+    };
+  }
+
   const adapter = resolveCompatAdapter({
     format: input.format,
     payload: input.payload,

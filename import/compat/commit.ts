@@ -5,6 +5,10 @@ import type {
 import type { CompatRepository } from '@/data/repositories/compat';
 import type { RecipeRepository } from '@/data/repositories/recipes';
 
+import {
+  sanitizeCompatImageUri,
+  sanitizeCompatSourceUrl,
+} from '@/import/compat/safeUrl';
 import type {
   CompatConflictPolicy,
   CompatImportDraft,
@@ -15,16 +19,17 @@ import type {
 const COMPAT_UID_PARAM = 'whisk_compat_uid';
 
 export function embedCompatUid(sourceUrl: string | null, externalUid: string | null): string | null {
-  if (!externalUid) return sourceUrl;
-  if (!sourceUrl?.trim()) {
+  const safeSource = sanitizeCompatSourceUrl(sourceUrl);
+  if (!externalUid) return safeSource;
+  if (!safeSource) {
     return `whisk-compat://paprika/${externalUid}`;
   }
   try {
-    const url = new URL(sourceUrl);
+    const url = new URL(safeSource);
     url.searchParams.set(COMPAT_UID_PARAM, externalUid);
     return url.toString();
   } catch {
-    return sourceUrl;
+    return `whisk-compat://paprika/${externalUid}`;
   }
 }
 
@@ -46,7 +51,7 @@ export function draftToRecipeCreateInput(draft: CompatImportDraft): RecipeCreate
     notes: draft.notes,
     sourceUrl: embedCompatUid(draft.sourceUrl, draft.externalUid),
     sourceName: draft.sourceName,
-    imageUri: draft.imageUri,
+    imageUri: sanitizeCompatImageUri(draft.imageUri),
     servings: draft.servings,
     prepMinutes: draft.prepMinutes,
     cookMinutes: draft.cookMinutes,

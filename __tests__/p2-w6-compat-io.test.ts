@@ -415,8 +415,6 @@ describe('P2-W6 untrusted URL scheme allowlist (SECURITY.md §5)', () => {
 
     expect(preview.drafts[0]?.sourceUrl).toBeNull();
     expect(preview.drafts[0]?.imageUri).toBeNull();
-    expect(preview.drafts[0]?.sourceUrl).not.toMatch(/^javascript:/i);
-    expect(preview.drafts[0]?.imageUri).not.toMatch(/^file:/i);
 
     const committed = compat.commitCompatImport({
       jobId: preview.job.id,
@@ -426,13 +424,10 @@ describe('P2-W6 untrusted URL scheme allowlist (SECURITY.md §5)', () => {
     });
     expect(committed.recipes).toHaveLength(1);
     const row = repos.recipes.getById(committed.recipes[0]!.id);
-    expect(row?.sourceUrl == null || !/^javascript:/i.test(row.sourceUrl)).toBe(true);
-    expect(row?.sourceUrl == null || !/^file:/i.test(row.sourceUrl)).toBe(true);
     expect(row?.imageUri).toBeNull();
     // Hostile schemes must not be stored; whisk-compat uid marker is ok when no https source.
-    if (row?.sourceUrl) {
-      expect(row.sourceUrl.startsWith('whisk-compat://')).toBe(true);
-    }
+    expect(row?.sourceUrl).toBe('whisk-compat://paprika/HOSTILE-UID-001');
+    expect(row?.sourceUrl).not.toMatch(/^(javascript|file|data):/i);
   });
 
   it('keeps https source/image URLs and still rejects unexpected schemes on JSON packs', async () => {

@@ -37,5 +37,10 @@ export type {
   CommitCompatImportResult,
 } from '@/import/compat/commit';
 
+export {
+  sanitizeCompatSourceUrl,
+  sanitizeCompatImageUri,
+} from '@/import/compat/safeUrl';
+
 export { buildCompatExportPack } from '@/import/compat/export';
 export type { BuildCompatExportPackInput } from '@/import/compat/export';

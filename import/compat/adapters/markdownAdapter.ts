@@ -4,6 +4,9 @@ import { parseIngredientLine } from '@/import/parse/ingredients';
 import type { ImportWarning } from '@/import/types';
 
 import {
+  sanitizeCompatSourceUrl,
+} from '@/import/compat/safeUrl';
+import {
   aggregateConfidence,
   type CompatAdapter,
   type CompatAdapterParseResult,
@@ -94,6 +97,14 @@ function parseMarkdownRecipe(payload: string): CompatImportDraft | null {
     notes: notesLines.length ? ('medium' as const) : ('unknown' as const),
   };
 
+  const sourceUrl = sanitizeCompatSourceUrl(meta.url);
+  if (meta.url?.trim() && !sourceUrl) {
+    warnings.push({
+      code: 'unsupported_source',
+      message: 'Rejected untrusted source URL scheme (https only).',
+    });
+  }
+
   return {
     id: createId(),
     format: 'markdown',
@@ -101,7 +112,7 @@ function parseMarkdownRecipe(payload: string): CompatImportDraft | null {
     externalUid: null,
     title,
     notes: notesLines.length ? notesLines.join('\n') : null,
-    sourceUrl: meta.url ?? null,
+    sourceUrl,
     sourceName: meta.source ?? null,
     imageUri: null,
     servings: parseMetaMinutes(meta.servings),

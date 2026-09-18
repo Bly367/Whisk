@@ -4,6 +4,10 @@ import { parseIngredientLine } from '@/import/parse/ingredients';
 import type { ImportWarning } from '@/import/types';
 
 import {
+  sanitizeCompatImageUri,
+  sanitizeCompatSourceUrl,
+} from '@/import/compat/safeUrl';
+import {
   aggregateConfidence,
   type CompatAdapter,
   type CompatAdapterParseResult,
@@ -134,6 +138,21 @@ function draftFromPaprika(recipe: PaprikaRecipeJson): CompatImportDraft {
   };
 
   const notesParts = [recipe.description?.trim(), recipe.notes?.trim()].filter(Boolean);
+  const sourceUrl = sanitizeCompatSourceUrl(recipe.source_url);
+  const imageUri = sanitizeCompatImageUri(recipe.image_url);
+  if (recipe.source_url?.trim() && !sourceUrl) {
+    warnings.push({
+      code: 'unsupported_source',
+      message: 'Rejected untrusted source URL scheme (https only).',
+    });
+  }
+  if (recipe.image_url?.trim() && !imageUri) {
+    warnings.push({
+      code: 'unsupported_source',
+      message: 'Rejected untrusted image URL scheme (https only).',
+      field: 'image',
+    });
+  }
 
   return {
     id: createId(),
@@ -142,9 +161,9 @@ function draftFromPaprika(recipe: PaprikaRecipeJson): CompatImportDraft {
     externalUid: recipe.uid?.trim() || null,
     title,
     notes: notesParts.length ? notesParts.join('\n\n') : null,
-    sourceUrl: recipe.source_url?.trim() || null,
+    sourceUrl,
     sourceName: recipe.source?.trim() || null,
-    imageUri: recipe.image_url?.trim() || null,
+    imageUri,
     servings: parseServings(recipe.servings),
     prepMinutes: parseMinutes(recipe.prep_time),
     cookMinutes: parseMinutes(recipe.cook_time),

@@ -8,6 +8,17 @@ Paprika and common-format (JSON / Markdown) packs behind replaceable adapters in
 2. **Confidence before commit.** Each draft carries field-level confidence plus an aggregate `overallConfidence` stored on the job. Low-confidence fields surface as warnings — nothing is invented by AI.
 3. **No silent recipe writes.** `previewCompatImport` never calls `recipes.create`. Callers must invoke `commitCompatImport` after the user reviews the preview.
 
+## URL schemes (SECURITY.md §5)
+
+Untrusted pack fields (`source_url` / `sourceUrl`, `image_url` / `imageUri`) are allowlisted at **parse and commit**:
+
+| Allowed | Rejected (nulled) |
+| --- | --- |
+| `https:` | `file:`, `javascript:`, `data:`, `http:`, and any unexpected scheme |
+| `whisk-compat:` on **source** only (uid embedding when no https source) | — |
+
+Hostile schemes must not survive into committed recipe rows. Rejected URLs surface as `unsupported_source` warnings on the preview draft.
+
 ## Conflict / clobber policy
 
 | Policy | Behavior |

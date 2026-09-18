@@ -3,6 +3,10 @@ import { createId, nowIso } from '@/data/util';
 import type { ImportWarning } from '@/import/types';
 
 import {
+  sanitizeCompatImageUri,
+  sanitizeCompatSourceUrl,
+} from '@/import/compat/safeUrl';
+import {
   aggregateConfidence,
   type CompatAdapter,
   type CompatAdapterParseResult,
@@ -42,10 +46,14 @@ function asRecipes(payload: string): JsonRecipe[] {
 }
 
 function draftFromJson(recipe: JsonRecipe): CompatImportDraft {
-  const ingredients = (recipe.ingredients ?? [])
+  const ingredients: IngredientInput[] = (recipe.ingredients ?? [])
     .map((ing, index) => ({
-      ...ing,
       name: (ing.name ?? '').trim(),
+      quantity: ing.quantity ?? null,
+      unit: ing.unit ?? null,
+      note: ing.note ?? null,
+      aisle: ing.aisle ?? null,
+      groupName: ing.groupName ?? null,
       position: ing.position ?? index,
     }))
     .filter((ing) => ing.name.length > 0);
@@ -75,6 +83,22 @@ function draftFromJson(recipe: JsonRecipe): CompatImportDraft {
     });
   }
 
+  const sourceUrl = sanitizeCompatSourceUrl(recipe.sourceUrl);
+  const imageUri = sanitizeCompatImageUri(recipe.imageUri);
+  if (recipe.sourceUrl?.trim() && !sourceUrl) {
+    warnings.push({
+      code: 'unsupported_source',
+      message: 'Rejected untrusted source URL scheme (https only).',
+    });
+  }
+  if (recipe.imageUri?.trim() && !imageUri) {
+    warnings.push({
+      code: 'unsupported_source',
+      message: 'Rejected untrusted image URL scheme (https only).',
+      field: 'image',
+    });
+  }
+
   const confidence = {
     title: recipe.title?.trim() ? ('high' as const) : ('unknown' as const),
     ingredients: ingredients.length ? ('high' as const) : ('unknown' as const),
@@ -94,9 +118,9 @@ function draftFromJson(recipe: JsonRecipe): CompatImportDraft {
     externalUid: recipe.externalUid?.trim() || recipe.id?.trim() || null,
     title,
     notes: recipe.notes ?? null,
-    sourceUrl: recipe.sourceUrl ?? null,
+    sourceUrl,
     sourceName: recipe.sourceName ?? null,
-    imageUri: recipe.imageUri ?? null,
+    imageUri,
     servings: recipe.servings ?? null,
     prepMinutes: recipe.prepMinutes ?? null,
     cookMinutes: recipe.cookMinutes ?? null,
