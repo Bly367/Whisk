@@ -118,16 +118,10 @@ describe('P2-W3 membership authz boundaries', () => {
       ownerDisplayName: 'B',
     });
 
-    const listA = repos.grocery.create({
-      name: 'A Shop',
-      householdId: homeA.id,
-      items: [{ name: 'Milk' }],
-    });
-    const listB = repos.grocery.create({
-      name: 'B Shop',
-      householdId: homeB.id,
-      items: [{ name: 'Eggs' }],
-    });
+    const listA = collab.listSharedGroceryLists({ householdId: homeA.id, userId: 'u-a' })[0]!;
+    repos.grocery.addItem(listA.id, { name: 'Milk' });
+    const listB = collab.listSharedGroceryLists({ householdId: homeB.id, userId: 'u-b' })[0]!;
+    repos.grocery.addItem(listB.id, { name: 'Eggs' });
 
     const visible = collab.listSharedGroceryLists({
       householdId: homeA.id,
@@ -148,11 +142,8 @@ describe('P2-W3 membership authz boundaries', () => {
       ownerUserId: 'u-a',
       ownerDisplayName: 'A',
     });
-    repos.grocery.create({
-      name: 'Secret list',
-      householdId: homeA.id,
-      items: [{ name: 'Hidden butter' }],
-    });
+    const listA = collab.listSharedGroceryLists({ householdId: homeA.id, userId: 'u-a' })[0]!;
+    repos.grocery.addItem(listA.id, { name: 'Hidden butter' });
 
     let caught: unknown;
     try {
@@ -175,11 +166,8 @@ describe('P2-W3 membership authz boundaries', () => {
       ownerUserId: 'owner',
       ownerDisplayName: 'O',
     });
-    const list = repos.grocery.create({
-      name: 'Weekly',
-      householdId: home.id,
-      items: [{ name: 'Pasta' }],
-    });
+    const list = collab.listSharedGroceryLists({ householdId: home.id, userId: 'owner' })[0]!;
+    repos.grocery.addItem(list.id, { name: 'Pasta' });
 
     expect(() =>
       collab.getSharedGroceryList({
@@ -386,7 +374,7 @@ describe('P2-W3 real-time grocery sync', () => {
       householdId: home.id,
       listId: list.id,
       actorUserId: 'peer',
-      updatedAtIso: '2026-09-18T15:00:00.000Z',
+      updatedAtIso: '2099-01-01T15:00:00.000Z',
       revision: 10,
       positions: [
         { itemId: first.id, position: 1 },
@@ -551,9 +539,9 @@ describe('P2-W3 review blockers (invite attach, tenancy, delete clocks, reorder 
 
     const attached = repos.grocery.getById(guestList.id);
     expect(attached?.householdId).toBe(home.id);
-    expect(collab.listSharedGroceryLists({ householdId: home.id, userId: 'owner-1' }).map((l) => l.id)).toEqual([
-      guestList.id,
-    ]);
+    expect(
+      collab.listSharedGroceryLists({ householdId: home.id, userId: 'owner-1' }).map((l) => l.id),
+    ).toEqual([guestList.id]);
   });
 
   it('joinByInviteCode attaches a grocery list for the joining member device', () => {
@@ -654,7 +642,9 @@ describe('P2-W3 review blockers (invite attach, tenancy, delete clocks, reorder 
       throw new Error('expected tenant mismatch');
     }
     expect(result.reason).toBe('tenant_mismatch');
-    expect(repos.grocery.getById(listA.id)?.items.some((i) => i.name === 'Leaked eggs')).toBe(false);
+    expect(repos.grocery.getById(listA.id)?.items.some((i) => i.name === 'Leaked eggs')).toBe(
+      false,
+    );
   });
 
   it('upsertSyncedItem refuses to move an item onto a list in another household', () => {

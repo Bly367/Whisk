@@ -178,16 +178,18 @@ export function ShopScreen() {
   const handleDeleteItem = (item: GroceryItem) => {
     try {
       const { grocery } = getRepositories();
-      grocery.softDeleteItem(item.id);
+      const deleted = grocery.softDeleteItem(item.id);
       reportLocalPersistSuccess();
       showUndo({ kind: 'delete', itemId: item.id, name: item.name });
       refresh();
-      void publishHouseholdGroceryUpsert({
-        householdId: list?.householdId,
-        listId: item.listId,
-        item,
-        deleted: true,
-      });
+      if (deleted) {
+        void publishHouseholdGroceryUpsert({
+          householdId: list?.householdId,
+          listId: item.listId,
+          item: deleted,
+          deleted: true,
+        });
+      }
     } catch (error) {
       reportLocalPersistFailure(error instanceof Error ? error.message : 'Could not remove item');
     }

@@ -17,7 +17,9 @@ export const GROCERY_CONFLICT_POLICY = {
   tieBreaker: 'revision' as const,
   summary:
     'Per grocery item, last-write-wins by updatedAtIso (revision tiebreaker). ' +
-    'Distinct item ids merge. Soft-delete is a write competing under the same LWW rules.',
+    'Distinct item ids merge. Soft-delete is a write competing under the same LWW rules. ' +
+    'Reorder events LWW against the list updatedAt clock. ' +
+    'applyEvent requires list.householdId === event.householdId.',
 };
 
 export type GroceryConflictCandidate = {

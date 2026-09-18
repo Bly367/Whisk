@@ -105,7 +105,8 @@ export function createInMemoryGroceryRealtimeTransport(): GroceryRealtimeTranspo
 }
 
 export type GroceryRealtimeApplyResult =
-  { applied: true } | { applied: false; reason: 'stale' | 'unknown_list' | 'ignored' };
+  | { applied: true }
+  | { applied: false; reason: 'stale' | 'unknown_list' | 'ignored' | 'tenant_mismatch' };
 
 type HubDeps = {
   transport: GroceryRealtimeTransport;
@@ -245,8 +246,21 @@ export function createGroceryRealtimeHub(deps: HubDeps) {
       if (!list) {
         return { applied: false, reason: 'unknown_list' };
       }
+      if (list.householdId !== event.householdId) {
+        return { applied: false, reason: 'tenant_mismatch' };
+      }
 
       if (event.kind === 'item_reorder') {
+        const localClock = {
+          updatedAtIso: list.updatedAt,
+          revision: revisionFromUpdatedAt(list.updatedAt),
+        };
+        const incomingNewer =
+          event.updatedAtIso > localClock.updatedAtIso ||
+          (event.updatedAtIso === localClock.updatedAtIso && event.revision > localClock.revision);
+        if (!incomingNewer) {
+          return { applied: false, reason: 'stale' };
+        }
         deps.grocery.reorderItems(listId, event.positions, event.updatedAtIso);
         return { applied: true };
       }
@@ -275,6 +289,16 @@ export function createGroceryRealtimeHub(deps: HubDeps) {
 
       // item_upsert
       const existing = deps.grocery.getItemById(event.item.id);
+      if (existing && existing.listId !== listId) {
+        const otherList = deps.grocery.getById(existing.listId);
+        if (
+          otherList?.householdId &&
+          list.householdId &&
+          otherList.householdId !== list.householdId
+        ) {
+          return { applied: false, reason: 'tenant_mismatch' };
+        }
+      }
       const local = existing
         ? itemToCandidate(existing, revisionFromUpdatedAt(existing.updatedAt))
         : null;
@@ -290,20 +314,27 @@ export function createGroceryRealtimeHub(deps: HubDeps) {
         return { applied: true };
       }
 
-      deps.grocery.upsertSyncedItem(listId, {
-        id: event.item.id,
-        name: event.item.name,
-        quantity: event.item.quantity,
-        unit: event.item.unit,
-        aisle: event.item.aisle,
-        isCompleted: event.item.isCompleted,
-        completedAt: event.item.completedAt,
-        recipeId: event.item.recipeId,
-        recipeTitle: event.item.recipeTitle,
-        mergeKey: event.item.mergeKey,
-        position: event.item.position,
-        updatedAt: event.updatedAtIso,
-      });
+      try {
+        deps.grocery.upsertSyncedItem(listId, {
+          id: event.item.id,
+          name: event.item.name,
+          quantity: event.item.quantity,
+          unit: event.item.unit,
+          aisle: event.item.aisle,
+          isCompleted: event.item.isCompleted,
+          completedAt: event.item.completedAt,
+          recipeId: event.item.recipeId,
+          recipeTitle: event.item.recipeTitle,
+          mergeKey: event.item.mergeKey,
+          position: event.item.position,
+          updatedAt: event.updatedAtIso,
+        });
+      } catch (error) {
+        if (error instanceof Error && /household/i.test(error.message)) {
+          return { applied: false, reason: 'tenant_mismatch' };
+        }
+        throw error;
+      }
       return { applied: true };
     },
   };

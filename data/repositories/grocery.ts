@@ -206,17 +206,17 @@ export function createGroceryRepository(db: DbClient) {
       }, 'Could not update grocery item');
     },
 
-    softDeleteItem(id: string): void {
+    softDeleteItem(id: string): GroceryItem | null {
       const existing = db.get<ItemRow>(
         `SELECT * FROM grocery_items WHERE id = ? AND deleted_at IS NULL`,
         [id],
       );
       if (!existing) {
-        return;
+        return null;
       }
-      withLocalPersist(() => {
+      return withLocalPersist(() => {
         const now = nowIso();
-        db.withTransaction(() => {
+        return db.withTransaction(() => {
           db.run(`UPDATE grocery_items SET deleted_at = ?, updated_at = ? WHERE id = ?`, [
             now,
             now,
@@ -226,6 +226,11 @@ export function createGroceryRepository(db: DbClient) {
             `UPDATE grocery_lists SET updated_at = ?, sync_status = 'synced_local' WHERE id = ?`,
             [now, existing.list_id],
           );
+          const row = db.get<ItemRow>(`SELECT * FROM grocery_items WHERE id = ?`, [id]);
+          if (!row) {
+            throw new Error('Failed to soft-delete grocery item');
+          }
+          return mapGroceryItem(row);
         });
       }, 'Could not delete grocery item');
     },
@@ -266,6 +271,17 @@ export function createGroceryRepository(db: DbClient) {
           throw new Error(`Grocery list not found: ${listId}`);
         }
         const existing = db.get<ItemRow>(`SELECT * FROM grocery_items WHERE id = ?`, [input.id]);
+        if (existing && existing.list_id !== listId) {
+          const otherList = db.get<ListRow>(
+            `SELECT * FROM grocery_lists WHERE id = ? AND deleted_at IS NULL`,
+            [existing.list_id],
+          );
+          const otherHousehold = otherList?.household_id ?? null;
+          const targetHousehold = list.household_id ?? null;
+          if (otherHousehold && targetHousehold && otherHousehold !== targetHousehold) {
+            throw new Error('Cannot reassign grocery item across households');
+          }
+        }
         const createdAt = existing?.created_at ?? input.updatedAt;
         const isCompleted = input.isCompleted ?? false;
         return db.withTransaction(() => {

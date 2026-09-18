@@ -73,21 +73,56 @@ export function createHouseholdCollaboration(repos: Repositories) {
     }
   }
 
+  /**
+   * Bind local grocery list(s) to a household so Shop realtime can arm.
+   * Attaches every untenanted list; creates a shared list if none exist for the household.
+   */
+  function ensureSharedGroceryList(householdId: string): GroceryListWithItems {
+    const household = repos.households.getById(householdId);
+    if (!household) {
+      throw new HouseholdAuthzError();
+    }
+
+    for (const list of repos.grocery.list()) {
+      if (list.householdId == null) {
+        repos.grocery.setTenantFields(list.id, { householdId });
+      }
+    }
+
+    const shared = repos.grocery.list().filter((list) => list.householdId === householdId);
+    if (shared.length > 0) {
+      const hydrated = repos.grocery.getById(shared[0]!.id);
+      if (!hydrated) {
+        throw new Error('Shared grocery list missing after attach');
+      }
+      return hydrated;
+    }
+
+    return repos.grocery.create({
+      name: 'Shared list',
+      householdId,
+      items: [],
+    });
+  }
+
   return {
     assertActiveMember,
     isActiveMember,
+    ensureSharedGroceryList,
 
     createHousehold(input: CreateHouseholdInput): HouseholdWithMembers {
       const inviteCode = normalizeInviteCode(
         input.inviteCode?.trim() ? input.inviteCode : generateInviteCode(),
       );
-      return repos.households.create({
+      const household = repos.households.create({
         id: input.id,
         name: input.name,
         ownerUserId: input.ownerUserId,
         ownerDisplayName: input.ownerDisplayName ?? null,
         inviteCode,
       });
+      ensureSharedGroceryList(household.id);
+      return repos.households.getById(household.id) ?? household;
     },
 
     joinByInviteCode(input: JoinHouseholdInput): {
@@ -105,21 +140,27 @@ export function createHouseholdCollaboration(repos: Repositories) {
       const existing = household.members.find(
         (m) => m.userId === input.userId && m.status === 'active',
       );
+      let member: HouseholdMember;
       if (existing) {
-        return { household, member: existing };
+        member = existing;
+      } else {
+        member = repos.households.addMember({
+          householdId: household.id,
+          userId: input.userId,
+          displayName: input.displayName ?? null,
+          role: 'member',
+          status: 'active',
+        });
       }
-      const member = repos.households.addMember({
-        householdId: household.id,
-        userId: input.userId,
-        displayName: input.displayName ?? null,
-        role: 'member',
-        status: 'active',
-      });
       const refreshed = repos.households.getById(household.id);
       if (!refreshed) {
         throw new Error('Invite code is invalid or expired.');
       }
-      return { household: refreshed, member };
+      ensureSharedGroceryList(refreshed.id);
+      return {
+        household: repos.households.getById(refreshed.id) ?? refreshed,
+        member,
+      };
     },
 
     listSharedGroceryLists(input: { householdId: string; userId: string }): GroceryListWithItems[] {

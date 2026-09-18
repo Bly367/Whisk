@@ -15,6 +15,8 @@ const home = collab.createHousehold({
   ownerDisplayName: user.displayName,
 });
 // home.inviteCode — share out of band
+// create/join also attach local grocery list tenancy (setTenantFields or create Shared list)
+// so Shop subscribe/publish can arm on householdId.
 
 const joined = collab.joinByInviteCode({
   inviteCode: pastedCode,
@@ -24,6 +26,8 @@ const joined = collab.joinByInviteCode({
 ```
 
 Invite codes are normalized (trim + uppercase). Unknown codes fail with a generic invalid/expired message — never with another household’s rows.
+
+`ensureSharedGroceryList(householdId)` attaches every untenanted local grocery list to the household, or creates a `Shared list` when none exist.
 
 ## Shared grocery reads (authz)
 
@@ -56,15 +60,17 @@ Subscribe/publish **assert active membership** before touching the transport (cl
 
 See `GROCERY_CONFLICT_POLICY` in `data/sync/groceryConflict.ts`:
 
-| Rule         | Behavior                                    |
-| ------------ | ------------------------------------------- |
-| Strategy     | **Last-write-wins** per grocery item        |
-| Clock        | `updatedAtIso` (later wins)                 |
-| Tie-breaker  | Higher `revision`                           |
-| Distinct ids | **Merge** (both apply)                      |
-| Soft-delete  | Treated as a write under the same LWW rules |
+| Rule         | Behavior                                                       |
+| ------------ | -------------------------------------------------------------- |
+| Strategy     | **Last-write-wins** per grocery item                           |
+| Clock        | `updatedAtIso` (later wins)                                    |
+| Tie-breaker  | Higher `revision`                                              |
+| Distinct ids | **Merge** (both apply)                                         |
+| Soft-delete  | Treated as a write under the same LWW rules                    |
+| Reorder      | LWW against the **list** `updatedAt` (+ revision tiebreaker)   |
+| Tenancy      | `applyEvent` requires `list.householdId === event.householdId` |
 
-Documented constant + `resolveGroceryItemConflict` / `shouldApplyRemoteGroceryWrite` are the contract for apply paths and tests.
+Documented constant + `resolveGroceryItemConflict` / `shouldApplyRemoteGroceryWrite` are the contract for apply paths and tests. Reorder is not always-apply: stale list clocks return `{ applied: false, reason: 'stale' }`. Cross-household apply returns `tenant_mismatch` and never writes foreign rows.
 
 ## Out of scope
 
