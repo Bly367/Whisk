@@ -10,17 +10,10 @@ export type PantryItemRowProps = {
   item: PantryItem;
   onConsume: (item: PantryItem) => void;
   onEdit: (item: PantryItem) => void;
-  onDelete: (item: PantryItem) => void;
   testID?: string;
 };
 
-export function PantryItemRow({
-  item,
-  onConsume,
-  onEdit,
-  onDelete,
-  testID,
-}: PantryItemRowProps) {
+export function PantryItemRow({ item, onConsume, onEdit, testID }: PantryItemRowProps) {
   const { colors } = useTheme();
   const qtyLabel = [item.quantity, item.unit].filter(Boolean).join(' ');
   const depleted = Boolean(item.depletedAt);
@@ -89,21 +82,6 @@ export function PantryItemRow({
         >
           <Text variant="caption" tone="secondary">
             Edit
-          </Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Remove ${item.name}`}
-          hitSlop={hitSlop}
-          onPress={() => onDelete(item)}
-          testID={testID ? `${testID}-remove` : undefined}
-          style={({ pressed }) => [
-            ensureMinTouchTarget(styles.action),
-            { opacity: pressed ? 0.7 : 1 },
-          ]}
-        >
-          <Text variant="caption" tone="error">
-            Remove
           </Text>
         </Pressable>
       </View>

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { Field } from '@/components/ui/Field';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
-import { spacing } from '@/constants/tokens';
+import { radius, spacing } from '@/constants/tokens';
 import {
   getRepositories,
   reportLocalPersistFailure,
@@ -101,20 +101,6 @@ export function PantryScreen() {
     }
   };
 
-  const handleDelete = (item: PantryItem) => {
-    setError(null);
-    try {
-      getRepositories().pantry.softDelete(item.id);
-      setMessage(`Removed ${item.name}.`);
-      if (draft.id === item.id) resetDraft();
-      refresh();
-    } catch (err) {
-      const text = err instanceof Error ? err.message : 'Could not delete pantry item';
-      reportLocalPersistFailure(text);
-      setError(text);
-    }
-  };
-
   const handleEdit = (item: PantryItem) => {
     setDraft({
       id: item.id,
@@ -132,7 +118,8 @@ export function PantryScreen() {
       <Text variant="title1">Pantry</Text>
       <Text variant="body" tone="secondary">
         Track what you have on hand. Recipes can rank or filter by pantry coverage — always with
-        clear labels, never silently.
+        clear labels, never silently. Mark staples as used up when depleted (Show used up keeps
+        history); Remove is withheld until confirm + undo ships.
       </Text>
 
       <View
@@ -222,7 +209,6 @@ export function PantryScreen() {
               item={item}
               onConsume={handleConsume}
               onEdit={handleEdit}
-              onDelete={handleDelete}
               testID={`pantry-item-${item.id}`}
             />
           ))}
@@ -236,7 +222,7 @@ const styles = StyleSheet.create({
   form: {
     gap: spacing.md,
     padding: spacing.lg,
-    borderRadius: 12,
+    borderRadius: radius.control,
     borderWidth: StyleSheet.hairlineWidth,
   },
   qtyRow: {
