@@ -476,5 +476,6 @@ describe('P2-W2 published contracts', () => {
     expect(typeof data.createCompatRepository).toBe('function');
     expect(data.SCHEMA_VERSION).toBe(2);
     expect(typeof data.MIGRATION_V2).toBe('string');
+    expect(typeof data.applySchemaV2Extensions).toBe('function');
   });
 });

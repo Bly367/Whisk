@@ -33,6 +33,8 @@ function asListItem(
     updatedAt: new Date().toISOString(),
     localRevision: 1,
     syncStatus: 'synced_local',
+    householdId: null,
+    remoteId: null,
     ingredientNames: [],
     tagNames: [],
     ...partial,

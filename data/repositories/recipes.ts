@@ -96,8 +96,9 @@ export function createRecipeRepository(db: DbClient) {
               id, title, notes, source_url, source_name, image_uri,
               servings, prep_minutes, cook_minutes, rating, instructions_json,
               status, is_favorite, cooked_at, deleted_at,
-              created_at, updated_at, local_revision, sync_status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, 1, 'synced_local')`,
+              created_at, updated_at, local_revision, sync_status,
+              household_id, remote_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, 1, 'synced_local', ?, NULL)`,
             [
               id,
               input.title.trim() || 'Untitled recipe',
@@ -114,6 +115,7 @@ export function createRecipeRepository(db: DbClient) {
               fromBool(input.isFavorite ?? false),
               now,
               now,
+              input.householdId ?? null,
             ],
           );
 
@@ -175,6 +177,7 @@ export function createRecipeRepository(db: DbClient) {
               status = ?,
               is_favorite = ?,
               cooked_at = ?,
+              household_id = ?,
               updated_at = ?,
               local_revision = local_revision + 1,
               sync_status = 'synced_local'
@@ -195,6 +198,7 @@ export function createRecipeRepository(db: DbClient) {
               input.status !== undefined ? input.status : existing.status,
               input.isFavorite !== undefined ? fromBool(input.isFavorite) : existing.is_favorite,
               input.cookedAt !== undefined ? input.cookedAt : existing.cooked_at,
+              input.householdId !== undefined ? input.householdId : existing.household_id,
               now,
               id,
             ],

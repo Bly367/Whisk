@@ -33,6 +33,15 @@ function applyMigrationSql(db: DbClient, sql: string): void {
   db.exec(sql);
 }
 
+/**
+ * Idempotent Phase 2 DDL + tenant columns. Safe to re-run after SCHEMA_VERSION 2.
+ * Used by migrate() and exposed for tests / repair paths.
+ */
+export function applySchemaV2Extensions(db: DbClient): void {
+  applyMigrationSql(db, MIGRATION_V2);
+  ensureTenantColumns(db);
+}
+
 async function applyMigrationSqlAsync(db: SQLiteDatabase, sql: string): Promise<void> {
   const statements = sql
     .split(';')
@@ -59,8 +68,7 @@ export function migrate(db: DbClient): void {
       version = 1;
     }
     if (version === 1) {
-      applyMigrationSql(db, MIGRATION_V2);
-      ensureTenantColumns(db);
+      applySchemaV2Extensions(db);
       version = 2;
     }
     db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);

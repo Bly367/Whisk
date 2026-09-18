@@ -24,6 +24,7 @@ export function createGroceryRepository(db: DbClient) {
     create(input: {
       name: string;
       mealPlanId?: string | null;
+      householdId?: string | null;
       items?: {
         name: string;
         quantity?: string | null;
@@ -41,9 +42,17 @@ export function createGroceryRepository(db: DbClient) {
         return db.withTransaction(() => {
           db.run(
             `INSERT INTO grocery_lists (
-              id, name, meal_plan_id, created_at, updated_at, deleted_at, sync_status
-            ) VALUES (?, ?, ?, ?, ?, NULL, 'synced_local')`,
-            [id, input.name.trim(), input.mealPlanId ?? null, now, now],
+              id, name, meal_plan_id, created_at, updated_at, deleted_at, sync_status,
+              household_id, remote_id
+            ) VALUES (?, ?, ?, ?, ?, NULL, 'synced_local', ?, NULL)`,
+            [
+              id,
+              input.name.trim(),
+              input.mealPlanId ?? null,
+              now,
+              now,
+              input.householdId ?? null,
+            ],
           );
           input.items?.forEach((item, index) => {
             db.run(
@@ -74,6 +83,39 @@ export function createGroceryRepository(db: DbClient) {
           return hydrate(db, mapGroceryList(row));
         });
       }, 'Could not save grocery list');
+    },
+
+    setTenantFields(
+      id: string,
+      fields: { householdId?: string | null },
+    ): GroceryListWithItems {
+      return withLocalPersist(() => {
+        const existing = db.get<ListRow>(
+          `SELECT * FROM grocery_lists WHERE id = ? AND deleted_at IS NULL`,
+          [id],
+        );
+        if (!existing) {
+          throw new Error(`Grocery list not found: ${id}`);
+        }
+        const now = nowIso();
+        db.run(
+          `UPDATE grocery_lists SET
+            household_id = ?,
+            updated_at = ?,
+            sync_status = 'synced_local'
+           WHERE id = ?`,
+          [
+            fields.householdId !== undefined ? fields.householdId : existing.household_id ?? null,
+            now,
+            id,
+          ],
+        );
+        const row = db.get<ListRow>(`SELECT * FROM grocery_lists WHERE id = ?`, [id]);
+        if (!row) {
+          throw new Error('Failed to update grocery list tenant fields');
+        }
+        return hydrate(db, mapGroceryList(row));
+      }, 'Could not update grocery list tenant fields');
     },
 
     getById(id: string): GroceryListWithItems | null {

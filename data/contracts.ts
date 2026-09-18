@@ -57,6 +57,10 @@ export type Recipe = {
   updatedAt: string;
   localRevision: number;
   syncStatus: LocalSyncStatus;
+  /** Phase 2 tenant — null for guest/local-only rows. */
+  householdId: string | null;
+  /** Set by sync layer after remote accept; null until then. */
+  remoteId: string | null;
 };
 
 export type RecipeWithIngredients = Recipe & {
@@ -85,6 +89,8 @@ export type RecipeCreateInput = {
   isFavorite?: boolean;
   ingredients?: IngredientInput[];
   tagIds?: string[];
+  /** Optional household tenancy for sync-ready local rows. */
+  householdId?: string | null;
 };
 
 export type RecipeUpdateInput = Partial<RecipeCreateInput> & {
@@ -114,6 +120,10 @@ export type MealPlan = {
   updatedAt: string;
   deletedAt: string | null;
   syncStatus: LocalSyncStatus;
+  /** Phase 2 tenant — null for guest/local-only rows. */
+  householdId: string | null;
+  /** Set by sync layer after remote accept; null until then. */
+  remoteId: string | null;
 };
 
 export type MealPlanEntry = {
@@ -140,6 +150,10 @@ export type GroceryList = {
   updatedAt: string;
   deletedAt: string | null;
   syncStatus: LocalSyncStatus;
+  /** Phase 2 tenant — null for guest/local-only rows. */
+  householdId: string | null;
+  /** Set by sync layer after remote accept; null until then. */
+  remoteId: string | null;
 };
 
 export type GroceryItem = {

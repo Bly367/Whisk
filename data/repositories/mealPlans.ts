@@ -19,23 +19,65 @@ function hydrate(db: DbClient, plan: MealPlan): MealPlanWithEntries {
   return { ...plan, entries };
 }
 
+function setMealPlanTenantFields(
+  db: DbClient,
+  id: string,
+  fields: { householdId?: string | null },
+): MealPlanWithEntries {
+  return withLocalPersist(() => {
+    const existing = db.get<MealPlanRow>(
+      `SELECT * FROM meal_plans WHERE id = ? AND deleted_at IS NULL`,
+      [id],
+    );
+    if (!existing) {
+      throw new Error(`Meal plan not found: ${id}`);
+    }
+    const now = nowIso();
+    db.run(
+      `UPDATE meal_plans SET
+        household_id = ?,
+        updated_at = ?,
+        sync_status = 'synced_local'
+       WHERE id = ?`,
+      [
+        fields.householdId !== undefined ? fields.householdId : existing.household_id ?? null,
+        now,
+        id,
+      ],
+    );
+    const row = db.get<MealPlanRow>(`SELECT * FROM meal_plans WHERE id = ?`, [id]);
+    if (!row) {
+      throw new Error('Failed to update meal plan tenant fields');
+    }
+    return hydrate(db, mapMealPlan(row));
+  }, 'Could not update meal plan tenant fields');
+}
+
 export function createMealPlanRepository(db: DbClient) {
   return {
-    getOrCreateForWeek(weekStart: string): MealPlanWithEntries {
+    getOrCreateForWeek(
+      weekStart: string,
+      options?: { householdId?: string | null },
+    ): MealPlanWithEntries {
       const existing = db.get<MealPlanRow>(
         `SELECT * FROM meal_plans WHERE week_start = ? AND deleted_at IS NULL`,
         [weekStart],
       );
       if (existing) {
+        if (options && options.householdId !== undefined) {
+          return setMealPlanTenantFields(db, existing.id, { householdId: options.householdId });
+        }
         return hydrate(db, mapMealPlan(existing));
       }
       return withLocalPersist(() => {
         const id = createId();
         const now = nowIso();
         db.run(
-          `INSERT INTO meal_plans (id, week_start, created_at, updated_at, deleted_at, sync_status)
-           VALUES (?, ?, ?, ?, NULL, 'synced_local')`,
-          [id, weekStart, now, now],
+          `INSERT INTO meal_plans (
+            id, week_start, created_at, updated_at, deleted_at, sync_status,
+            household_id, remote_id
+          ) VALUES (?, ?, ?, ?, NULL, 'synced_local', ?, NULL)`,
+          [id, weekStart, now, now, options?.householdId ?? null],
         );
         const row = db.get<MealPlanRow>(`SELECT * FROM meal_plans WHERE id = ?`, [id]);
         if (!row) {
@@ -43,6 +85,13 @@ export function createMealPlanRepository(db: DbClient) {
         }
         return hydrate(db, mapMealPlan(row));
       }, 'Could not save meal plan');
+    },
+
+    setTenantFields(
+      id: string,
+      fields: { householdId?: string | null },
+    ): MealPlanWithEntries {
+      return setMealPlanTenantFields(db, id, fields);
     },
 
     getById(id: string): MealPlanWithEntries | null {

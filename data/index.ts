@@ -9,7 +9,7 @@
 export type * from '@/data/contracts';
 
 export { createExpoDbClient, type DbClient, type SqlValue, type RunResult } from '@/data/client';
-export { getDatabase, migrate, migrateDbIfNeeded, setDatabaseForTests } from '@/data/database';
+export { getDatabase, migrate, migrateDbIfNeeded, setDatabaseForTests, applySchemaV2Extensions } from '@/data/database';
 export { DATABASE_NAME, MIGRATION_V1, MIGRATION_V2, SCHEMA_VERSION } from '@/data/schema';
 export { createRecipeAutosave, type RecipeAutosave } from '@/data/autosave';
 export { createOfflineReader, type OfflineReader } from '@/data/offline';

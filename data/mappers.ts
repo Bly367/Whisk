@@ -48,6 +48,8 @@ export type RecipeRow = {
   updated_at: string;
   local_revision: number;
   sync_status: LocalSyncStatus;
+  household_id: string | null;
+  remote_id: string | null;
 };
 
 export type IngredientRow = {
@@ -83,6 +85,8 @@ export function mapRecipe(row: RecipeRow): Recipe {
     updatedAt: row.updated_at,
     localRevision: row.local_revision,
     syncStatus: row.sync_status,
+    householdId: row.household_id ?? null,
+    remoteId: row.remote_id ?? null,
   };
 }
 
@@ -131,6 +135,8 @@ export function mapMealPlan(row: {
   updated_at: string;
   deleted_at: string | null;
   sync_status: LocalSyncStatus;
+  household_id?: string | null;
+  remote_id?: string | null;
 }): MealPlan {
   return {
     id: row.id,
@@ -139,6 +145,8 @@ export function mapMealPlan(row: {
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
     syncStatus: row.sync_status,
+    householdId: row.household_id ?? null,
+    remoteId: row.remote_id ?? null,
   };
 }
 
@@ -174,6 +182,8 @@ export function mapGroceryList(row: {
   updated_at: string;
   deleted_at: string | null;
   sync_status: LocalSyncStatus;
+  household_id?: string | null;
+  remote_id?: string | null;
 }): GroceryList {
   return {
     id: row.id,
@@ -183,6 +193,8 @@ export function mapGroceryList(row: {
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
     syncStatus: row.sync_status,
+    householdId: row.household_id ?? null,
+    remoteId: row.remote_id ?? null,
   };
 }
 
