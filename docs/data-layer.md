@@ -1,12 +1,13 @@
-# Data layer contracts (W2)
+# Data layer contracts (W2 + P2-W2)
 
-Feature workstreams (W3–W7) should import domain types and repositories from `@/data` — not redefine schemas or open SQLite ad hoc.
+Feature workstreams (W3–W7 / P2-W3–W6) should import domain types and repositories from `@/data` — not redefine schemas or open SQLite ad hoc.
 
 ## Source of truth
 
 | Concern                               | Location                                                  |
 | ------------------------------------- | --------------------------------------------------------- |
 | SQLite (recipes, plans, lists, trash) | `@/data` repositories                                     |
+| Phase 2 extensions (household, pantry, templates, leftovers, compat) | `@/data` repositories (`households`, `pantry`, `templates`, `leftovers`, `compat`) |
 | UI / session (sync banner, sheets)    | Zustand — `useSyncStatusStore` for sync chrome            |
 | Auth tokens (Phase 2)                 | `expo-secure-store` via `createSecureTokenStorage` — never AsyncStorage |
 | Never                                 | Zustand as a recipe/plan/list database                    |
@@ -20,6 +21,12 @@ import {
   type RecipeListItem,
   type MealPlanWithEntries,
   type GroceryListWithItems,
+  type HouseholdWithMembers,
+  type PantryItem,
+  type MealPlanTemplateWithEntries,
+  type LeftoversLink,
+  type CompatImportJob,
+  type CompatExportPack,
   type LocalSyncStatus,
   // runtime
   getRepositories,
@@ -36,11 +43,15 @@ import {
 | **W5 Plan**         | `MealPlan`, `MealPlanEntry`, `MealSlot`, `getRepositories().mealPlans`                                                     |
 | **W6 Shop**         | `GroceryList`, `GroceryItem`, `getRepositories().grocery`                                                                  |
 | **W7 Cook + trust** | `RecipeWithIngredients`, `CookStep`, offline `getRecipe`; trash via `recipes.restore`                                      |
+| **P2-W3 Household** | `Household`, `HouseholdMember`, `getRepositories().households`                                                             |
+| **P2-W4 Pantry**    | `PantryItem`, `PantryListQuery`, `getRepositories().pantry`                                                                |
+| **P2-W5 Templates** | `MealPlanTemplate`, `LeftoversLink`, `getRepositories().templates` / `.leftovers`                                          |
+| **P2-W6 Compat**    | `CompatImportJob`, `CompatExportPack`, `getRepositories().compat` (parsers land in P2-W6)                                  |
 
 ## Key modules
 
-- `data/contracts.ts` — shared TypeScript types (`SyncBannerStatus`, domain models)
-- `data/schema.ts` — SQLite DDL + `SCHEMA_VERSION`
+- `data/contracts.ts` — shared TypeScript types (`SyncBannerStatus`, domain models, P2-W2 models)
+- `data/schema.ts` — SQLite DDL + `SCHEMA_VERSION` (v2 = Phase 2 extensions)
 - `data/repositories/*` — typed CRUD (only write path for domain data)
 - `data/autosave.ts` — draft persistence (survives backgrounding conceptually)
 - `data/offline.ts` — offline read helpers
@@ -55,6 +66,8 @@ import {
 
 `DatabaseProvider` (`SQLiteProvider` + `migrateDbIfNeeded`) opens the DB on boot, migrates, and **caches that client**. `getDatabase()` / `getRepositories()` reuse it. Repositories own all domain writes; do not open a second database for feature code.
 
+Schema upgrades: empty DB runs `MIGRATION_V1` then `MIGRATION_V2`; MVP installs at `user_version = 1` apply only `MIGRATION_V2` (plus tenant columns `household_id` / `remote_id` on recipes, meal_plans, grocery_lists). Migrations are idempotent via `user_version` and `CREATE … IF NOT EXISTS`.
+
 ## Persistence rules
 
 1. Celebrate success only after local SQLite write succeeds (`withLocalPersist` / `reportLocalPersist*` on mutating APIs).
@@ -63,3 +76,4 @@ import {
 4. Do not call `setStatus('synced')` — use `markLocalPersisted`, then `markRemoteSyncSucceeded` only after a real remote success (requires `lastLocalPersistAt`).
 5. Autosave without `recipeId` reuses the session’s first anonymous draft id (no duplicate drafts).
 6. Auth tokens go through `SecureTokenStorage` only; guest/local core loop must work with network off and without an account.
+7. Phase 2 rows keep stable local `id`s and optional `remote_id` / `household_id` for sync tenancy (P2-W3+).
