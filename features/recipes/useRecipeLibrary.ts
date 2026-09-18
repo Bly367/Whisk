@@ -1,22 +1,31 @@
 import { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 
-import type { Collection, RecipeListItem, Tag } from '@/data/contracts';
+import type { Collection, Tag } from '@/data/contracts';
 import { getRepositories } from '@/data';
+import {
+  applyPantryAwareSearch,
+  describePantrySearchMode,
+  type PantryAwareRecipe,
+} from '@/features/pantry';
 import { applyLibraryFilters, type LibraryFilterState } from '@/features/recipes/libraryFilters';
 
 export type LibraryData = {
-  recipes: RecipeListItem[];
+  recipes: PantryAwareRecipe[];
   tags: Tag[];
   collections: Collection[];
   loading: boolean;
+  pantryItemCount: number;
+  pantryBanner: string | null;
   refresh: () => void;
 };
 
 export function useRecipeLibrary(filters: LibraryFilterState): LibraryData {
-  const [recipes, setRecipes] = useState<RecipeListItem[]>([]);
+  const [recipes, setRecipes] = useState<PantryAwareRecipe[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
+  const [pantryItemCount, setPantryItemCount] = useState(0);
+  const [pantryBanner, setPantryBanner] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(() => {
@@ -34,7 +43,13 @@ export function useRecipeLibrary(filters: LibraryFilterState): LibraryData {
         collectionIds = new Set(repos.collections.listRecipeIds(filters.collectionId));
       }
 
-      setRecipes(applyLibraryFilters(listed, filters, collectionIds));
+      const filtered = applyLibraryFilters(listed, filters, collectionIds);
+      const pantryItems = repos.pantry.list();
+      const withPantry = applyPantryAwareSearch(filtered, pantryItems, filters.pantryMode);
+
+      setRecipes(withPantry);
+      setPantryItemCount(pantryItems.length);
+      setPantryBanner(describePantrySearchMode(filters.pantryMode, pantryItems.length));
       setTags(repos.tags.list());
       setCollections(repos.collections.list());
     } finally {
@@ -49,5 +64,5 @@ export function useRecipeLibrary(filters: LibraryFilterState): LibraryData {
     }, [refresh]),
   );
 
-  return { recipes, tags, collections, loading, refresh };
+  return { recipes, tags, collections, loading, pantryItemCount, pantryBanner, refresh };
 }

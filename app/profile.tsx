@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Share, StyleSheet, View } from 'react-native';
+import { router } from 'expo-router';
 
 import { Button } from '@/components/ui/Button';
 import { Field } from '@/components/ui/Field';
@@ -136,6 +137,20 @@ export default function ProfileScreen() {
         unlockCopy={unlockCopy}
         testID="profile-limit-notice"
       />
+
+      <View style={styles.section}>
+        <Text variant="headline">Pantry</Text>
+        <Text variant="body" tone="secondary">
+          Track staples on this device, then boost or filter Recipes by what you already have —
+          coverage is always labeled, never silent.
+        </Text>
+        <Button
+          label="Open pantry"
+          variant="secondary"
+          onPress={() => router.push('/pantry')}
+          testID="profile-open-pantry"
+        />
+      </View>
 
       <View style={styles.section}>
         <Text variant="headline">Portability</Text>

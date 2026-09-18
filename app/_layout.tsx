@@ -90,6 +90,15 @@ function RootNavigator() {
             headerTintColor: colors.textPrimary,
           }}
         />
+        <Stack.Screen
+          name="pantry"
+          options={{
+            title: 'Pantry',
+            headerShadowVisible: false,
+            headerStyle: { backgroundColor: colors.canvas },
+            headerTintColor: colors.textPrimary,
+          }}
+        />
       </Stack>
     </NavThemeProvider>
   );

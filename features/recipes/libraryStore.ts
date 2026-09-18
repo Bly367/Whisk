@@ -4,6 +4,7 @@ import {
   DEFAULT_LIBRARY_FILTERS,
   type LibraryFilterState,
 } from '@/features/recipes/libraryFilters';
+import type { PantrySearchMode } from '@/features/pantry';
 import type { RecipeSort } from '@/data/contracts';
 
 type LibraryStore = LibraryFilterState & {
@@ -13,6 +14,7 @@ type LibraryStore = LibraryFilterState & {
   setCollectionId: (collectionId: string | null) => void;
   setCookTime: (cookTime: LibraryFilterState['cookTime']) => void;
   setDateAdded: (dateAdded: LibraryFilterState['dateAdded']) => void;
+  setPantryMode: (pantryMode: PantrySearchMode) => void;
   clearFilters: () => void;
 };
 
@@ -34,11 +36,13 @@ export const useRecipeLibraryStore = create<LibraryStore>((set, get) => ({
   setCollectionId: (collectionId) => set({ collectionId }),
   setCookTime: (cookTime) => set({ cookTime }),
   setDateAdded: (dateAdded) => set({ dateAdded }),
+  setPantryMode: (pantryMode) => set({ pantryMode }),
   clearFilters: () =>
     set({
       tagIds: [],
       collectionId: null,
       cookTime: 'any',
       dateAdded: 'any',
+      pantryMode: 'off',
     }),
 }));

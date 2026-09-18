@@ -20,6 +20,7 @@ import {
   activeFilterCount,
   COOK_TIME_OPTIONS,
   DATE_ADDED_OPTIONS,
+  PANTRY_MODE_OPTIONS,
   SORT_OPTIONS,
 } from '@/features/recipes/libraryFilters';
 import { useRecipeLibraryStore } from '@/features/recipes/libraryStore';
@@ -34,20 +35,23 @@ export default function RecipesScreen() {
   const collectionId = useRecipeLibraryStore((s) => s.collectionId);
   const cookTime = useRecipeLibraryStore((s) => s.cookTime);
   const dateAdded = useRecipeLibraryStore((s) => s.dateAdded);
+  const pantryMode = useRecipeLibraryStore((s) => s.pantryMode);
   const setSearch = useRecipeLibraryStore((s) => s.setSearch);
   const setSort = useRecipeLibraryStore((s) => s.setSort);
   const toggleTag = useRecipeLibraryStore((s) => s.toggleTag);
   const setCollectionId = useRecipeLibraryStore((s) => s.setCollectionId);
   const setCookTime = useRecipeLibraryStore((s) => s.setCookTime);
   const setDateAdded = useRecipeLibraryStore((s) => s.setDateAdded);
+  const setPantryMode = useRecipeLibraryStore((s) => s.setPantryMode);
   const clearFilters = useRecipeLibraryStore((s) => s.clearFilters);
 
   const filters = useMemo(
-    () => ({ search, sort, tagIds, collectionId, cookTime, dateAdded }),
-    [search, sort, tagIds, collectionId, cookTime, dateAdded],
+    () => ({ search, sort, tagIds, collectionId, cookTime, dateAdded, pantryMode }),
+    [search, sort, tagIds, collectionId, cookTime, dateAdded, pantryMode],
   );
 
-  const { recipes, tags, collections, loading } = useRecipeLibrary(filters);
+  const { recipes, tags, collections, loading, pantryBanner, pantryItemCount } =
+    useRecipeLibrary(filters);
   const filterCount = activeFilterCount(filters);
   const isEmptyLibrary = !loading && recipes.length === 0 && !search.trim() && filterCount === 0;
 
@@ -100,6 +104,45 @@ export default function RecipesScreen() {
 
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
         <View style={styles.filterBlock}>
+          <View style={styles.pantryHeader}>
+            <Text variant="caption" tone="secondary">
+              Pantry
+            </Text>
+            <Pressable
+              onPress={() => router.push('/pantry')}
+              accessibilityRole="link"
+              accessibilityLabel="Open pantry"
+              testID="recipes-open-pantry"
+            >
+              <Text variant="callout" tone="info">
+                Manage pantry{pantryItemCount > 0 ? ` (${pantryItemCount})` : ''}
+              </Text>
+            </Pressable>
+          </View>
+          <ChipRow>
+            {PANTRY_MODE_OPTIONS.map((option) => (
+              <Chip
+                key={option.value}
+                label={option.label}
+                selected={pantryMode === option.value}
+                onPress={() => setPantryMode(option.value)}
+                testID={`filter-pantry-${option.value}`}
+                accessibilityHint={
+                  option.value === 'off'
+                    ? 'Do not rank or filter by pantry'
+                    : option.value === 'boost'
+                      ? 'Rank recipes by how many ingredients you already have'
+                      : 'Show only recipes that use pantry items'
+                }
+              />
+            ))}
+          </ChipRow>
+          {pantryBanner ? (
+            <Text variant="callout" tone="info" testID="recipes-pantry-banner">
+              {pantryBanner}
+            </Text>
+          ) : null}
+
           <Text variant="caption" tone="secondary">
             Filters
           </Text>
@@ -183,7 +226,11 @@ export default function RecipesScreen() {
           <View style={styles.emptyResults} testID="recipes-no-results">
             <Text variant="headline">No matches</Text>
             <Text variant="body" tone="secondary">
-              Try removing a filter or searching a related ingredient.
+              {pantryMode !== 'off' && pantryItemCount === 0
+                ? 'Add pantry items, or turn pantry filter off.'
+                : pantryMode === 'filter'
+                  ? 'No recipes use items from your pantry yet. Try Boost, or add more pantry staples.'
+                  : 'Try removing a filter or searching a related ingredient.'}
             </Text>
             {filterCount > 0 ? (
               <Button label="Clear filters" variant="secondary" onPress={clearFilters} />
@@ -196,6 +243,7 @@ export default function RecipesScreen() {
                 key={recipe.id}
                 recipe={recipe}
                 searchQuery={search}
+                pantryLabel={recipe.pantryLabel}
                 onPress={() => router.push(`/recipe/${recipe.id}`)}
               />
             ))}
@@ -252,6 +300,12 @@ const styles = StyleSheet.create({
   },
   filterBlock: {
     gap: spacing.sm,
+  },
+  pantryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
   },
   list: {
     gap: spacing.md,

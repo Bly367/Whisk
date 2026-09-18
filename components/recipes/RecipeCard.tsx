@@ -10,6 +10,8 @@ import { useTheme } from '@/theme/ThemeProvider';
 export type RecipeCardProps = {
   recipe: RecipeListItem;
   searchQuery?: string;
+  /** Explicit pantry coverage copy when pantry search mode is active. */
+  pantryLabel?: string | null;
   onPress: () => void;
 };
 
@@ -19,17 +21,23 @@ function totalTimeLabel(recipe: RecipeListItem): string | null {
   return `${total} min`;
 }
 
-export function RecipeCard({ recipe, searchQuery = '', onPress }: RecipeCardProps) {
+export function RecipeCard({
+  recipe,
+  searchQuery = '',
+  pantryLabel = null,
+  onPress,
+}: RecipeCardProps) {
   const { colors } = useTheme();
   const match = explainSearchMatch(recipe, searchQuery);
   const time = totalTimeLabel(recipe);
   const tags = recipe.tagNames.slice(0, 2);
+  const hint = [match?.label, pantryLabel].filter(Boolean).join('. ') || undefined;
 
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={recipe.title}
-      accessibilityHint={match?.label}
+      accessibilityHint={hint}
       hitSlop={hitSlop}
       onPress={onPress}
       testID={`recipe-card-${recipe.id}`}
@@ -77,6 +85,16 @@ export function RecipeCard({ recipe, searchQuery = '', onPress }: RecipeCardProp
             style={styles.match}
           >
             {match.label}
+          </Text>
+        ) : null}
+        {pantryLabel ? (
+          <Text
+            variant="caption"
+            tone="success"
+            testID={`recipe-pantry-${recipe.id}`}
+            style={styles.match}
+          >
+            {pantryLabel}
           </Text>
         ) : null}
       </View>
