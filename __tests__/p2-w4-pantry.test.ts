@@ -112,8 +112,9 @@ describe('P2-W4 pantry-aware recipe search', () => {
     expect(result[2].pantryLabel).toMatch(/0 of 4|none|0 pantry/i);
 
     const banner = describePantrySearchMode('boost', pantryNames.length);
+    expect(banner).toBeTruthy();
     expect(banner).toMatch(/ranked|coverage|pantry/i);
-    expect(banner.toLowerCase()).not.toMatch(/silently/);
+    expect(banner!.toLowerCase()).not.toMatch(/silently/);
   });
 
   it('filter mode keeps only recipes that use pantry items, with clear copy', () => {
