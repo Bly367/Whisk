@@ -1,9 +1,48 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { createExpoDbClient, type DbClient } from '@/data/client';
-import { DATABASE_NAME, MIGRATION_V1, SCHEMA_VERSION } from '@/data/schema';
+import {
+  DATABASE_NAME,
+  MIGRATION_V1,
+  MIGRATION_V2,
+  MIGRATION_V2_TENANT_COLUMNS,
+  SCHEMA_VERSION,
+} from '@/data/schema';
 
 let cachedClient: DbClient | null = null;
+
+function ensureTenantColumns(db: DbClient): void {
+  for (const { table, column, definition } of MIGRATION_V2_TENANT_COLUMNS) {
+    const cols = db.all<{ name: string }>(`PRAGMA table_info(${table})`);
+    if (!cols.some((c) => c.name === column)) {
+      db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+    }
+  }
+}
+
+async function ensureTenantColumnsAsync(db: SQLiteDatabase): Promise<void> {
+  for (const { table, column, definition } of MIGRATION_V2_TENANT_COLUMNS) {
+    const cols = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(${table})`);
+    if (!cols.some((c) => c.name === column)) {
+      await db.execAsync(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+    }
+  }
+}
+
+function applyMigrationSql(db: DbClient, sql: string): void {
+  db.exec(sql);
+}
+
+async function applyMigrationSqlAsync(db: SQLiteDatabase, sql: string): Promise<void> {
+  const statements = sql
+    .split(';')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+    .filter((s) => !/journal_mode\s*=\s*WAL/i.test(s));
+  for (const statement of statements) {
+    await db.execAsync(statement);
+  }
+}
 
 export function migrate(db: DbClient): void {
   db.exec('PRAGMA foreign_keys = ON');
@@ -16,8 +55,13 @@ export function migrate(db: DbClient): void {
 
   db.withTransaction(() => {
     if (version === 0) {
-      db.exec(MIGRATION_V1);
+      applyMigrationSql(db, MIGRATION_V1);
       version = 1;
+    }
+    if (version === 1) {
+      applyMigrationSql(db, MIGRATION_V2);
+      ensureTenantColumns(db);
+      version = 2;
     }
     db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
   });
@@ -37,14 +81,13 @@ export async function migrateAsync(db: SQLiteDatabase): Promise<void> {
 
   await db.withTransactionAsync(async () => {
     if (version === 0) {
-      const statements = MIGRATION_V1.split(';')
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0)
-        .filter((s) => !/journal_mode\s*=\s*WAL/i.test(s));
-      for (const statement of statements) {
-        await db.execAsync(statement);
-      }
+      await applyMigrationSqlAsync(db, MIGRATION_V1);
       version = 1;
+    }
+    if (version === 1) {
+      await applyMigrationSqlAsync(db, MIGRATION_V2);
+      await ensureTenantColumnsAsync(db);
+      version = 2;
     }
     await db.execAsync(`PRAGMA user_version = ${SCHEMA_VERSION}`);
   });

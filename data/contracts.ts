@@ -185,3 +185,138 @@ export type AutosaveResult = {
   recipe: RecipeWithIngredients;
   persistedAt: string;
 };
+
+/* ---- P2-W2 contracts (households, pantry, templates, leftovers, compat) ---- */
+
+export type HouseholdMemberRole = 'owner' | 'member' | 'viewer';
+
+export type HouseholdMemberStatus = 'active' | 'invited' | 'removed';
+
+export type HouseholdMember = {
+  id: string;
+  householdId: string;
+  userId: string | null;
+  displayName: string | null;
+  role: HouseholdMemberRole;
+  status: HouseholdMemberStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type Household = {
+  id: string;
+  name: string;
+  ownerUserId: string | null;
+  inviteCode: string | null;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+  localRevision: number;
+  syncStatus: LocalSyncStatus;
+  remoteId: string | null;
+};
+
+export type HouseholdWithMembers = Household & {
+  members: HouseholdMember[];
+};
+
+export type PantryItem = {
+  id: string;
+  householdId: string | null;
+  name: string;
+  quantity: string | null;
+  unit: string | null;
+  aisle: string | null;
+  notes: string | null;
+  expiresAt: string | null;
+  depletedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+  localRevision: number;
+  syncStatus: LocalSyncStatus;
+  remoteId: string | null;
+};
+
+export type PantryListQuery = {
+  householdId?: string | null;
+  includeDepleted?: boolean;
+  search?: string;
+};
+
+export type MealPlanTemplateEntry = {
+  id: string;
+  templateId: string;
+  recipeId: string | null;
+  dayOffset: number;
+  slot: MealSlot;
+  note: string | null;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type MealPlanTemplate = {
+  id: string;
+  householdId: string | null;
+  name: string;
+  sourceMealPlanId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+  localRevision: number;
+  syncStatus: LocalSyncStatus;
+  remoteId: string | null;
+};
+
+export type MealPlanTemplateWithEntries = MealPlanTemplate & {
+  entries: MealPlanTemplateEntry[];
+};
+
+export type LeftoversLink = {
+  id: string;
+  householdId: string | null;
+  sourceRecipeId: string | null;
+  sourceMealPlanEntryId: string | null;
+  leftoverRecipeId: string | null;
+  targetMealPlanEntryId: string | null;
+  label: string | null;
+  servingsRemaining: number | null;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+  localRevision: number;
+  syncStatus: LocalSyncStatus;
+  remoteId: string | null;
+};
+
+export type CompatFormat = 'paprika' | 'json' | 'markdown' | 'generic';
+
+export type CompatImportStatus = 'preview' | 'committed' | 'cancelled' | 'failed';
+
+export type CompatExportStatus = 'draft' | 'ready' | 'failed';
+
+export type CompatImportJob = {
+  id: string;
+  format: CompatFormat;
+  status: CompatImportStatus;
+  sourceLabel: string | null;
+  preview: Record<string, unknown>;
+  confidence: number | null;
+  errorMessage: string | null;
+  createdAt: string;
+  updatedAt: string;
+  committedAt: string | null;
+  localRevision: number;
+};
+
+export type CompatExportPack = {
+  id: string;
+  format: CompatFormat;
+  status: CompatExportStatus;
+  payload: Record<string, unknown> | null;
+  recipeIds: string[];
+  createdAt: string;
+  updatedAt: string;
+  localRevision: number;
+};

@@ -1,14 +1,27 @@
 import type {
   Collection,
   CollectionKind,
+  CompatExportPack,
+  CompatExportStatus,
+  CompatFormat,
+  CompatImportJob,
+  CompatImportStatus,
   CookStep,
   GroceryItem,
   GroceryList,
+  Household,
+  HouseholdMember,
+  HouseholdMemberRole,
+  HouseholdMemberStatus,
   Ingredient,
+  LeftoversLink,
   LocalSyncStatus,
   MealPlan,
   MealPlanEntry,
+  MealPlanTemplate,
+  MealPlanTemplateEntry,
   MealSlot,
+  PantryItem,
   Recipe,
   RecipeStatus,
   Tag,
@@ -206,5 +219,239 @@ export function mapGroceryItem(row: {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
+  };
+}
+
+export function mapHousehold(row: {
+  id: string;
+  name: string;
+  owner_user_id: string | null;
+  invite_code: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+  local_revision: number;
+  sync_status: LocalSyncStatus;
+  remote_id: string | null;
+}): Household {
+  return {
+    id: row.id,
+    name: row.name,
+    ownerUserId: row.owner_user_id,
+    inviteCode: row.invite_code,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    localRevision: row.local_revision,
+    syncStatus: row.sync_status,
+    remoteId: row.remote_id,
+  };
+}
+
+export function mapHouseholdMember(row: {
+  id: string;
+  household_id: string;
+  user_id: string | null;
+  display_name: string | null;
+  role: HouseholdMemberRole;
+  status: HouseholdMemberStatus;
+  created_at: string;
+  updated_at: string;
+}): HouseholdMember {
+  return {
+    id: row.id,
+    householdId: row.household_id,
+    userId: row.user_id,
+    displayName: row.display_name,
+    role: row.role,
+    status: row.status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function mapPantryItem(row: {
+  id: string;
+  household_id: string | null;
+  name: string;
+  quantity: string | null;
+  unit: string | null;
+  aisle: string | null;
+  notes: string | null;
+  expires_at: string | null;
+  depleted_at: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+  local_revision: number;
+  sync_status: LocalSyncStatus;
+  remote_id: string | null;
+}): PantryItem {
+  return {
+    id: row.id,
+    householdId: row.household_id,
+    name: row.name,
+    quantity: row.quantity,
+    unit: row.unit,
+    aisle: row.aisle,
+    notes: row.notes,
+    expiresAt: row.expires_at,
+    depletedAt: row.depleted_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    localRevision: row.local_revision,
+    syncStatus: row.sync_status,
+    remoteId: row.remote_id,
+  };
+}
+
+export function mapMealPlanTemplate(row: {
+  id: string;
+  household_id: string | null;
+  name: string;
+  source_meal_plan_id: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+  local_revision: number;
+  sync_status: LocalSyncStatus;
+  remote_id: string | null;
+}): MealPlanTemplate {
+  return {
+    id: row.id,
+    householdId: row.household_id,
+    name: row.name,
+    sourceMealPlanId: row.source_meal_plan_id,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    localRevision: row.local_revision,
+    syncStatus: row.sync_status,
+    remoteId: row.remote_id,
+  };
+}
+
+export function mapMealPlanTemplateEntry(row: {
+  id: string;
+  template_id: string;
+  recipe_id: string | null;
+  day_offset: number;
+  slot: MealSlot;
+  note: string | null;
+  position: number;
+  created_at: string;
+  updated_at: string;
+}): MealPlanTemplateEntry {
+  return {
+    id: row.id,
+    templateId: row.template_id,
+    recipeId: row.recipe_id,
+    dayOffset: row.day_offset,
+    slot: row.slot,
+    note: row.note,
+    position: row.position,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function mapLeftoversLink(row: {
+  id: string;
+  household_id: string | null;
+  source_recipe_id: string | null;
+  source_meal_plan_entry_id: string | null;
+  leftover_recipe_id: string | null;
+  target_meal_plan_entry_id: string | null;
+  label: string | null;
+  servings_remaining: number | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+  local_revision: number;
+  sync_status: LocalSyncStatus;
+  remote_id: string | null;
+}): LeftoversLink {
+  return {
+    id: row.id,
+    householdId: row.household_id,
+    sourceRecipeId: row.source_recipe_id,
+    sourceMealPlanEntryId: row.source_meal_plan_entry_id,
+    leftoverRecipeId: row.leftover_recipe_id,
+    targetMealPlanEntryId: row.target_meal_plan_entry_id,
+    label: row.label,
+    servingsRemaining: row.servings_remaining,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    localRevision: row.local_revision,
+    syncStatus: row.sync_status,
+    remoteId: row.remote_id,
+  };
+}
+
+function parseJsonObject(raw: string | null | undefined): Record<string, unknown> {
+  if (!raw) {
+    return {};
+  }
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+    return {};
+  } catch {
+    return {};
+  }
+}
+
+export function mapCompatImportJob(row: {
+  id: string;
+  format: CompatFormat;
+  status: CompatImportStatus;
+  source_label: string | null;
+  preview_json: string;
+  confidence: number | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+  committed_at: string | null;
+  local_revision: number;
+}): CompatImportJob {
+  return {
+    id: row.id,
+    format: row.format,
+    status: row.status,
+    sourceLabel: row.source_label,
+    preview: parseJsonObject(row.preview_json),
+    confidence: row.confidence,
+    errorMessage: row.error_message,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    committedAt: row.committed_at,
+    localRevision: row.local_revision,
+  };
+}
+
+export function mapCompatExportPack(row: {
+  id: string;
+  format: CompatFormat;
+  status: CompatExportStatus;
+  payload_json: string | null;
+  recipe_ids_json: string;
+  created_at: string;
+  updated_at: string;
+  local_revision: number;
+}): CompatExportPack {
+  const payload = row.payload_json ? parseJsonObject(row.payload_json) : null;
+  return {
+    id: row.id,
+    format: row.format,
+    status: row.status,
+    payload: row.payload_json ? payload : null,
+    recipeIds: parseJsonArray<string>(row.recipe_ids_json, []),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    localRevision: row.local_revision,
   };
 }

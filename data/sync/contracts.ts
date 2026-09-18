@@ -42,7 +42,14 @@ export type AuthTransport = {
   signOut(): Promise<void>;
 };
 
-export type SyncEntityKind = 'recipe' | 'meal_plan' | 'grocery_list';
+export type SyncEntityKind =
+  | 'recipe'
+  | 'meal_plan'
+  | 'grocery_list'
+  | 'household'
+  | 'pantry_item'
+  | 'meal_plan_template'
+  | 'leftovers_link';
 
 export type SyncPushItem = {
   kind: SyncEntityKind;
