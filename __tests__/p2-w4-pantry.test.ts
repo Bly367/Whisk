@@ -10,6 +10,9 @@ import {
   applyPantryAwareSearch,
   describePantrySearchMode,
   formatPantryCoverageLabel,
+  isPantryUiSoftDeleteAllowed,
+  PANTRY_UI_MUTATIONS,
+  refusePantryUiSoftDelete,
   scorePantryCoverage,
 } from '@/features/pantry';
 import type { RecipeListItem } from '@/data/contracts';
@@ -201,5 +204,18 @@ describe('P2-W4 pantry CRUD offline-first', () => {
     expect(consumed.depletedAt).toBeTruthy();
     expect(pantry.list()).toHaveLength(0);
     expect(pantry.list({ includeDepleted: true }).map((i) => i.id)).toContain(created.id);
+  });
+});
+
+describe('P2-W4 pantry delete policy (SECURITY.md)', () => {
+  it('does not expose soft-delete in W4 UI; depletion is via consume + Show used up', () => {
+    // Soft-delete without confirm + undo/restore violates SECURITY.md.
+    // W4 keeps Remove out of the UI; consume covers depletion with recoverable history.
+    expect(isPantryUiSoftDeleteAllowed()).toBe(false);
+    expect([...PANTRY_UI_MUTATIONS]).toEqual(['create', 'update', 'consume']);
+    expect(PANTRY_UI_MUTATIONS).not.toContain('softDelete');
+
+    expect(() => refusePantryUiSoftDelete('Eggs')).toThrow(/not available|used up/i);
+    expect(() => refusePantryUiSoftDelete('Eggs')).toThrow(/confirm|undo/i);
   });
 });
