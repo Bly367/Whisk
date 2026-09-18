@@ -18,6 +18,40 @@ export type ScheduleLeftoversResult = {
   sourceRecipeId: string | null;
 };
 
+export type WeekDateOption = {
+  date: string;
+  shortLabel: string;
+};
+
+/** True when target calendar day is strictly after the source meal day. */
+export function isLaterPlanDate(sourcePlanDate: string, targetPlanDate: string): boolean {
+  return targetPlanDate > sourcePlanDate;
+}
+
+/** Week-day chips that are strictly after the source meal (never earlier weekdays). */
+export function filterLaterWeekDates<T extends WeekDateOption>(
+  sourcePlanDate: string,
+  weekDates: T[],
+): T[] {
+  return weekDates.filter((day) => isLaterPlanDate(sourcePlanDate, day.date));
+}
+
+/**
+ * Default leftovers day: next calendar day if it is in the week view, else the
+ * earliest later in-week day. Returns null when the source is the last day of
+ * the week — never falls back to an earlier weekday (e.g. Monday).
+ */
+export function defaultLaterTargetDate(
+  sourcePlanDate: string,
+  weekDates: WeekDateOption[],
+): string | null {
+  const later = filterLaterWeekDates(sourcePlanDate, weekDates);
+  if (later.length === 0) {
+    return null;
+  }
+  return later[0]?.date ?? null;
+}
+
 function findEntryAcrossPlans(
   repos: Pick<Repositories, 'mealPlans'>,
   entryId: string,
@@ -34,7 +68,7 @@ function findEntryAcrossPlans(
 }
 
 /**
- * Place leftovers into a later plan slot.
+ * Place leftovers into a later plan slot (target date must be after source date).
  * Reuses the source recipe id — never deletes or mutates the source recipe/entry.
  */
 export function scheduleLeftovers(
@@ -48,6 +82,12 @@ export function scheduleLeftovers(
 
   const { entry: sourceEntry, planId: sourcePlanId } = found;
   const sourceRecipeId = sourceEntry.recipeId;
+
+  if (!isLaterPlanDate(sourceEntry.planDate, input.targetPlanDate)) {
+    throw new Error(
+      `Leftovers must target a later plan date than ${sourceEntry.planDate} (got ${input.targetPlanDate})`,
+    );
+  }
 
   if (sourceRecipeId) {
     const recipe = repos.recipes.getById(sourceRecipeId);
@@ -66,11 +106,7 @@ export function scheduleLeftovers(
     (e) => e.planDate === input.targetPlanDate && e.slot === input.targetSlot,
   );
 
-  const defaultNote =
-    input.label?.trim() ||
-    (sourceRecipeId
-      ? `Leftovers`
-      : 'Leftovers');
+  const defaultNote = input.label?.trim() || 'Leftovers';
   const note = input.note?.trim() || defaultNote;
 
   const targetEntry = repos.mealPlans.addEntry({
@@ -92,7 +128,6 @@ export function scheduleLeftovers(
     servingsRemaining: input.servingsRemaining ?? null,
   });
 
-  // Source recipe + entry must remain unchanged (assert via return of originals).
   return {
     link,
     targetEntry,

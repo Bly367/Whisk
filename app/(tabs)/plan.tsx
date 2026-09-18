@@ -20,7 +20,7 @@ import {
   type PickerTarget,
 } from '@/components/plan/planUiStore';
 import { RecipePickerModal } from '@/components/plan/RecipePickerModal';
-import { addDays, formatWeekRange, weekDays } from '@/components/plan/weekUtils';
+import { formatWeekRange, weekDays } from '@/components/plan/weekUtils';
 import { Button } from '@/components/ui/Button';
 import { Screen } from '@/components/ui/Screen';
 import { SnackbarShell } from '@/components/ui/SnackbarShell';
@@ -36,6 +36,8 @@ import type {
 import { getRepositories, reportLocalPersistFailure, reportLocalPersistSuccess } from '@/data';
 import {
   applyTemplateToWeek,
+  defaultLaterTargetDate,
+  filterLaterWeekDates,
   previewApplyTemplate,
   saveSelectionAsTemplate,
   saveWeekAsTemplate,
@@ -251,13 +253,17 @@ export default function PlanScreen() {
   const openPlanLeftovers = () => {
     if (!entryAction) return;
     const sourceDate = entryAction.planDate;
-    const defaultDate = addDays(sourceDate, 1);
-    const inWeek = days.some((d) => d.date === defaultDate);
     setLeftoversSource(entryAction);
-    setLeftoversDate(inWeek ? defaultDate : days.find((d) => d.date > sourceDate)?.date ?? days[0]?.date ?? null);
+    // Never fall back to an earlier weekday (e.g. Monday when source is Sunday).
+    setLeftoversDate(defaultLaterTargetDate(sourceDate, days));
     setLeftoversSlot('lunch');
     setEntryAction(null);
   };
+
+  const leftoversLaterDays = useMemo(() => {
+    if (!leftoversSource) return [];
+    return filterLaterWeekDates(leftoversSource.planDate, days);
+  }, [leftoversSource, days]);
 
   const confirmLeftovers = () => {
     if (!leftoversSource || !leftoversDate) return;
@@ -698,7 +704,7 @@ export default function PlanScreen() {
       <LeftoversTargetModal
         visible={leftoversSource !== null}
         recipeTitle={leftoversSource?.recipeTitle ?? 'this meal'}
-        weekDates={days}
+        weekDates={leftoversLaterDays}
         selectedDate={leftoversDate}
         selectedSlot={leftoversSlot}
         onSelectDate={setLeftoversDate}

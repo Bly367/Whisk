@@ -18,6 +18,10 @@ export {
 export {
   scheduleLeftovers,
   undoScheduleLeftovers,
+  isLaterPlanDate,
+  filterLaterWeekDates,
+  defaultLaterTargetDate,
   type ScheduleLeftoversInput,
   type ScheduleLeftoversResult,
+  type WeekDateOption,
 } from '@/features/plan-templates/leftoversWorkflow';

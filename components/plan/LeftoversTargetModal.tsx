@@ -56,36 +56,42 @@ export function LeftoversTargetModal({
         >
           <Text variant="title2">Plan leftovers</Text>
           <Text variant="caption" tone="secondary">
-            Keeps {recipeTitle} on the source day and adds a leftovers slot later.
+            Keeps {recipeTitle} on the source day and adds a leftovers slot on a later day.
           </Text>
 
           <Text variant="headline">Day</Text>
-          <View style={styles.chipRow}>
-            {weekDates.map((day) => {
-              const active = day.date === selectedDate;
-              return (
-                <Pressable
-                  key={day.date}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Leftovers on ${day.shortLabel}`}
-                  accessibilityState={{ selected: active }}
-                  hitSlop={hitSlop}
-                  testID={`${testID}-day-${day.date}`}
-                  onPress={() => onSelectDate(day.date)}
-                  style={({ pressed }) => [
-                    ensureMinTouchTarget(styles.chip),
-                    {
-                      backgroundColor: active ? colors.brand.yolkSoft : colors.sunken,
-                      borderColor: active ? colors.brand.yolk : colors.border,
-                      opacity: pressed ? 0.85 : 1,
-                    },
-                  ]}
-                >
-                  <Text variant="caption">{day.shortLabel}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
+          {weekDates.length === 0 ? (
+            <Text variant="body" tone="secondary" testID={`${testID}-no-later-days`}>
+              No later days left this week. Switch to next week to plan leftovers after a Sunday meal.
+            </Text>
+          ) : (
+            <View style={styles.chipRow}>
+              {weekDates.map((day) => {
+                const active = day.date === selectedDate;
+                return (
+                  <Pressable
+                    key={day.date}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Leftovers on ${day.shortLabel}`}
+                    accessibilityState={{ selected: active }}
+                    hitSlop={hitSlop}
+                    testID={`${testID}-day-${day.date}`}
+                    onPress={() => onSelectDate(day.date)}
+                    style={({ pressed }) => [
+                      ensureMinTouchTarget(styles.chip),
+                      {
+                        backgroundColor: active ? colors.brand.yolkSoft : colors.sunken,
+                        borderColor: active ? colors.brand.yolk : colors.border,
+                        opacity: pressed ? 0.85 : 1,
+                      },
+                    ]}
+                  >
+                    <Text variant="caption">{day.shortLabel}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
 
           <Text variant="headline">Slot</Text>
           <View style={styles.chipRow}>
@@ -118,7 +124,7 @@ export function LeftoversTargetModal({
           <Button
             label="Add leftovers"
             onPress={onConfirm}
-            disabled={!selectedDate}
+            disabled={!selectedDate || weekDates.length === 0}
             testID={`${testID}-confirm`}
           />
           <Button label="Cancel" variant="tertiary" onPress={onClose} testID={`${testID}-cancel`} />
