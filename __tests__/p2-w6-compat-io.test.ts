@@ -379,5 +379,117 @@ describe('P2-W6 export packs + round-trip', () => {
     expect(doc).toMatch(/clobber|overwrite|conflict/i);
     expect(doc).toMatch(/preview/i);
     expect(doc).toMatch(/paprika/i);
+    expect(doc).toMatch(/https:/i);
+    expect(doc).toMatch(/file:|javascript:|scheme/i);
+  });
+});
+
+describe('P2-W6 untrusted URL scheme allowlist (SECURITY.md §5)', () => {
+  beforeEach(() => {
+    useSyncStatusStore.getState().resetToLocalOk();
+  });
+
+  it('rejects file: and javascript: on Paprika source_url / image_url at parse and commit', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const compat = require('@/import/compat') as typeof import('@/import/compat');
+    const db = createTestDbClient();
+    const repos = createRepositories(db);
+
+    const hostile = JSON.stringify({
+      uid: 'HOSTILE-UID-001',
+      name: 'Hostile Scheme Soup',
+      ingredients: '1 cup stock',
+      directions: 'Simmer.',
+      source_url: 'javascript:alert(1)',
+      image_url: 'file:///etc/passwd',
+    });
+
+    const preview = await compat.previewCompatImport({
+      format: 'paprika',
+      sourceLabel: 'hostile.paprika.json',
+      payload: hostile,
+      compatRepo: repos.compat,
+    });
+    expect(preview.ok).toBe(true);
+    if (!preview.ok) return;
+
+    expect(preview.drafts[0]?.sourceUrl).toBeNull();
+    expect(preview.drafts[0]?.imageUri).toBeNull();
+    expect(preview.drafts[0]?.sourceUrl).not.toMatch(/^javascript:/i);
+    expect(preview.drafts[0]?.imageUri).not.toMatch(/^file:/i);
+
+    const committed = compat.commitCompatImport({
+      jobId: preview.job.id,
+      drafts: preview.drafts,
+      recipesRepo: repos.recipes,
+      compatRepo: repos.compat,
+    });
+    expect(committed.recipes).toHaveLength(1);
+    const row = repos.recipes.getById(committed.recipes[0]!.id);
+    expect(row?.sourceUrl == null || !/^javascript:/i.test(row.sourceUrl)).toBe(true);
+    expect(row?.sourceUrl == null || !/^file:/i.test(row.sourceUrl)).toBe(true);
+    expect(row?.imageUri).toBeNull();
+    // Hostile schemes must not be stored; whisk-compat uid marker is ok when no https source.
+    if (row?.sourceUrl) {
+      expect(row.sourceUrl.startsWith('whisk-compat://')).toBe(true);
+    }
+  });
+
+  it('keeps https source/image URLs and still rejects unexpected schemes on JSON packs', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const compat = require('@/import/compat') as typeof import('@/import/compat');
+    const db = createTestDbClient();
+    const repos = createRepositories(db);
+
+    const pack = JSON.stringify({
+      format: 'whisk-compat-json',
+      version: 1,
+      recipes: [
+        {
+          title: 'Safe HTTPS Pasta',
+          sourceUrl: 'https://example.com/pasta',
+          imageUri: 'https://example.com/pasta.jpg',
+          ingredients: [{ name: 'pasta', quantity: '1', unit: 'lb' }],
+          instructions: [{ text: 'Boil.', position: 0 }],
+        },
+        {
+          title: 'Data URI Trap',
+          sourceUrl: 'data:text/html,<script>1</script>',
+          imageUri: 'data:image/png;base64,aaa',
+          ingredients: [{ name: 'salt' }],
+          instructions: [{ text: 'Season.', position: 0 }],
+        },
+      ],
+    });
+
+    const preview = await compat.previewCompatImport({
+      format: 'json',
+      payload: pack,
+      compatRepo: repos.compat,
+    });
+    expect(preview.ok).toBe(true);
+    if (!preview.ok) return;
+
+    const safe = preview.drafts.find((d) => d.title === 'Safe HTTPS Pasta');
+    const trap = preview.drafts.find((d) => d.title === 'Data URI Trap');
+    expect(safe?.sourceUrl).toBe('https://example.com/pasta');
+    expect(safe?.imageUri).toBe('https://example.com/pasta.jpg');
+    expect(trap?.sourceUrl).toBeNull();
+    expect(trap?.imageUri).toBeNull();
+
+    const committed = compat.commitCompatImport({
+      jobId: preview.job.id,
+      drafts: preview.drafts,
+      recipesRepo: repos.recipes,
+      compatRepo: repos.compat,
+    });
+    expect(committed.recipes).toHaveLength(2);
+    const stored = committed.recipes.map((r) => repos.recipes.getById(r.id)!);
+    const safeRow = stored.find((r) => r.title === 'Safe HTTPS Pasta');
+    const trapRow = stored.find((r) => r.title === 'Data URI Trap');
+    expect(safeRow?.sourceUrl).toContain('https://example.com/pasta');
+    expect(safeRow?.imageUri).toBe('https://example.com/pasta.jpg');
+    expect(trapRow?.sourceUrl).toBeNull();
+    expect(trapRow?.imageUri).toBeNull();
   });
 });
