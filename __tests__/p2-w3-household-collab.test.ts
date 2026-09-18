@@ -526,3 +526,245 @@ describe('P2-W3 real-time grocery sync', () => {
     expect(repos.grocery.getById(list.id)?.items[0].quantity).toBe('local-2');
   });
 });
+
+describe('P2-W3 review blockers (invite attach, tenancy, delete clocks, reorder LWW)', () => {
+  beforeEach(() => {
+    useSyncStatusStore.getState().resetToLocalOk();
+  });
+
+  it('createHousehold attaches grocery list tenancy so Shop sync can arm', () => {
+    const db = createTestDbClient();
+    const repos = createRepositories(db);
+    // Existing guest list with no household — invite/create must claim it.
+    const guestList = repos.grocery.create({
+      name: 'This week',
+      items: [{ name: 'Butter' }],
+    });
+    expect(guestList.householdId).toBeNull();
+
+    const collab = createHouseholdCollaboration(repos);
+    const home = collab.createHousehold({
+      name: 'Our Kitchen',
+      ownerUserId: 'owner-1',
+      ownerDisplayName: 'Alex',
+    });
+
+    const attached = repos.grocery.getById(guestList.id);
+    expect(attached?.householdId).toBe(home.id);
+    expect(collab.listSharedGroceryLists({ householdId: home.id, userId: 'owner-1' }).map((l) => l.id)).toEqual([
+      guestList.id,
+    ]);
+  });
+
+  it('joinByInviteCode attaches a grocery list for the joining member device', () => {
+    const db = createTestDbClient();
+    const repos = createRepositories(db);
+    const collab = createHouseholdCollaboration(repos);
+    const home = collab.createHousehold({
+      name: 'Shared',
+      ownerUserId: 'owner-1',
+      ownerDisplayName: 'Alex',
+      inviteCode: 'JOIN99',
+    });
+
+    // Simulate joiner device: separate untenanted list present before join.
+    const joinerList = repos.grocery.create({
+      name: 'My cart',
+      items: [{ name: 'Rice' }],
+    });
+    expect(joinerList.householdId).toBeNull();
+
+    collab.joinByInviteCode({
+      inviteCode: 'JOIN99',
+      userId: 'member-2',
+      displayName: 'Sam',
+    });
+
+    expect(repos.grocery.getById(joinerList.id)?.householdId).toBe(home.id);
+  });
+
+  it('createHousehold creates a shared grocery list when none exists', () => {
+    const db = createTestDbClient();
+    const repos = createRepositories(db);
+    const collab = createHouseholdCollaboration(repos);
+    expect(repos.grocery.list()).toHaveLength(0);
+
+    const home = collab.createHousehold({
+      name: 'Fresh',
+      ownerUserId: 'owner-1',
+      ownerDisplayName: 'Alex',
+    });
+
+    const shared = collab.listSharedGroceryLists({ householdId: home.id, userId: 'owner-1' });
+    expect(shared).toHaveLength(1);
+    expect(shared[0]!.householdId).toBe(home.id);
+  });
+
+  it('applyEvent ignores events when list householdId does not match event householdId', () => {
+    const db = createTestDbClient();
+    const repos = createRepositories(db);
+    const collab = createHouseholdCollaboration(repos);
+    const homeA = collab.createHousehold({
+      name: 'A',
+      ownerUserId: 'u-a',
+      ownerDisplayName: 'A',
+    });
+    const homeB = collab.createHousehold({
+      name: 'B',
+      ownerUserId: 'u-b',
+      ownerDisplayName: 'B',
+    });
+    const listA = repos.grocery.create({
+      name: 'A Shop',
+      householdId: homeA.id,
+      items: [],
+    });
+
+    const hub = createGroceryRealtimeHub({
+      transport: createInMemoryGroceryRealtimeTransport(),
+      collaboration: collab,
+      grocery: repos.grocery,
+    });
+
+    const result = hub.applyEvent({
+      kind: 'item_upsert',
+      householdId: homeB.id, // wrong household for listA
+      listId: listA.id,
+      actorUserId: 'u-b',
+      updatedAtIso: '2026-09-18T16:00:00.000Z',
+      revision: 99,
+      item: {
+        id: 'cross-tenant-item',
+        name: 'Leaked eggs',
+        quantity: '12',
+        unit: null,
+        aisle: null,
+        isCompleted: false,
+        completedAt: null,
+        recipeId: null,
+        recipeTitle: null,
+        mergeKey: null,
+        position: 0,
+        deleted: false,
+      },
+    });
+
+    expect(result.applied).toBe(false);
+    if (result.applied) {
+      throw new Error('expected tenant mismatch');
+    }
+    expect(result.reason).toBe('tenant_mismatch');
+    expect(repos.grocery.getById(listA.id)?.items.some((i) => i.name === 'Leaked eggs')).toBe(false);
+  });
+
+  it('upsertSyncedItem refuses to move an item onto a list in another household', () => {
+    const db = createTestDbClient();
+    const repos = createRepositories(db);
+    const collab = createHouseholdCollaboration(repos);
+    const homeA = collab.createHousehold({
+      name: 'A',
+      ownerUserId: 'u-a',
+      ownerDisplayName: 'A',
+    });
+    const homeB = collab.createHousehold({
+      name: 'B',
+      ownerUserId: 'u-b',
+      ownerDisplayName: 'B',
+    });
+    const listA = repos.grocery.create({
+      name: 'A Shop',
+      householdId: homeA.id,
+      items: [],
+    });
+    const listB = repos.grocery.create({
+      name: 'B Shop',
+      householdId: homeB.id,
+      items: [],
+    });
+    const item = repos.grocery.addItem(listA.id, { name: 'Belonging to A' });
+
+    expect(() =>
+      repos.grocery.upsertSyncedItem(listB.id, {
+        id: item.id,
+        name: 'Stolen',
+        updatedAt: '2026-09-18T17:00:00.000Z',
+        position: 0,
+      }),
+    ).toThrow(/household/i);
+
+    expect(repos.grocery.getItemById(item.id)?.listId).toBe(listA.id);
+    expect(repos.grocery.getItemById(item.id)?.name).toBe('Belonging to A');
+    expect(repos.grocery.getById(listB.id)?.items.some((i) => i.id === item.id)).toBe(false);
+  });
+
+  it('softDeleteItem returns the deleted row with bumped updatedAt for publish clocks', () => {
+    const db = createTestDbClient();
+    const repos = createRepositories(db);
+    const list = repos.grocery.create({
+      name: 'Shop',
+      items: [{ name: 'Milk' }],
+    });
+    const item = list.items[0]!;
+    const before = item.updatedAt;
+
+    const deleted = repos.grocery.softDeleteItem(item.id);
+    expect(deleted).not.toBeNull();
+    expect(deleted!.deletedAt).toBeTruthy();
+    expect(deleted!.updatedAt >= before).toBe(true);
+    expect(deleted!.id).toBe(item.id);
+  });
+
+  it('skips stale remote reorder when local list clock is newer (LWW)', () => {
+    const db = createTestDbClient();
+    const repos = createRepositories(db);
+    const collab = createHouseholdCollaboration(repos);
+    const home = collab.createHousehold({
+      name: 'Home',
+      ownerUserId: 'u1',
+      ownerDisplayName: 'U',
+    });
+    const list = repos.grocery.create({
+      name: 'Shop',
+      householdId: home.id,
+      items: [
+        { name: 'A', position: 0 },
+        { name: 'B', position: 1 },
+      ],
+    });
+    const [a, b] = list.items;
+    // Local list is newer than the incoming reorder event.
+    db.run(`UPDATE grocery_lists SET updated_at = ? WHERE id = ?`, [
+      '2026-09-18T20:00:00.000Z',
+      list.id,
+    ]);
+
+    const hub = createGroceryRealtimeHub({
+      transport: createInMemoryGroceryRealtimeTransport(),
+      collaboration: collab,
+      grocery: repos.grocery,
+    });
+
+    const result = hub.applyEvent({
+      kind: 'item_reorder',
+      householdId: home.id,
+      listId: list.id,
+      actorUserId: 'peer',
+      updatedAtIso: '2026-09-18T10:00:00.000Z',
+      revision: 1,
+      positions: [
+        { itemId: a.id, position: 1 },
+        { itemId: b.id, position: 0 },
+      ],
+    });
+
+    expect(result.applied).toBe(false);
+    if (result.applied) {
+      throw new Error('expected stale reorder');
+    }
+    expect(result.reason).toBe('stale');
+    const reloaded = repos.grocery.getById(list.id)!;
+    const byName = Object.fromEntries(reloaded.items.map((i) => [i.name, i.position]));
+    expect(byName.A).toBe(0);
+    expect(byName.B).toBe(1);
+  });
+});
