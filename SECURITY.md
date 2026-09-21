@@ -137,6 +137,7 @@ When accounts / household sync land:
 - [ ] New network/import paths validate scheme, size, and failure UX
 - [ ] User content not rendered as raw HTML without sanitization
 - [ ] Entitlement and delete/export flows are explicit and test-covered
+- [ ] Data deletion flows require strong confirmation and preserve export capability
 - [ ] Logs/telemetry free of recipe bodies, tokens, and photo bytes
 - [ ] New SQLite access goes through repositories; migrations are reviewed
 - [ ] Phase 2 sync/auth changes include server-side tenancy tests
@@ -151,6 +152,8 @@ Security-relevant behavior gets automated tests **before** implementation (same 
 - URL scheme rejection / import failure paths
 - Preview-required before recipe commit
 - Export completeness and delete/trash recovery
+- Local data deletion clears all tables and resets to fresh guest state
+- Export remains functional before and after deletion
 - Entitlement transitions (free ↔ unlocked ↔ admin) without privilege confusion
 - Future: authz denials across household boundaries (expect **403/empty**, not other users’ rows)
 

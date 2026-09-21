@@ -14,6 +14,7 @@ import { HouseholdCollabCard } from '@/features/household/HouseholdCollabCard';
 import { buildExportFromRepos, exportPayloadToJson } from '@/features/trust/exportRecipes';
 import { describeUnlockOffer, PAYMENT } from '@/features/trust/freeTier';
 import { useSessionStore } from '@/features/trust/sessionStore';
+import { deleteAllLocalData } from '@/features/trust/deleteLocalData';
 
 export default function ProfileScreen() {
   const mode = useSessionStore((s) => s.mode);
@@ -30,6 +31,7 @@ export default function ProfileScreen() {
   const [message, setMessage] = useState<string | null>(null);
   const [codeInput, setCodeInput] = useState('');
   const [applyingCode, setApplyingCode] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const unlockCopy = useMemo(() => describeUnlockOffer(unlockPricing), [unlockPricing]);
 
@@ -93,21 +95,80 @@ export default function ProfileScreen() {
     );
   }
 
-  function handleDeleteAccountStub() {
+  function handleDeleteAccount() {
+    const db = getDatabase();
+    const reader = createOfflineReader(db);
+    const recipeCount = reader.listRecipes({ includeDeleted: false }).length;
+
+    // First confirmation: warn about data loss and encourage export
     Alert.alert(
-      'Deletion coming later — export first',
-      'Guest mode has no cloud account yet. Account and local-data deletion is not available in this build — nothing will be removed. Export your recipes anytime so you keep a copy.',
+      'Delete all local data?',
+      recipeCount > 0
+        ? `This will permanently delete all ${recipeCount} recipe${recipeCount === 1 ? '' : 's'}, plans, grocery lists, and pantry items from this device. This cannot be undone.\n\nWe strongly recommend exporting your recipes first.`
+        : 'This will delete all local data from this device. Your library is currently empty.',
       [
-        { text: 'OK', style: 'cancel' },
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Got it',
-          onPress: () =>
-            setMessage(
-              'Deletion is stubbed for now — your library was not changed. Export anytime.',
-            ),
+          text: recipeCount > 0 ? 'Export first' : 'Delete',
+          style: recipeCount > 0 ? 'default' : 'destructive',
+          onPress: () => {
+            if (recipeCount > 0) {
+              // Offer to export first
+              void handleExport();
+              setMessage('Export your recipes, then return here to delete.');
+            } else {
+              // No recipes, proceed to second confirmation
+              confirmDeletion();
+            }
+          },
+        },
+        ...(recipeCount > 0
+          ? [
+              {
+                text: 'Delete anyway',
+                style: 'destructive' as const,
+                onPress: confirmDeletion,
+              },
+            ]
+          : []),
+      ],
+    );
+  }
+
+  function confirmDeletion() {
+    // Second confirmation: final warning
+    Alert.alert(
+      'Are you absolutely sure?',
+      'All your recipes, plans, and data on this device will be permanently deleted. This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete everything',
+          style: 'destructive',
+          onPress: () => void performDeletion(),
         },
       ],
     );
+  }
+
+  async function performDeletion() {
+    setDeleting(true);
+    setMessage(null);
+    try {
+      const db = getDatabase();
+      await deleteAllLocalData(db);
+      setTrashCount(0);
+      setMessage('All local data has been deleted. You can start fresh anytime.');
+      router.replace('/');
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? `Could not delete data: ${error.message}`
+          : 'Could not delete data. Please try again.',
+      );
+    } finally {
+      setDeleting(false);
+    }
   }
 
   async function handleApplyCode() {
@@ -258,11 +319,17 @@ export default function ProfileScreen() {
 
       <View style={styles.section}>
         <Text variant="headline">Danger zone</Text>
+        <Text variant="body" tone="secondary">
+          Guest mode has no cloud account. This deletes all on-device data — recipes, plans,
+          grocery lists, and pantry items. Cloud account deletion will be added when cloud sync
+          ships.
+        </Text>
         <Button
-          label="Account deletion (coming later)"
+          label="Delete all local data"
           variant="secondary"
-          onPress={handleDeleteAccountStub}
-          testID="profile-delete-stub"
+          loading={deleting}
+          onPress={handleDeleteAccount}
+          testID="profile-delete-data"
         />
       </View>
 
