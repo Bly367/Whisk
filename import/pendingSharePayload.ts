@@ -3,7 +3,9 @@ import type { ParsedShareIntent } from '@/import/shareIntent';
 /**
  * In-memory store for pending share payload.
  * Used to pass share data from OS share intent to import screen without
- * putting long captions in URL query params (which get truncated).
+ * putting long captions or file paths in URL query params.
+ * 
+ * Extended to support video/image files for transcription and OCR.
  */
 let pendingPayload: ParsedShareIntent | null = null;
 
@@ -19,6 +21,9 @@ export function setPendingSharePayload(payload: ParsedShareIntent | null): void 
       hasCaption: !!payload.caption,
       captionLength: payload.caption?.length || 0,
       captionPreview: payload.caption?.slice(0, 100),
+      hasVideo: !!payload.videoPath,
+      hasImage: !!payload.imagePath,
+      mimeType: payload.mimeType,
     });
   }
 }

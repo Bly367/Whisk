@@ -31,6 +31,7 @@ export function useShareIntentHandler() {
           type: shareIntent.type,
           textLength: shareIntent.text?.length || 0,
           textPreview: shareIntent.text?.slice(0, 100),
+          filesCount: shareIntent.files?.length || 0,
         });
       }
 
@@ -42,6 +43,7 @@ export function useShareIntentHandler() {
         
         // Store parsed data in memory instead of query params
         // This prevents long captions from being truncated/encoded poorly
+        // and handles video/image file paths that can't go in URLs
         setPendingSharePayload(parsed);
 
         // Navigate to share import screen without query params
