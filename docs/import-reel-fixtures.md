@@ -87,19 +87,17 @@ Until device share is fully connected, test via paste in the app:
 Test with live public cooking websites (no caption needed for websites):
 
 1. Navigate to **Add** → **Import from URL**
-2. Try these URLs:
-
-   **AllRecipes** (JSON-LD structured data):
-   - https://www.allrecipes.com/recipe/23600/worlds-best-lasagna/
-   - Expected: Full recipe with ingredients, instructions, prep/cook time
+2. Try these URLs for **manual QA only** (not automated — network calls outside CI):
 
    **BBC Good Food** (JSON-LD structured data):
-   - https://www.bbcgoodfood.com/recipes/classic-carbonara
-   - Expected: Complete recipe import with servings and timing
+   - https://www.bbcgoodfood.com/recipes/easy-pancakes
+   - Expected: Full recipe with ingredients, instructions, prep/cook time
 
    **Cookie + Kate** (JSON-LD structured data):
-   - https://cookieandkate.com/best-guacamole-recipe/
-   - Expected: Recipe imports with author credit and images
+   - https://cookieandkate.com/best-hummus-recipe/
+   - Expected: Complete recipe import with servings, timing, and author credit
+
+   ⚠️ **Note**: AllRecipes and SimplyRecipes may return 403 errors to automated requests. Use the fixture-based tests in CI; manual QA URLs above are for real-device smoke testing only.
 
 3. Verify:
    - Title, ingredients, and instructions are extracted

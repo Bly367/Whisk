@@ -1,12 +1,12 @@
 {
   "source": "instagram",
   "url": "https://www.instagram.com/reel/CxYz123abc/",
-  "caption": "🍝 Quick Pasta Carbonara Recipe!\n\nIngredients:\n- 400g spaghetti\n- 200g pancetta or bacon, diced\n- 4 large eggs\n- 100g Parmesan cheese, grated\n- Black pepper to taste\n- Salt for pasta water\n\nInstructions:\n1. Cook spaghetti in salted boiling water according to package directions\n2. While pasta cooks, fry pancetta until crispy\n3. Beat eggs with Parmesan and lots of black pepper\n4. Drain pasta (save 1 cup pasta water)\n5. Toss hot pasta with pancetta, remove from heat\n6. Quickly stir in egg mixture, adding pasta water to create creamy sauce\n7. Serve immediately with extra Parmesan!\n\n#pasta #carbonara #quickrecipe #cooking",
+  "caption": "Weeknight Chicken Tacos 🌮✨\n\nIngredients:\n- 1 lb chicken breast, diced\n- 1 tbsp olive oil\n- 2 tsp taco seasoning\n- 8 small tortillas\n- 1 cup shredded lettuce\n- 1 tomato, diced\n- 1/2 cup shredded cheese\n- 1/4 cup sour cream\n- Fresh cilantro\n- Lime wedges\n\nInstructions:\n1. Heat oil in skillet over medium-high heat\n2. Season chicken with taco seasoning\n3. Cook chicken until golden and cooked through (6-8 mins)\n4. Warm tortillas in dry pan or microwave\n5. Assemble tacos: chicken, lettuce, tomato, cheese\n6. Top with sour cream and cilantro\n7. Squeeze lime over tacos and serve!\n\nPerfect for busy weeknights! 💯\n\n#tacotuesday #quickrecipe #chickentacos #weeknightdinner #easycooking",
   "expect": {
     "ok": true,
-    "titleFragment": "Pasta Carbonara",
-    "minIngredients": 5,
-    "minInstructions": 5,
+    "titleFragment": "Chicken Tacos",
+    "minIngredients": 8,
+    "minInstructions": 6,
     "adapterId": "share-sheet"
   }
 }

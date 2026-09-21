@@ -1,12 +1,12 @@
 {
   "source": "youtube",
   "url": "https://youtube.com/shorts/AbC123XyZ",
-  "caption": "Best Guacamole Recipe 🥑\n\nIngredients:\n- 3 ripe avocados\n- 1 lime, juiced\n- 1/2 tsp salt\n- 1/2 cup diced onion\n- 3 tbsp cilantro, chopped\n- 2 roma tomatoes, diced\n- 1 tsp minced garlic\n- Pinch of cayenne pepper\n\nSteps:\n1. Mash avocados in a bowl\n2. Add lime juice and salt, mix well\n3. Fold in onion, cilantro, tomatoes\n4. Add garlic and cayenne\n5. Taste and adjust seasoning\n6. Serve with tortilla chips!\n\nSubscribe for more quick recipes!",
+  "caption": "Easy Veggie Stir Fry 🥦🥕\n\nIngredients:\n- 2 cups broccoli florets\n- 1 red bell pepper, sliced\n- 1 cup snap peas\n- 2 carrots, sliced\n- 3 cloves garlic, minced\n- 2 tbsp vegetable oil\n- 3 tbsp soy sauce\n- 1 tbsp sesame oil\n- 1 tsp fresh ginger, grated\n- Cooked rice for serving\n\nSteps:\n1. Heat vegetable oil in wok or large pan over high heat\n2. Add garlic and ginger, stir fry 30 seconds\n3. Add carrots, cook 2 minutes\n4. Add broccoli and bell pepper, cook 3 minutes\n5. Add snap peas, cook 2 more minutes\n6. Pour in soy sauce and sesame oil\n7. Toss everything together for 1 minute\n8. Serve over rice!\n\nHealthy and delicious! Subscribe for more quick recipes 👍",
   "expect": {
     "ok": true,
-    "titleFragment": "Guacamole",
-    "minIngredients": 6,
-    "minInstructions": 5,
+    "titleFragment": "Veggie Stir Fry",
+    "minIngredients": 8,
+    "minInstructions": 7,
     "adapterId": "share-sheet"
   }
 }
