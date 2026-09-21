@@ -64,7 +64,7 @@ describe('parseShareIntent', () => {
     expect(result).toEqual({
       url: 'https://example.com/recipe',
       text: 'Amazing recipe here: https://example.com/recipe Try it out!',
-      caption: 'Amazing recipe here:  Try it out!',
+      caption: 'Amazing recipe here: Try it out!',
     });
   });
 
@@ -199,5 +199,135 @@ describe('parseShareIntent', () => {
     expect(result?.url).toBe('https://example.com/recipe');
     expect(result?.caption).toContain('Best chocolate cake recipe');
     expect(result?.caption).toContain('Ingredients');
+  });
+
+  it('should collapse multiple whitespace after URL removal', () => {
+    const intent: ShareIntent = {
+      text: 'Recipe here:  https://example.com/recipe  Try it!',
+      webUrl: 'https://example.com/recipe',
+      files: null,
+      meta: undefined,
+      type: 'weburl',
+    };
+
+    const result = parseShareIntent(intent);
+    expect(result).toEqual({
+      url: 'https://example.com/recipe',
+      text: 'Recipe here:  https://example.com/recipe  Try it!',
+      caption: 'Recipe here: Try it!',
+    });
+  });
+
+  it('should collapse tabs and newlines after URL removal', () => {
+    const intent: ShareIntent = {
+      text: 'Amazing\t\trecipe\n\nhttps://example.com/recipe\n\nTry\t\t\tit!',
+      webUrl: 'https://example.com/recipe',
+      files: null,
+      meta: undefined,
+      type: 'weburl',
+    };
+
+    const result = parseShareIntent(intent);
+    expect(result?.caption).toBe('Amazing recipe Try it!');
+  });
+
+  it('should handle URL extraction with whitespace collapse', () => {
+    const intent: ShareIntent = {
+      text: 'Recipe:   https://example.com/recipe   Steps here',
+      webUrl: null,
+      files: null,
+      meta: undefined,
+      type: 'text',
+    };
+
+    const result = parseShareIntent(intent);
+    expect(result?.url).toBe('https://example.com/recipe');
+    expect(result?.caption).toBe('Recipe: Steps here');
+  });
+
+  it('should reject javascript: URLs', () => {
+    const intent: ShareIntent = {
+      text: 'javascript:alert("xss")',
+      webUrl: 'javascript:alert("xss")',
+      files: null,
+      meta: undefined,
+      type: 'weburl',
+    };
+
+    const result = parseShareIntent(intent);
+    expect(result).toBeNull();
+  });
+
+  it('should reject file: URLs', () => {
+    const intent: ShareIntent = {
+      text: 'file:///etc/passwd',
+      webUrl: 'file:///etc/passwd',
+      files: null,
+      meta: undefined,
+      type: 'weburl',
+    };
+
+    const result = parseShareIntent(intent);
+    expect(result).toBeNull();
+  });
+
+  it('should reject data: URLs', () => {
+    const intent: ShareIntent = {
+      text: 'data:text/html,<script>alert("xss")</script>',
+      webUrl: 'data:text/html,<script>alert("xss")</script>',
+      files: null,
+      meta: undefined,
+      type: 'weburl',
+    };
+
+    const result = parseShareIntent(intent);
+    expect(result).toBeNull();
+  });
+
+  it('should reject vbscript: URLs', () => {
+    const intent: ShareIntent = {
+      text: 'vbscript:msgbox("xss")',
+      webUrl: 'vbscript:msgbox("xss")',
+      files: null,
+      meta: undefined,
+      type: 'weburl',
+    };
+
+    const result = parseShareIntent(intent);
+    expect(result).toBeNull();
+  });
+
+  it('should allow http: and https: URLs', () => {
+    const httpIntent: ShareIntent = {
+      text: 'http://example.com/recipe',
+      webUrl: 'http://example.com/recipe',
+      files: null,
+      meta: undefined,
+      type: 'weburl',
+    };
+
+    const httpsIntent: ShareIntent = {
+      text: 'https://example.com/recipe',
+      webUrl: 'https://example.com/recipe',
+      files: null,
+      meta: undefined,
+      type: 'weburl',
+    };
+
+    expect(parseShareIntent(httpIntent)).not.toBeNull();
+    expect(parseShareIntent(httpsIntent)).not.toBeNull();
+  });
+
+  it('should reject URLs with mixed case hostile schemes', () => {
+    const intent: ShareIntent = {
+      text: 'JaVaScRiPt:alert("xss")',
+      webUrl: 'JaVaScRiPt:alert("xss")',
+      files: null,
+      meta: undefined,
+      type: 'weburl',
+    };
+
+    const result = parseShareIntent(intent);
+    expect(result).toBeNull();
   });
 });

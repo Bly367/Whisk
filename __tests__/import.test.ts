@@ -357,4 +357,25 @@ describe('multi-source import fixtures', () => {
       );
     }
   });
+
+  it('rejects hostile URL schemes (javascript:, file:, data:)', async () => {
+    const hostileUrls = [
+      'javascript:alert("xss")',
+      'file:///etc/passwd',
+      'data:text/html,<script>alert("xss")</script>',
+      'vbscript:msgbox("xss")',
+    ];
+
+    for (const url of hostileUrls) {
+      const result = await shareSheetAdapter.import({
+        url,
+        sharedContent: url,
+      });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe('invalid_url');
+        expect(result.error.message).toContain('public URL');
+      }
+    }
+  });
 });

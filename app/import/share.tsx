@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 
 import { ImportFallbacks } from '@/components/import/ImportFallbacks';
@@ -26,16 +26,22 @@ export default function ImportShareScreen() {
   const setPreview = useImportSessionStore((s) => s.setPreview);
   const setFailed = useImportSessionStore((s) => s.setFailed);
   const clear = useImportSessionStore((s) => s.clear);
+  
+  // Track whether we've initialized from params to prevent overwriting user edits
+  const initializedFromParams = useRef(false);
 
   const loading = phase === 'importing';
 
-  // Pre-fill fields from OS share intent params
+  // Pre-fill fields from OS share intent params (only once on mount)
   useEffect(() => {
-    if (params.url) {
-      setShared(params.url);
-    }
-    if (params.caption) {
-      setCaption(params.caption);
+    if (!initializedFromParams.current) {
+      if (params.url) {
+        setShared(params.url);
+      }
+      if (params.caption) {
+        setCaption(params.caption);
+      }
+      initializedFromParams.current = true;
     }
   }, [params.url, params.caption]);
 
