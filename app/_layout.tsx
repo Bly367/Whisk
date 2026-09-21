@@ -6,6 +6,7 @@ import 'react-native-reanimated';
 
 import { DatabaseProvider } from '@/data/DatabaseProvider';
 import { AppThemeProvider, useTheme } from '@/theme/ThemeProvider';
+import { useShareIntentHandler } from '@/import/shareIntentHandler';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -31,6 +32,9 @@ export default function RootLayout() {
 
 function RootNavigator() {
   const { scheme, colors } = useTheme();
+
+  // Handle incoming OS share intents
+  useShareIntentHandler();
 
   const navTheme = {
     ...(scheme === 'dark' ? DarkTheme : DefaultTheme),
