@@ -39,7 +39,13 @@ export type ImportSourceKind =
 export type ImportFallbackAction = 'try_again' | 'paste_text' | 'scan' | 'manual';
 
 export type ImportAdapterErrorCode =
-  'invalid_url' | 'network' | 'parse_failed' | 'unsupported' | 'needs_input' | 'stub';
+  | 'invalid_url'
+  | 'network'
+  | 'parse_failed'
+  | 'unsupported'
+  | 'needs_input'
+  | 'stub'
+  | 'native_unavailable';
 
 export type ImportAdapterError = {
   code: ImportAdapterErrorCode;

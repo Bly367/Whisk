@@ -1,15 +1,39 @@
-import { recognizeText, isSupported } from 'expo-mlkit-ocr';
-
 import { draftFromPastedText } from '@/import/parse/pasteText';
 import type { ImportAdapter, ImportAdapterInput, ImportAdapterResult } from '@/import/types';
 
 export const OCR_ADAPTER_ID = 'ocr-photo';
 
 /**
- * OCR / photo import — thin path using expo-mlkit-ocr.
- * Recognizes text from images and feeds the existing paste-text parser.
+ * Lazy-load the native OCR module to prevent Expo Go crashes.
+ * Returns null if the module is unavailable (e.g., in Expo Go without a dev client rebuild).
+ */
+async function loadOcrModule(): Promise<{
+  recognizeText: (uri: string) => Promise<{ text: string }>;
+  isSupported: () => boolean;
+} | null> {
+  try {
+    // Dynamic import prevents top-level static import that crashes Expo Go
+    // eslint-disable-next-line import/no-unresolved -- Module may not be installed; graceful degradation
+    // @ts-expect-error -- expo-mlkit-ocr may not be installed; graceful degradation via dynamic import
+    const ExpoMlkitOcr = await import('expo-mlkit-ocr');
+    if (
+      !ExpoMlkitOcr ||
+      typeof ExpoMlkitOcr.recognizeText !== 'function' ||
+      typeof ExpoMlkitOcr.isSupported !== 'function'
+    ) {
+      return null;
+    }
+    return ExpoMlkitOcr;
+  } catch {
+    // Module not available (Expo Go or missing native rebuild)
+    return null;
+  }
+}
+
+/**
+ * OCR / photo import with lazy-loaded native module.
+ * Gracefully handles missing native modules (Expo Go) with clear error messages.
  * Never invents recipe fields from an image URI alone.
- * Allows manual text paste alongside imageUri as a workaround until OCR ships.
  */
 export const ocrAdapter: ImportAdapter = {
   id: OCR_ADAPTER_ID,
@@ -32,7 +56,23 @@ export const ocrAdapter: ImportAdapter = {
       };
     }
 
-    if (!isSupported()) {
+    // Attempt to load the native OCR module
+    const ocrModule = await loadOcrModule();
+
+    if (!ocrModule) {
+      // Native module unavailable (Expo Go or missing dev client rebuild)
+      return {
+        ok: false,
+        error: {
+          code: 'native_unavailable',
+          message:
+            'OCR requires a dev client rebuild with native modules. Running in Expo Go? Build a development client to use OCR, or paste text manually.',
+          fallbacks: ['paste_text', 'manual', 'try_again'],
+        },
+      };
+    }
+
+    if (!ocrModule.isSupported()) {
       return {
         ok: false,
         error: {
@@ -45,7 +85,7 @@ export const ocrAdapter: ImportAdapter = {
     }
 
     try {
-      const result = await recognizeText(input.imageUri);
+      const result = await ocrModule.recognizeText(input.imageUri);
 
       if (!result?.text?.trim()) {
         return {
