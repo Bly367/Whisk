@@ -5,6 +5,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import type { DbClient } from '@/data/client';
+import { defaultUnlockPricing } from '@/features/trust/freeTier';
 import { useSessionStore } from '@/features/trust/sessionStore';
 
 /**
@@ -44,7 +45,7 @@ export async function deleteAllLocalData(db: DbClient): Promise<void> {
   // Clear session state and reset to fresh guest
   await AsyncStorage.clear();
   
-  // Reset session store to fresh guest state
+  // Reset session store to fresh guest state (same as new install)
   useSessionStore.setState({
     mode: 'guest',
     hydrated: true,
@@ -54,12 +55,6 @@ export async function deleteAllLocalData(db: DbClient): Promise<void> {
       isDowngraded: false,
     },
     entitlement: 'free',
-    unlockPricing: {
-      priceCents: 499,
-      priceLabel: '$4.99',
-      isDiscounted: false,
-      influencerCode: null,
-      influencerId: null,
-    },
+    unlockPricing: defaultUnlockPricing(),
   });
 }

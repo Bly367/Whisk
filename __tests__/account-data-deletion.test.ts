@@ -89,22 +89,34 @@ describe('account / data deletion', () => {
   it('clears session state but preserves ability to use app', async () => {
     const db = createTestDbClient();
     
-    // Set up session with purchased unlock
+    // Set up session with purchased unlock and discounted pricing
     useSessionStore.setState({
       mode: 'guest',
       hydrated: true,
       entitlement: 'unlocked',
       usage: { importsUsedThisWeek: 3, weekStartIso: '2026-09-21', isDowngraded: false },
+      unlockPricing: {
+        priceCents: 499,
+        priceLabel: '$4.99',
+        isDiscounted: true,
+        influencerCode: 'TEST499',
+        influencerId: 'test',
+      },
     });
 
     await deleteAllLocalData(db);
 
-    // Session should be reset to fresh guest state
+    // Session should be reset to fresh guest state with default pricing
     const state = useSessionStore.getState();
     expect(state.mode).toBe('guest');
     expect(state.entitlement).toBe('free');
     expect(state.usage.importsUsedThisWeek).toBe(0);
     expect(state.usage.isDowngraded).toBe(false);
+    // Pricing should reset to full product default ($6.99, not discounted $4.99)
+    expect(state.unlockPricing.priceCents).toBe(699);
+    expect(state.unlockPricing.priceLabel).toBe('$6.99');
+    expect(state.unlockPricing.isDiscounted).toBe(false);
+    expect(state.unlockPricing.influencerCode).toBeNull();
   });
 
   it('preserves export functionality before deletion', async () => {
