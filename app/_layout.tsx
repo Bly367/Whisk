@@ -1,3 +1,7 @@
+// Buffer polyfill for React Native (required by whisper.rn → safe-buffer)
+import { Buffer } from 'buffer';
+global.Buffer = Buffer;
+
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider as NavThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
