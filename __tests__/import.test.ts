@@ -237,18 +237,28 @@ Bake at 350F for 12 minutes`,
     expect(result.error.code).toBe('needs_input');
   });
 
-  it('OCR stub accepts manual text paste alongside imageUri', async () => {
+  it('OCR recognizes text from image and creates draft', async () => {
+    const ocrMock = jest.requireMock('expo-mlkit-ocr');
+    
+    // Mock OCR to return recipe text
+    ocrMock.__setMockRecognizeText(async () => ({
+      text: 'Simple Salad\n\nIngredients:\n- 2 cups lettuce\n- 1 tomato\n\nSteps:\n1. Wash vegetables\n2. Chop and mix',
+      blocks: [],
+    }));
+
     const result = await ocrAdapter.import({
       imageUri: 'file:///photo.jpg',
-      text: 'Simple Salad\n\nIngredients:\n- 2 cups lettuce\n- 1 tomato\n\nSteps:\n1. Wash vegetables\n2. Chop and mix',
     });
+    
+    ocrMock.__resetMocks();
+    
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.draft.title).toContain('Salad');
     expect(result.draft.imageUri).toBe('file:///photo.jpg');
     expect(result.draft.ingredients.length).toBeGreaterThan(0);
     expect(result.draft.instructions.length).toBeGreaterThan(0);
-    expect(result.draft.warnings.some((w) => w.code === 'manual_transcription')).toBe(true);
+    expect(result.draft.warnings.some((w) => w.code === 'low_confidence')).toBe(true);
   });
 });
 
