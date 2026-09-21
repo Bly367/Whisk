@@ -218,7 +218,7 @@ describe('parseShareIntent', () => {
     });
   });
 
-  it('should collapse tabs and newlines after URL removal', () => {
+  it('should preserve newlines but collapse inline whitespace after URL removal', () => {
     const intent: ShareIntent = {
       text: 'Amazing\t\trecipe\n\nhttps://example.com/recipe\n\nTry\t\t\tit!',
       webUrl: 'https://example.com/recipe',
@@ -228,7 +228,8 @@ describe('parseShareIntent', () => {
     };
 
     const result = parseShareIntent(intent);
-    expect(result?.caption).toBe('Amazing recipe Try it!');
+    // Should preserve newlines but collapse tabs/spaces within lines
+    expect(result?.caption).toBe('Amazing recipe\n\nTry it!');
   });
 
   it('should handle URL extraction with whitespace collapse', () => {
@@ -329,5 +330,107 @@ describe('parseShareIntent', () => {
 
     const result = parseShareIntent(intent);
     expect(result).toBeNull();
+  });
+
+  it('should preserve multiline Instagram-style caption with ingredients', () => {
+    const intent: ShareIntent = {
+      text: '🍝 Best Pasta Recipe!\n\nIngredients:\n- 1 lb pasta\n- 2 cups sauce\n- Fresh basil\n\nSteps:\n1. Boil water\n2. Cook pasta\n3. Add sauce\n\nhttps://www.instagram.com/p/ABC123/',
+      webUrl: 'https://www.instagram.com/p/ABC123/',
+      files: null,
+      meta: undefined,
+      type: 'weburl',
+    };
+
+    const result = parseShareIntent(intent);
+    expect(result?.url).toBe('https://www.instagram.com/p/ABC123/');
+    expect(result?.caption).toContain('🍝 Best Pasta Recipe!');
+    expect(result?.caption).toContain('Ingredients:\n- 1 lb pasta');
+    expect(result?.caption).toContain('Steps:\n1. Boil water');
+    // Verify newlines are preserved
+    const lines = result?.caption?.split('\n') || [];
+    expect(lines.length).toBeGreaterThan(5);
+  });
+
+  it('should preserve multiline TikTok-style caption with steps', () => {
+    const intent: ShareIntent = {
+      text: 'Quick breakfast hack 🥞\n\nMix:\nFlour\nEggs\nMilk\n\nCook 3 min each side\n\nEnjoy! ❤️\n\nhttps://www.tiktok.com/@chef/video/123',
+      webUrl: 'https://www.tiktok.com/@chef/video/123',
+      files: null,
+      meta: undefined,
+      type: 'weburl',
+    };
+
+    const result = parseShareIntent(intent);
+    expect(result?.caption).toContain('Quick breakfast hack');
+    expect(result?.caption).toContain('Mix:\nFlour\nEggs\nMilk');
+    expect(result?.caption).not.toContain('https://www.tiktok.com');
+  });
+
+  it('should trim leading/trailing whitespace but preserve internal newlines', () => {
+    const intent: ShareIntent = {
+      text: '\n\n  Recipe title\n\nStep 1\nStep 2\n\nhttps://example.com/recipe\n\n  ',
+      webUrl: 'https://example.com/recipe',
+      files: null,
+      meta: undefined,
+      type: 'weburl',
+    };
+
+    const result = parseShareIntent(intent);
+    expect(result?.caption).toBe('Recipe title\n\nStep 1\nStep 2');
+    // No leading or trailing whitespace
+    expect(result?.caption?.startsWith(' ')).toBe(false);
+    expect(result?.caption?.endsWith(' ')).toBe(false);
+  });
+
+  it('should collapse multiple spaces within a line but keep newlines', () => {
+    const intent: ShareIntent = {
+      text: 'Title    with    spaces\n\nLine 2  here\n\nhttps://example.com',
+      webUrl: 'https://example.com',
+      files: null,
+      meta: undefined,
+      type: 'weburl',
+    };
+
+    const result = parseShareIntent(intent);
+    expect(result?.caption).toBe('Title with spaces\n\nLine 2 here');
+  });
+
+  it('should handle URL-only social share without inventing caption', () => {
+    // Instagram often only provides URL, no caption
+    const intent: ShareIntent = {
+      text: 'https://www.instagram.com/p/ABC123/',
+      webUrl: 'https://www.instagram.com/p/ABC123/',
+      files: null,
+      meta: undefined,
+      type: 'weburl',
+    };
+
+    const result = parseShareIntent(intent);
+    expect(result?.url).toBe('https://www.instagram.com/p/ABC123/');
+    expect(result?.caption).toBeUndefined();
+    expect(result?.text).toBe('https://www.instagram.com/p/ABC123/');
+  });
+
+  it('should preserve very long caption without truncation in parser', () => {
+    const longCaption = 'Recipe intro\n\n' + 
+      'Ingredients:\n' +
+      Array(50).fill('- Ingredient item with description\n').join('') +
+      '\nSteps:\n' +
+      Array(30).fill('1. Step with detailed instructions here\n').join('');
+    
+    const intent: ShareIntent = {
+      text: longCaption + '\nhttps://example.com/recipe',
+      webUrl: 'https://example.com/recipe',
+      files: null,
+      meta: undefined,
+      type: 'weburl',
+    };
+
+    const result = parseShareIntent(intent);
+    // Parser should not truncate - handler will use store instead of query params
+    expect(result?.caption).toContain('Recipe intro');
+    expect(result?.caption?.length).toBeGreaterThan(1000);
+    expect(result?.caption).toContain('Ingredient item');
+    expect(result?.caption).toContain('detailed instructions');
   });
 });
