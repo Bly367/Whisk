@@ -16,6 +16,8 @@ import { shareSheetAdapter } from '@/import/adapters/shareSheetAdapter';
 import { listImportAdapters, runImport } from '@/import/adapters/registry';
 import type { ImportDraft } from '@/import/types';
 
+jest.mock('expo-mlkit-ocr');
+
 const SAMPLE_HTML = `
   <html>
     <head>
@@ -161,7 +163,7 @@ describe('website adapter', () => {
   });
 });
 
-describe('share sheet + OCR stubs', () => {
+describe('share sheet + OCR', () => {
   it('share sheet needs caption for social links', async () => {
     const result = await shareSheetAdapter.import({
       sharedContent: 'https://tiktok.com/@chef/video/1',
@@ -171,11 +173,68 @@ describe('share sheet + OCR stubs', () => {
     expect(result.error.code).toBe('needs_input');
   });
 
-  it('OCR stub never invents fields from an image URI', async () => {
+  it('OCR extracts text from an image and creates a draft', async () => {
+    const { __setMockRecognizeText } = jest.requireMock('expo-mlkit-ocr');
+    __setMockRecognizeText(async () => ({
+      text: `Chocolate Chip Cookies
+Ingredients:
+2 cups flour
+1 cup butter
+1 cup sugar
+2 eggs
+1 tsp vanilla
+2 cups chocolate chips
+
+Instructions:
+Mix butter and sugar
+Add eggs and vanilla
+Stir in flour
+Fold in chocolate chips
+Bake at 350F for 12 minutes`,
+      blocks: [],
+    }));
+
+    const result = await ocrAdapter.import({ imageUri: 'file:///photo.jpg' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.draft.title).toBe('Chocolate Chip Cookies');
+    expect(result.draft.sourceKind).toBe('ocr');
+    expect(result.draft.imageUri).toBe('file:///photo.jpg');
+    expect(result.draft.ingredients.length).toBeGreaterThan(0);
+    expect(result.draft.instructions.length).toBeGreaterThan(0);
+    expect(result.draft.confidence.title).toBe('low');
+    expect(result.draft.confidence.ingredients).toBe('low');
+    expect(result.draft.warnings.some((w) => w.code === 'low_confidence')).toBe(true);
+  });
+
+  it('OCR fails gracefully when no text is found', async () => {
+    const { __setMockRecognizeText } = jest.requireMock('expo-mlkit-ocr');
+    __setMockRecognizeText(async () => ({ text: '', blocks: [] }));
+
+    const result = await ocrAdapter.import({ imageUri: 'file:///blank.jpg' });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.code).toBe('parse_failed');
+    expect(result.error.fallbacks).toEqual(expect.arrayContaining(['paste_text', 'manual']));
+  });
+
+  it('OCR fails gracefully when device is not supported', async () => {
+    const { __setMockIsSupported } = jest.requireMock('expo-mlkit-ocr');
+    __setMockIsSupported(false);
+
     const result = await ocrAdapter.import({ imageUri: 'file:///photo.jpg' });
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.error.code).toBe('stub');
+    expect(result.error.code).toBe('unsupported');
+
+    __setMockIsSupported(true);
+  });
+
+  it('OCR requires an image URI', async () => {
+    const result = await ocrAdapter.import({});
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.code).toBe('needs_input');
   });
 
   it('OCR stub accepts manual text paste alongside imageUri', async () => {
