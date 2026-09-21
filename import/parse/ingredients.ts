@@ -4,7 +4,11 @@ const UNIT_PATTERN =
   /^(fl\s+oz|tsp|teaspoons?|tbsp|tablespoons?|cups?|oz|ounces?|lb|lbs|pounds?|g|kg|ml|l|cloves?|cans?|packages?|pinch|pinches)\b\s*(.*)$/i;
 
 export function parseIngredientLine(line: string, position = 0): IngredientInput {
-  const cleaned = line.replace(/\s+/g, ' ').trim();
+  // Strip emoji bullets and common list markers
+  const cleaned = line
+    .replace(/^[🔸🔹▪️•\-\*]\s*/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
   if (!cleaned) {
     return { name: '', position };
   }

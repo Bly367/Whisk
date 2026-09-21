@@ -436,4 +436,98 @@ describe('multi-source import fixtures', () => {
       }
     }
   });
+
+  it('creates low-confidence draft for social URL with messy caption (no headers, emoji bullets)', async () => {
+    const result = await shareSheetAdapter.import({
+      url: 'https://www.instagram.com/reel/test123/',
+      text: `Quick Pasta 🍝
+      
+🔸 1 lb pasta
+🔸 2 tbsp olive oil
+🔸 3 cloves garlic
+🔸 salt and pepper
+
+Just boil pasta
+Sauté garlic in oil
+Mix together and enjoy`,
+      sharedContent: 'https://www.instagram.com/reel/test123/',
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.draft.title).toContain('Pasta');
+    expect(result.draft.ingredients.length).toBeGreaterThan(0);
+    expect(result.draft.instructions.length).toBeGreaterThan(0);
+    expect(result.draft.confidence.ingredients).toBe('low');
+    expect(result.draft.warnings.some((w) => w.code === 'low_confidence')).toBe(true);
+  });
+
+  it('creates low-confidence draft for social caption with mixed title + ingredients (no section headers)', async () => {
+    const result = await shareSheetAdapter.import({
+      url: 'https://www.tiktok.com/@user/video/123',
+      text: `The best chocolate chip cookies ever! 🍪
+
+2 cups flour
+1 cup butter softened
+1 cup brown sugar
+2 eggs
+2 tsp vanilla
+1 tsp baking soda
+2 cups chocolate chips
+
+Mix wet ingredients first
+Then add dry ingredients
+Fold in chocolate chips
+Bake 350F for 12 minutes`,
+      sharedContent: 'https://www.tiktok.com/@user/video/123',
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.draft.ingredients.length).toBeGreaterThanOrEqual(5);
+    expect(result.draft.instructions.length).toBeGreaterThanOrEqual(3);
+    expect(result.draft.confidence.ingredients).toBe('low');
+    expect(result.draft.confidence.instructions).toBe('low');
+  });
+
+  it('returns needs_input for social URL with empty caption', async () => {
+    const result = await shareSheetAdapter.import({
+      url: 'https://www.instagram.com/reel/abc/',
+      text: '',
+      sharedContent: 'https://www.instagram.com/reel/abc/',
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.code).toBe('needs_input');
+    expect(result.error.message).toContain('caption');
+  });
+
+  it('returns distinct error for social URL with unparseable caption (one word)', async () => {
+    const result = await shareSheetAdapter.import({
+      url: 'https://www.instagram.com/reel/xyz/',
+      text: 'Delicious',
+      sharedContent: 'https://www.instagram.com/reel/xyz/',
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.code).toBe('parse_failed');
+    expect(result.error.message).not.toContain('needs the post caption');
+    expect(result.error.message).toContain('Could not find');
+  });
+
+  it('returns distinct error for social URL with short unparseable caption', async () => {
+    const result = await shareSheetAdapter.import({
+      url: 'https://www.tiktok.com/@user/video/456',
+      text: 'Yum! So good!',
+      sharedContent: 'https://www.tiktok.com/@user/video/456',
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.code).toBe('parse_failed');
+    expect(result.error.message).toContain('ingredients');
+    expect(result.error.message).toContain('steps');
+  });
 });
