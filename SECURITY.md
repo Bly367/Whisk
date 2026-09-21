@@ -120,6 +120,24 @@ When accounts / household sync land:
 - Do not implement “restore purchases” in a way that trusts only a local boolean without receipt validation when a backend exists.
 - Chick mascot and playful UX must not appear on payment or destructive confirmation paths (brand rule + anti-dark-pattern).
 
+### IAP implementation (current)
+
+As of the real IAP integration (replacing simulated purchases):
+
+- **expo-iap** wraps App Store (StoreKit) and Google Play Billing for one-time unlock purchases.
+- **Client entitlement cache**: `sessionStore.ts` persists unlock state locally; this is **not a security boundary** on jailbroken/rooted devices.
+- **Store is source of truth**: "Restore purchases" queries the platform store to re-validate prior purchases; local flags are refreshed from that result.
+- **No backend receipt validation yet**: Current implementation trusts the client-side store response. Phase 2+ should add server-side receipt validation (Apple App Store Server API / Google Play Developer API) before production at scale.
+- **Product IDs are public**: Configured in `features/trust/iapConfig.ts`; no secrets required in client.
+- **Admin unlock codes**: Local-only bypass for dev/demo; do not ship unbounded admin codes in production releases (see `features/trust/influencerCodes.ts`).
+- **Sandbox/test accounts**: iOS sandbox and Android test tracks allow purchase testing without real charges; see `docs/iap.md`.
+
+**Action items before production release**:
+1. Replace placeholder product IDs with real App Store Connect / Play Console IDs.
+2. Implement server-side receipt verification to prevent client-side entitlement tampering.
+3. Rate-limit restore attempts to prevent abuse.
+4. Remove or gate admin codes behind internal build flavors.
+
 ---
 
 ## 9. Platform & app integrity

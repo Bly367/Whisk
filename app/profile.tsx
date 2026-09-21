@@ -13,7 +13,9 @@ import { createOfflineReader, getDatabase, getRepositories } from '@/data';
 import { HouseholdCollabCard } from '@/features/household/HouseholdCollabCard';
 import { buildExportFromRepos, exportPayloadToJson } from '@/features/trust/exportRecipes';
 import { describeUnlockOffer, PAYMENT } from '@/features/trust/freeTier';
+import { IAP_PRODUCT_IDS } from '@/features/trust/iapConfig';
 import { useSessionStore } from '@/features/trust/sessionStore';
+import { useIAP } from '@/features/trust/useIAP';
 
 export default function ProfileScreen() {
   const mode = useSessionStore((s) => s.mode);
@@ -32,6 +34,7 @@ export default function ProfileScreen() {
   const [applyingCode, setApplyingCode] = useState(false);
 
   const unlockCopy = useMemo(() => describeUnlockOffer(unlockPricing), [unlockPricing]);
+  const iap = useIAP({ useMockInDev: false });
 
   useEffect(() => {
     void hydrate();
@@ -121,6 +124,34 @@ export default function ProfileScreen() {
       }
     } finally {
       setApplyingCode(false);
+    }
+  }
+
+  async function handleRealPurchase() {
+    setMessage(null);
+    const result = await iap.purchase(IAP_PRODUCT_IDS.fullUnlock);
+    
+    if (result.success) {
+      await unlockWithPurchase();
+      setMessage(`Unlocked for ${unlockPricing.priceLabel} one time.`);
+    } else {
+      setMessage(result.message);
+    }
+  }
+
+  async function handleRestorePurchases() {
+    setMessage(null);
+    const result = await iap.restore();
+    
+    if (result.success) {
+      if (result.message.includes('No previous')) {
+        setMessage('No previous purchases found. Purchase to unlock all features.');
+      } else {
+        await unlockWithPurchase();
+        setMessage('Purchase restored successfully. All features unlocked.');
+      }
+    } else {
+      setMessage(result.message);
     }
   }
 
@@ -223,37 +254,73 @@ export default function ProfileScreen() {
           />
         ) : null}
 
-        <Button
-          label={
-            isUnlocked
-              ? entitlement === 'admin'
-                ? 'Unlocked (admin)'
-                : 'Unlocked (purchased)'
-              : `Simulate unlock (${unlockPricing.priceLabel})`
-          }
-          variant="primary"
-          disabled={isUnlocked}
-          onPress={() => {
-            void unlockWithPurchase().then(() =>
-              setMessage(`Unlocked for ${unlockPricing.priceLabel} one time.`),
-            );
-          }}
-          testID="profile-simulate-unlock"
-        />
-        <Button
-          label={
-            entitlement === 'admin'
-              ? 'Admin unlock stays active'
-              : usage.isDowngraded && entitlement === 'free'
-                ? 'Simulate free plan (already on)'
-                : 'Simulate free plan'
-          }
-          variant="tertiary"
-          disabled={entitlement === 'admin' || (usage.isDowngraded && entitlement === 'free')}
-          onPress={() => void clearPaidUnlock()}
-          testID="profile-simulate-downgrade"
-          accessibilityHint="Shows that recipes remain viewable and exportable after returning to the free plan"
-        />
+        {iap.available ? (
+          <>
+            <Button
+              label={
+                isUnlocked
+                  ? entitlement === 'admin'
+                    ? 'Unlocked (admin)'
+                    : 'Unlocked (purchased)'
+                  : `Unlock now (${iap.price || unlockPricing.priceLabel})`
+              }
+              variant="primary"
+              disabled={isUnlocked}
+              loading={iap.purchasing}
+              onPress={() => void handleRealPurchase()}
+              testID="profile-unlock-button"
+            />
+            <Button
+              label="Restore purchases"
+              variant="secondary"
+              disabled={isUnlocked}
+              loading={iap.restoring}
+              onPress={() => void handleRestorePurchases()}
+              testID="profile-restore-button"
+            />
+          </>
+        ) : (
+          <Text variant="body" tone="secondary" testID="profile-iap-unavailable">
+            {iap.loading
+              ? 'Loading store...'
+              : 'In-app purchases require a development build or production app. Running in Expo Go or web?'}
+          </Text>
+        )}
+        {__DEV__ ? (
+          <>
+            <Button
+              label={
+                isUnlocked
+                  ? entitlement === 'admin'
+                    ? 'Unlocked (admin)'
+                    : 'Unlocked (purchased)'
+                  : `[DEV] Simulate unlock (${unlockPricing.priceLabel})`
+              }
+              variant="tertiary"
+              disabled={isUnlocked}
+              onPress={() => {
+                void unlockWithPurchase().then(() =>
+                  setMessage(`[DEV] Simulated unlock for ${unlockPricing.priceLabel}.`),
+                );
+              }}
+              testID="profile-simulate-unlock"
+            />
+            <Button
+              label={
+                entitlement === 'admin'
+                  ? 'Admin unlock stays active'
+                  : usage.isDowngraded && entitlement === 'free'
+                    ? '[DEV] Simulate free plan (already on)'
+                    : '[DEV] Simulate free plan'
+              }
+              variant="tertiary"
+              disabled={entitlement === 'admin' || (usage.isDowngraded && entitlement === 'free')}
+              onPress={() => void clearPaidUnlock()}
+              testID="profile-simulate-downgrade"
+              accessibilityHint="[DEV] Shows that recipes remain viewable and exportable after returning to the free plan"
+            />
+          </>
+        ) : null}
       </View>
 
       <View style={styles.section}>
