@@ -2,6 +2,11 @@ import type { CookStep, IngredientInput } from '@/data/contracts';
 import { createId, nowIso } from '@/data/util';
 
 import { parseIngredientLine } from '@/import/parse/ingredients';
+import {
+  normalizeOcrText,
+  mergeIngredientFragments,
+  dedupeSteps,
+} from '@/import/parse/normalize';
 import type { ImportDraft, ImportWarning } from '@/import/types';
 
 /**
@@ -15,7 +20,10 @@ export function draftFromPastedText(options: {
   adapterId: string;
   sourceName?: string | null;
 }): ImportDraft | null {
-  const lines = options.text
+  // Normalize OCR text to fix common character confusions
+  const normalizedText = normalizeOcrText(options.text);
+
+  const lines = normalizedText
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
@@ -113,18 +121,25 @@ export function draftFromPastedText(options: {
     }
   }
 
-  const ingredients: IngredientInput[] = ingredientSection
-    .filter((line) => !/^(ingredients)\b/i.test(line))
+  // Merge ingredient fragments before parsing
+  const mergedIngredients = mergeIngredientFragments(
+    ingredientSection.filter((line) => !/^(ingredients)\b/i.test(line)),
+  );
+
+  const ingredients: IngredientInput[] = mergedIngredients
     .map((line, index) => parseIngredientLine(line, index))
     .filter((ing) => ing.name.trim().length > 0);
 
-  const instructions: CookStep[] = stepSection
-    .filter((line) => !/^(directions|instructions|method|steps)\b/i.test(line))
-    .map((step, index) => ({
-      id: createId(),
-      text: step,
-      position: index,
-    }));
+  // Dedupe steps to remove orphan fragments
+  const cleanSteps = dedupeSteps(
+    stepSection.filter((line) => !/^(directions|instructions|method|steps)\b/i.test(line)),
+  );
+
+  const instructions: CookStep[] = cleanSteps.map((step, index) => ({
+    id: createId(),
+    text: step,
+    position: index,
+  }));
 
   if (!ingredients.length && !instructions.length) return null;
 
@@ -177,7 +192,7 @@ export function draftFromPastedText(options: {
       instructions: instructions.length ? 'medium' : 'unknown',
     },
     warnings,
-    sourceEvidence: options.text.slice(0, 4000),
+    sourceEvidence: normalizedText.slice(0, 4000),
     adapterId: options.adapterId,
     createdAt: nowIso(),
   };
