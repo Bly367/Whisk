@@ -69,6 +69,7 @@ export const shareSheetAdapter: ImportAdapter = {
           text: caption,
           sourceUrl: canonical,
           adapterId: SHARE_SHEET_ADAPTER_ID,
+          sourceName: source,
         });
         if (draft) {
           return {
@@ -79,14 +80,13 @@ export const shareSheetAdapter: ImportAdapter = {
               sourceName: source,
               confidence: {
                 ...draft.confidence,
-                title: 'medium',
                 ingredients: draft.ingredients.length ? 'low' : 'unknown',
                 instructions: draft.instructions.length ? 'low' : 'unknown',
               },
               warnings: [
                 {
                   code: 'low_confidence',
-                  message: `Imported from a ${source} share with pasted caption. Review carefully — social captions are often incomplete.`,
+                  message: `Imported from ${source} share with pasted caption. Review carefully — social captions are often incomplete.`,
                 },
                 ...draft.warnings.filter((w) => w.code !== 'low_confidence'),
               ],
