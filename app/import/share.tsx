@@ -1,5 +1,5 @@
-import { router } from 'expo-router';
-import { useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 
 import { ImportFallbacks } from '@/components/import/ImportFallbacks';
@@ -12,11 +12,12 @@ import { runImport, SHARE_SHEET_ADAPTER_ID, useImportSessionStore } from '@/impo
 import { useTheme } from '@/theme/ThemeProvider';
 
 /**
- * Share-sheet entry stub.
- * On device, OS share will deep-link here; until then users can paste shared content.
+ * Share-sheet entry point.
+ * Receives shared content from OS share intents or manual paste.
  */
 export default function ImportShareScreen() {
   const { colors } = useTheme();
+  const params = useLocalSearchParams<{ url?: string; caption?: string }>();
   const [shared, setShared] = useState('');
   const [caption, setCaption] = useState('');
   const phase = useImportSessionStore((s) => s.phase);
@@ -27,6 +28,16 @@ export default function ImportShareScreen() {
   const clear = useImportSessionStore((s) => s.clear);
 
   const loading = phase === 'importing';
+
+  // Pre-fill fields from OS share intent params
+  useEffect(() => {
+    if (params.url) {
+      setShared(params.url);
+    }
+    if (params.caption) {
+      setCaption(params.caption);
+    }
+  }, [params.url, params.caption]);
 
   const handleImport = async () => {
     setImporting();

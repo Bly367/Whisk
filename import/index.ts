@@ -35,6 +35,11 @@ export { extractRecipeJsonLd, extractPageMetadata } from '@/import/parse/jsonLd'
 export { draftFromPastedText } from '@/import/parse/pasteText';
 export { parseIngredientLine } from '@/import/parse/ingredients';
 
+/** OS share intent handling */
+export { parseShareIntent } from '@/import/shareIntent';
+export type { ParsedShareIntent } from '@/import/shareIntent';
+export { useShareIntentHandler } from '@/import/shareIntentHandler';
+
 /** Phase 2 compatibility packs (Paprika / JSON / Markdown) — see `@/import/compat`. */
 export {
   listCompatAdapters,
