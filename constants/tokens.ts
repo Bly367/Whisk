@@ -67,8 +67,9 @@ export const spacing = {
 } as const;
 
 export const radius = {
-  control: 12,
-  card: 16,
+  control: 16,
+  card: 24,
+  chip: 20,
   pill: 999,
 } as const;
 
@@ -80,13 +81,48 @@ export const touchTarget = {
 } as const;
 
 export const typography = {
-  display: { fontSize: 32, lineHeight: 38, fontWeight: '700' as const },
-  title1: { fontSize: 28, lineHeight: 34, fontWeight: '700' as const },
-  title2: { fontSize: 22, lineHeight: 28, fontWeight: '600' as const },
-  headline: { fontSize: 17, lineHeight: 22, fontWeight: '600' as const },
-  body: { fontSize: 16, lineHeight: 24, fontWeight: '400' as const },
-  callout: { fontSize: 15, lineHeight: 20, fontWeight: '500' as const },
-  caption: { fontSize: 13, lineHeight: 18, fontWeight: '400' as const },
+  display: { 
+    fontSize: 32, 
+    lineHeight: 38, 
+    fontWeight: '700' as const,
+    fontFamily: 'Nunito_700Bold',
+  },
+  title1: { 
+    fontSize: 28, 
+    lineHeight: 34, 
+    fontWeight: '700' as const,
+    fontFamily: 'Nunito_700Bold',
+  },
+  title2: { 
+    fontSize: 22, 
+    lineHeight: 28, 
+    fontWeight: '600' as const,
+    fontFamily: 'Nunito_600SemiBold',
+  },
+  headline: { 
+    fontSize: 17, 
+    lineHeight: 22, 
+    fontWeight: '600' as const,
+    fontFamily: 'Nunito_600SemiBold',
+  },
+  body: { 
+    fontSize: 16, 
+    lineHeight: 24, 
+    fontWeight: '400' as const,
+    fontFamily: 'Nunito_400Regular',
+  },
+  callout: { 
+    fontSize: 15, 
+    lineHeight: 20, 
+    fontWeight: '400' as const,
+    fontFamily: 'Nunito_400Regular',
+  },
+  caption: { 
+    fontSize: 13, 
+    lineHeight: 18, 
+    fontWeight: '400' as const,
+    fontFamily: 'Nunito_400Regular',
+  },
 } as const;
 
 export const motion = {

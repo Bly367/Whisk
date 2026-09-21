@@ -2,6 +2,7 @@ import { DarkTheme, DefaultTheme, Stack, ThemeProvider as NavThemeProvider } fro
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts, Nunito_700Bold, Nunito_600SemiBold, Nunito_400Regular } from '@expo-google-fonts/nunito';
 import 'react-native-reanimated';
 
 import { DatabaseProvider } from '@/data/DatabaseProvider';
@@ -17,9 +18,21 @@ export const unstable_settings = {
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    Nunito_700Bold,
+    Nunito_600SemiBold,
+    Nunito_400Regular,
+  });
+
   useEffect(() => {
-    SplashScreen.hideAsync();
-  }, []);
+    if (fontsLoaded) {
+      SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded]);
+
+  if (!fontsLoaded) {
+    return null;
+  }
 
   return (
     <AppThemeProvider>

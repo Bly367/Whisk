@@ -83,40 +83,51 @@ export default function RecipeDetailScreen() {
           accessible={false}
         />
         <Text variant="title1">{recipe.title}</Text>
+        
+        <View style={styles.metaPills}>
+          {total != null ? (
+            <View style={[styles.metaPill, { backgroundColor: colors.brand.yolkSoft }]}>
+              <Text variant="callout" style={{ fontSize: 14 }}>🕐 {total} min</Text>
+            </View>
+          ) : null}
+          {recipe.servings != null && recipe.servings > 0 ? (
+            <View style={[styles.metaPill, { backgroundColor: colors.brand.yolkSoft }]}>
+              <Text variant="callout" style={{ fontSize: 14 }}>👥 {recipe.servings} servings</Text>
+            </View>
+          ) : null}
+          <View style={[styles.metaPill, { backgroundColor: colors.brand.yolkSoft }]}>
+            <Text variant="callout" style={{ fontSize: 14 }}>⭐ Easy</Text>
+          </View>
+        </View>
+
         {recipe.status === 'draft' ? (
           <Text variant="caption" tone="warning">
             Draft — still saving locally
           </Text>
         ) : null}
-        <View style={styles.meta}>
-          {total != null ? (
-            <Text variant="caption" tone="secondary">
-              {total} min
-            </Text>
-          ) : null}
-          {recipe.rating != null ? (
-            <Text variant="caption" tone="secondary">
-              ★ {recipe.rating.toFixed(1)}
-            </Text>
-          ) : null}
-          {recipe.sourceUrl || recipe.sourceName ? (
-            <Text variant="caption" tone="info" numberOfLines={1}>
-              {recipe.sourceName || recipe.sourceUrl}
-            </Text>
-          ) : null}
-        </View>
+        
         {tagNames.length ? (
           <Text variant="caption" tone="secondary">
             {tagNames.join(' · ')}
           </Text>
         ) : null}
 
-        <Button
-          label="Start cooking"
-          onPress={() => router.push(`/cook/${recipe.id}`)}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Start cooking"
           accessibilityHint="Open cook mode with large steps"
+          onPress={() => router.push(`/cook/${recipe.id}`)}
           testID="start-cooking"
-        />
+          style={({ pressed }) => [
+            styles.startCookingBtn,
+            {
+              backgroundColor: colors.brand.yolk,
+              opacity: pressed ? 0.9 : 1,
+            },
+          ]}
+        >
+          <Text variant="title2" style={{ color: colors.textOnYolk }}>👨‍🍳 Start cooking</Text>
+        </Pressable>
 
         <ServingStepper servings={servings} onChange={setServings} baseServings={recipe.servings} />
 
@@ -194,10 +205,27 @@ const styles = StyleSheet.create({
     borderRadius: radius.card,
     borderWidth: 1,
   },
-  meta: {
+  metaPills: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.md,
+    gap: spacing.sm,
+  },
+  metaPill: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.chip,
+  },
+  startCookingBtn: {
+    minHeight: 60,
+    borderRadius: radius.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.lg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 6,
   },
   unitBlock: {
     gap: spacing.sm,

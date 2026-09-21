@@ -1,8 +1,7 @@
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
-import { Button } from '@/components/ui/Button';
 import { PlaceholderHero } from '@/components/ui/PlaceholderHero';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
@@ -121,34 +120,37 @@ export default function AddScreen() {
       <LimitNotice usage={usage} entitlement={entitlement} unlockCopy={unlockCopy} />
 
       <View style={styles.list}>
-        {SOURCES.map((source) => (
-          <View
+        {SOURCES.map((source, index) => (
+          <Pressable
             key={source.id}
-            style={[
-              styles.row,
+            accessibilityRole="button"
+            accessibilityLabel={`${source.label}. ${source.hint}`}
+            onPress={() => void onChooseSource(source)}
+            testID={`add-source-${source.id}`}
+            style={({ pressed }) => [
+              styles.sourceCard,
               {
                 backgroundColor: colors.card,
                 borderColor: colors.border,
+                opacity: pressed ? 0.9 : 1,
               },
             ]}
           >
-            <View style={styles.rowCopy}>
-              <Text variant="headline">{source.label}</Text>
-              <Text variant="caption" tone="secondary">
-                {source.hint}
-                {source.limited && !unlimited
-                  ? ` · counts toward ${FREE_TIER.importsPerWeek}/week`
-                  : ''}
-              </Text>
+            <View style={[styles.numberBadge, { backgroundColor: colors.brand.yolk }]}>
+              <Text variant="headline" style={{ color: colors.textOnYolk }}>{index + 1}</Text>
             </View>
-            <Button
-              label={source.limited ? 'Import' : 'Create'}
-              variant={source.limited ? 'secondary' : 'primary'}
-              testID={`add-source-${source.id}`}
-              accessibilityHint={`Open ${source.label}`}
-              onPress={() => void onChooseSource(source)}
-            />
-          </View>
+            <View style={styles.sourceContent}>
+              <Text variant="title2">{source.label}</Text>
+              <Text variant="body" tone="secondary">
+                {source.hint}
+              </Text>
+              {source.limited && !unlimited ? (
+                <Text variant="caption" tone="info">
+                  Counts toward {FREE_TIER.importsPerWeek}/week
+                </Text>
+              ) : null}
+            </View>
+          </Pressable>
         ))}
       </View>
 
@@ -162,19 +164,35 @@ export default function AddScreen() {
 }
 
 const styles = StyleSheet.create({
-  list: {
+  hero: {
     gap: spacing.md,
+    paddingVertical: spacing.lg,
   },
-  row: {
+  list: {
+    gap: spacing.lg,
+  },
+  sourceCard: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.lg,
+    alignItems: 'flex-start',
+    gap: spacing.lg,
+    padding: spacing.xl,
     borderRadius: radius.card,
     borderWidth: 1,
-    minHeight: 72,
+    minHeight: 100,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  rowCopy: {
+  numberBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sourceContent: {
     flex: 1,
     gap: spacing.xs,
   },
