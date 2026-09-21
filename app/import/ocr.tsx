@@ -94,7 +94,7 @@ export default function ImportOcrScreen() {
           testID="ocr-error-card"
         >
           <Text variant="headline" tone="warning">
-            OCR failed
+            {error.code === 'native_unavailable' ? 'Dev client required' : 'OCR failed'}
           </Text>
           <Text variant="body" tone="secondary">
             {error.message}
