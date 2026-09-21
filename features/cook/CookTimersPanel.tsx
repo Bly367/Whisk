@@ -75,7 +75,7 @@ export function CookTimersPanel({ recipeId }: Props) {
           ]}
           testID="cook-timer-complete-alert"
         >
-          <Text variant="headline" style={{ color: colors.success }}>
+          <Text variant="headline" style={{ color: colors.success }} maxFontSizeMultiplier={1.3}>
             {signaling.map((t) => t.label).join(', ')} done
           </Text>
           <Pressable
@@ -94,12 +94,12 @@ export function CookTimersPanel({ recipeId }: Props) {
               })
             }
           >
-            <Text variant="callout">Got it</Text>
+            <Text variant="callout" maxFontSizeMultiplier={1.2}>Got it</Text>
           </Pressable>
         </View>
       ) : null}
 
-      <Text variant="caption" tone="secondary">
+      <Text variant="caption" tone="secondary" maxFontSizeMultiplier={1.2}>
         Timers
       </Text>
 
@@ -126,7 +126,7 @@ export function CookTimersPanel({ recipeId }: Props) {
               })
             }
           >
-            <Text variant="callout">{sec / 60}m</Text>
+            <Text variant="callout" maxFontSizeMultiplier={1.2}>{sec / 60}m</Text>
           </Pressable>
         ))}
       </View>
@@ -168,14 +168,14 @@ export function CookTimersPanel({ recipeId }: Props) {
             })
           }
         >
-          <Text variant="callout" style={{ color: colors.textOnYolk }}>
+          <Text variant="callout" style={{ color: colors.textOnYolk }} maxFontSizeMultiplier={1.2}>
             Add
           </Text>
         </Pressable>
       </View>
 
       {timers.length === 0 ? (
-        <Text variant="caption" tone="secondary" testID="cook-timers-empty">
+        <Text variant="caption" tone="secondary" testID="cook-timers-empty" maxFontSizeMultiplier={1.2}>
           Add concurrent timers — they keep running while you change steps.
         </Text>
       ) : (
@@ -193,9 +193,10 @@ export function CookTimersPanel({ recipeId }: Props) {
               testID={`cook-timer-row-${timer.id}`}
             >
               <View style={styles.rowText}>
-                <Text variant="headline">{timer.label}</Text>
+                <Text variant="headline" maxFontSizeMultiplier={1.3}>{timer.label}</Text>
                 <Text
                   variant="title2"
+                  maxFontSizeMultiplier={1.4}
                   accessibilityLabel={`${timer.label} ${formatTimerRemaining(timer.remainingMs)} remaining`}
                   testID={`cook-timer-remaining-${timer.id}`}
                 >
@@ -217,7 +218,7 @@ export function CookTimersPanel({ recipeId }: Props) {
                   })
                 }
               >
-                <Text variant="callout" tone="secondary">
+                <Text variant="callout" tone="secondary" maxFontSizeMultiplier={1.2}>
                   Remove
                 </Text>
               </Pressable>

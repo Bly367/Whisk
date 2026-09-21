@@ -21,33 +21,33 @@ export function useShareIntentHandler() {
 
   useEffect(() => {
     if (hasShareIntent && shareIntent && !isNavigating.current) {
+      // Log raw share intent keys in dev to help diagnose URL-only shares
+      if (__DEV__) {
+        console.log('[Share] Received share intent with keys:', {
+          hasText: !!shareIntent.text,
+          hasWebUrl: !!shareIntent.webUrl,
+          hasFiles: !!shareIntent.files,
+          hasMeta: !!shareIntent.meta,
+          type: shareIntent.type,
+          textLength: shareIntent.text?.length || 0,
+          textPreview: shareIntent.text?.slice(0, 100),
+          filesCount: shareIntent.files?.length || 0,
+        });
+      }
+
       const parsed = parseShareIntent(shareIntent);
 
       if (parsed) {
         // Mark as navigating to prevent double-push
         isNavigating.current = true;
         
-        // Store video/image paths in pending payload (too large for URL params)
-        if (parsed.videoPath || parsed.imagePath) {
-          setPendingSharePayload({
-            url: parsed.url,
-            caption: parsed.caption,
-            videoPath: parsed.videoPath,
-            imagePath: parsed.imagePath,
-            mimeType: parsed.mimeType,
-          });
-        }
-        
-        // Navigate to import/share with parsed data
-        // Pass lightweight data via URL params; media paths via pending payload
-        const params = new URLSearchParams();
-        if (parsed.url) params.set('url', parsed.url);
-        if (parsed.caption) params.set('caption', parsed.caption);
-        if (parsed.videoPath) params.set('hasVideo', 'true');
-        if (parsed.imagePath) params.set('hasImage', 'true');
+        // Store parsed data in memory instead of query params
+        // This prevents long captions from being truncated/encoded poorly
+        // and handles video/image file paths that can't go in URLs
+        setPendingSharePayload(parsed);
 
-        // Navigate to share import screen
-        router.push(`/import/share?${params.toString()}`);
+        // Navigate to share import screen without query params
+        router.push('/import/share');
         
         // Reset the share intent after navigation
         resetShareIntent();

@@ -25,10 +25,16 @@ function hasHostileScheme(url: string): boolean {
 }
 
 /**
- * Collapse multiple whitespace characters (spaces, tabs, newlines) into a single space.
+ * Collapse inline whitespace (spaces, tabs) within lines but preserve newlines.
+ * Trims leading/trailing whitespace from the entire string and each line.
  */
 function collapseWhitespace(text: string): string {
-  return text.replace(/\s+/g, ' ').trim();
+  return text
+    .split('\n')
+    .map((line) => line.replace(/[ \t]+/g, ' ').trim())
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n') // Collapse 3+ newlines to max 2
+    .trim();
 }
 
 /**

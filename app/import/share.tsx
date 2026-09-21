@@ -9,17 +9,18 @@ import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { radius, spacing } from '@/constants/tokens';
 import { runImport, SHARE_SHEET_ADAPTER_ID, useImportSessionStore } from '@/import';
-import { getPendingSharePayload, clearPendingSharePayload } from '@/import/pendingSharePayload';
+import { consumePendingSharePayload } from '@/import/pendingSharePayload';
 import { transcribeVideo } from '@/import/transcribe';
 import { useTheme } from '@/theme/ThemeProvider';
 
 /**
  * Share-sheet entry point.
  * Receives shared content from OS share intents or manual paste.
+ * Supports video transcription for social media recipes.
  */
 export default function ImportShareScreen() {
   const { colors } = useTheme();
-  const params = useLocalSearchParams<{ url?: string; caption?: string; hasVideo?: string }>();
+  const params = useLocalSearchParams<{ url?: string; caption?: string }>();
   const [shared, setShared] = useState('');
   const [caption, setCaption] = useState('');
   const [videoPath, setVideoPath] = useState<string | null>(null);
@@ -38,35 +39,36 @@ export default function ImportShareScreen() {
   const loading = phase === 'importing';
   const hasVideo = Boolean(videoPath);
 
-  // Pre-fill fields from OS share intent params and pending payload (only once on mount)
+  // Pre-fill fields from OS share intent (store first, then query params as fallback)
   useEffect(() => {
     if (!initializedFromParams.current) {
-      // Get video path from pending payload
-      const payload = getPendingSharePayload();
-      if (payload) {
-        if (payload.videoPath) {
-          setVideoPath(payload.videoPath);
-        }
-        if (payload.url && !params.url) {
-          setShared(payload.url);
-        }
-        if (payload.caption && !params.caption) {
-          setCaption(payload.caption);
-        }
-        // Don't clear yet - keep it until transcription or import completes
-      }
+      // First try to consume pending payload from in-memory store (consume-once)
+      const pending = consumePendingSharePayload();
       
-      // Also handle URL params
-      if (params.url) {
-        setShared(params.url);
-      }
-      if (params.caption) {
-        setCaption(params.caption);
+      if (pending) {
+        if (pending.url) {
+          setShared(pending.url);
+        }
+        if (pending.caption) {
+          setCaption(pending.caption);
+        }
+        if (pending.videoPath) {
+          setVideoPath(pending.videoPath);
+        }
+        // imagePath handled by OCR screen, not here
+      } else {
+        // Fallback to query params for manual paste or legacy navigation
+        if (params.url) {
+          setShared(params.url);
+        }
+        if (params.caption) {
+          setCaption(params.caption);
+        }
       }
       
       initializedFromParams.current = true;
     }
-  }, [params.url, params.caption, params.hasVideo]);
+  }, [params.url, params.caption]);
 
   const handleTranscribe = async () => {
     if (!videoPath) return;
@@ -90,8 +92,7 @@ export default function ImportShareScreen() {
       if (result.ok) {
         // Feed transcript into caption field for user review before import
         setCaption(result.transcript);
-        clearPendingSharePayload();
-        setVideoPath(null);
+        setVideoPath(null); // Clear video after successful transcription
       } else {
         setFailed({
           code: 'native_unavailable',
@@ -113,7 +114,6 @@ export default function ImportShareScreen() {
 
   const handleImport = async () => {
     setImporting();
-    clearPendingSharePayload();
     
     const result = await runImport(
       {
