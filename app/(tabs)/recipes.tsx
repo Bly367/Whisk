@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/Button';
 import { Chip, ChipRow } from '@/components/ui/Chip';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
-import { radius, spacing } from '@/constants/tokens';
+import { spacing } from '@/constants/tokens';
 import {
   activeFilterCount,
   COOK_TIME_OPTIONS,
@@ -64,22 +64,23 @@ export default function RecipesScreen() {
         ]}
       >
         <Text variant="title1">Recipes</Text>
-        <TextInput
-          value={search}
-          onChangeText={setSearch}
-          placeholder="Search recipes or ingredients"
-          placeholderTextColor={colors.textSecondary}
-          accessibilityLabel="Search recipes or ingredients"
-          testID="recipes-search"
-          style={[
-            styles.search,
-            {
-              backgroundColor: colors.sunken,
-              borderColor: colors.border,
-              color: colors.textPrimary,
-            },
-          ]}
-        />
+        <View style={styles.searchContainer}>
+          <Text variant="body" style={{ color: colors.brand.yolk, fontSize: 20 }}>🔍</Text>
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Search recipes, ingredients..."
+            placeholderTextColor={colors.textSecondary}
+            accessibilityLabel="Search recipes or ingredients"
+            testID="recipes-search"
+            style={[
+              styles.searchInput,
+              {
+                color: colors.textPrimary,
+              },
+            ]}
+          />
+        </View>
         <View style={styles.sortRow}>
           <Text variant="caption" tone="secondary">
             Sort
@@ -250,16 +251,26 @@ export default function RecipesScreen() {
           </View>
         )}
 
-        {!isEmptyLibrary ? (
-          <Button
-            label="Create recipe"
-            variant="secondary"
-            onPress={() => router.push('/recipe/edit/new')}
-            testID="recipes-create-cta"
-            style={styles.create}
-          />
-        ) : null}
+        <View style={{ height: 80 }} />
       </ScrollView>
+
+      {!isEmptyLibrary ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Add recipe"
+          onPress={() => router.push('/recipe/edit/new')}
+          testID="recipes-fab"
+          style={[
+            styles.fab,
+            {
+              backgroundColor: colors.brand.yolk,
+              shadowColor: colors.brand.yolk,
+            },
+          ]}
+        >
+          <Text variant="title1" style={{ color: colors.textOnYolk, lineHeight: 32 }}>+</Text>
+        </Pressable>
+      ) : null}
     </Screen>
   );
 }
@@ -277,13 +288,24 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  search: {
-    minHeight: 48,
-    borderWidth: 1,
-    borderRadius: radius.control,
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    minHeight: 52,
+    borderRadius: 26,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    gap: spacing.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  searchInput: {
+    flex: 1,
     fontSize: 16,
+    fontFamily: 'Nunito_400Regular',
   },
   sortRow: {
     gap: spacing.sm,
@@ -313,7 +335,18 @@ const styles = StyleSheet.create({
   emptyResults: {
     gap: spacing.sm,
   },
-  create: {
-    alignSelf: 'flex-start',
+  fab: {
+    position: 'absolute',
+    bottom: spacing.xl + 80,
+    right: spacing.lg,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
   },
 });

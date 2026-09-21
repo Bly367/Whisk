@@ -120,13 +120,12 @@ export function CookTimersPanel({ recipeId }: Props) {
             style={({ pressed }) =>
               ensureMinTouchTarget({
                 ...styles.presetBtn,
-                backgroundColor: colors.sunken,
-                borderColor: colors.border,
+                backgroundColor: colors.brand.yolk,
                 opacity: pressed ? 0.85 : 1,
               })
             }
           >
-            <Text variant="callout">{sec / 60}m</Text>
+            <Text variant="callout" style={{ color: colors.textOnYolk }}>{sec / 60}m</Text>
           </Pressable>
         ))}
       </View>
@@ -255,11 +254,11 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   presetBtn: {
-    minHeight: 48,
-    minWidth: 56,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.control,
-    borderWidth: 1,
+    minHeight: 52,
+    minWidth: 60,
+    paddingHorizontal: spacing.lg,
+    borderRadius: 26,
+    borderWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -279,7 +278,7 @@ const styles = StyleSheet.create({
   addBtn: {
     minHeight: 48,
     minWidth: 72,
-    borderRadius: radius.control,
+    borderRadius: radius.chip,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,

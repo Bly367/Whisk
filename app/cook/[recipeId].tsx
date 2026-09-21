@@ -209,14 +209,16 @@ export default function CookModeScreen() {
       />
 
       <View style={styles.header}>
-        <Text
-          variant="caption"
-          tone="secondary"
-          accessibilityRole="header"
-          testID="cook-progress-label"
-        >
-          {progressLabel}
-        </Text>
+        <View style={[styles.progressPill, { backgroundColor: colors.brand.yolk }]}>
+          <Text
+            variant="callout"
+            accessibilityRole="header"
+            testID="cook-progress-label"
+            style={{ color: colors.textOnYolk }}
+          >
+            {progressLabel}
+          </Text>
+        </View>
         <View
           style={[styles.track, { backgroundColor: colors.sunken }]}
           accessibilityElementsHidden
@@ -332,8 +334,14 @@ const styles = StyleSheet.create({
   header: {
     gap: spacing.sm,
   },
+  progressPill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+  },
   track: {
-    height: 6,
+    height: 8,
     borderRadius: radius.pill,
     overflow: 'hidden',
   },
@@ -361,7 +369,7 @@ const styles = StyleSheet.create({
   navBtn: {
     flex: 1,
     minHeight: 64,
-    borderRadius: radius.control,
+    borderRadius: radius.card,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -370,5 +378,10 @@ const styles = StyleSheet.create({
   nextBtn: {
     flex: 1.4,
     borderWidth: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
   },
 });
