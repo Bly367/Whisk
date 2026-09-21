@@ -530,4 +530,49 @@ Bake 350F for 12 minutes`,
     expect(result.error.message).toContain('ingredients');
     expect(result.error.message).toContain('steps');
   });
+
+  it('never uses ingredient/instruction headers as title', async () => {
+    // Simulate caption starting with "Ingredients" or corrupted header like "ngredients"
+    const result = await shareSheetAdapter.import({
+      url: 'https://instagram.com/p/abc123/',
+      text: `Ingredients
+* 2 salmon fillets
+* 200g protein pasta
+* 100g cream cheese`,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.draft.title).not.toMatch(/^(ingredients|ngredients|instructions|directions)/i);
+    expect(result.draft.title.toLowerCase()).toContain('instagram');
+  });
+
+  it('produces honest warning for ingredients-only caption', async () => {
+    const result = await shareSheetAdapter.import({
+      url: 'https://instagram.com/p/abc123/',
+      text: `Ingredients
+* 2 salmon fillets
+* 200g protein pasta
+* 100g cream cheese`,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.draft.ingredients.length).toBeGreaterThan(0);
+    expect(result.draft.instructions.length).toBe(0);
+    expect(result.draft.warnings.some((w) => w.code === 'missing_instructions')).toBe(true);
+  });
+
+  it('uses correct article grammar in warning message', async () => {
+    const result = await shareSheetAdapter.import({
+      url: 'https://instagram.com/p/abc123/',
+      text: `Salmon pasta
+* 2 salmon fillets
+* cream cheese`,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const lowConfWarning = result.draft.warnings.find((w) => w.code === 'low_confidence');
+    expect(lowConfWarning).toBeDefined();
+    // Should not contain "a instagram" or "a Instagram"
+    expect(lowConfWarning?.message).not.toMatch(/\ba [iI]nstagram/);
+  });
 });

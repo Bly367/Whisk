@@ -13,6 +13,7 @@ export function draftFromPastedText(options: {
   titleHint?: string | null;
   sourceUrl?: string | null;
   adapterId: string;
+  sourceName?: string | null;
 }): ImportDraft | null {
   const lines = options.text
     .split(/\r?\n/)
@@ -21,7 +22,35 @@ export function draftFromPastedText(options: {
 
   if (lines.length < 2) return null;
 
-  const title = (options.titleHint?.trim() || lines[0]).trim();
+  // Helper: check if line looks like a section header (ingredients, instructions, etc.)
+  const isHeaderLine = (line: string): boolean => {
+    // Match common headers: ingredients, instructions, directions, method, steps
+    // Also catch near-misses like "ngredients" (missing leading character)
+    return /^(ingredients?|ngredients?|instructions?|directions?|method|steps?)\b/i.test(line);
+  };
+
+  // Helper: check if line looks like an ingredient (starts with bullet, number, quantity pattern)
+  const looksLikeIngredient = (line: string): boolean => {
+    return /^[\*\-•\d]+\s/.test(line) || /^\d+[\/.]\d+/.test(line);
+  };
+
+  // Determine title: never use header lines or ingredient-like lines
+  let title: string;
+  if (options.titleHint?.trim()) {
+    title = options.titleHint.trim();
+  } else {
+    // Find first line that's not a header and doesn't look like an ingredient
+    const firstSuitableLine = lines.find(
+      (line) => !isHeaderLine(line) && !looksLikeIngredient(line),
+    );
+    if (firstSuitableLine) {
+      title = firstSuitableLine;
+    } else {
+      // No suitable line found; use fallback based on source
+      title = options.sourceName ? `Recipe from ${options.sourceName}` : 'Recipe from paste';
+    }
+  }
+
   const body = options.titleHint?.trim() ? lines : lines.slice(1);
 
   // Look for explicit section headers
@@ -56,16 +85,30 @@ export function draftFromPastedText(options: {
       ingredientSection = body.slice(0, heuristicSplit);
       stepSection = body.slice(heuristicSplit);
     } else {
-      // Can't confidently split - treat shorter lines as ingredients, longer as steps
-      const avgLength = body.reduce((sum, line) => sum + line.length, 0) / body.length;
-      ingredientSection = body.filter((line) => line.length <= avgLength * 1.2);
-      stepSection = body.filter((line) => line.length > avgLength * 1.2);
+      // Check if all lines look like ingredients (bullets, quantities, measurements)
+      const allLookLikeIngredients = body.every(
+        (line) =>
+          /^[\d\/]+\s/.test(line) || // "1 cup" or "1/2 tsp"
+          /^[🔸🔹▪️•\-\*]\s/.test(line) || // Emoji or traditional bullets
+          /(cup|tbsp|tsp|oz|lb|gram|kg|ml|liter|pinch|dash|clove|slice)/i.test(line),
+      );
 
-      // If that didn't work well, fallback: first half ingredients, second half steps
-      if (ingredientSection.length === 0 || stepSection.length === 0) {
-        const midpoint = Math.floor(body.length / 2);
-        ingredientSection = body.slice(0, midpoint);
-        stepSection = body.slice(midpoint);
+      if (allLookLikeIngredients) {
+        // All lines are ingredients; don't force a split
+        ingredientSection = body;
+        stepSection = [];
+      } else {
+        // Can't confidently split - treat shorter lines as ingredients, longer as steps
+        const avgLength = body.reduce((sum, line) => sum + line.length, 0) / body.length;
+        ingredientSection = body.filter((line) => line.length <= avgLength * 1.2);
+        stepSection = body.filter((line) => line.length > avgLength * 1.2);
+
+        // If that didn't work well, fallback: first half ingredients, second half steps
+        if (ingredientSection.length === 0 || stepSection.length === 0) {
+          const midpoint = Math.floor(body.length / 2);
+          ingredientSection = body.slice(0, midpoint);
+          stepSection = body.slice(midpoint);
+        }
       }
     }
   }
@@ -106,11 +149,20 @@ export function draftFromPastedText(options: {
     });
   }
 
+  // Determine title confidence based on how we derived it
+  let titleConfidence: 'low' | 'medium' | 'high' = 'medium';
+  if (options.titleHint?.trim()) {
+    titleConfidence = 'high';
+  } else if (title.startsWith('Recipe from ')) {
+    // Fallback title when no suitable line found
+    titleConfidence = 'low';
+  }
+
   return {
     id: createId(),
     sourceKind: 'paste_text',
     sourceUrl: options.sourceUrl ?? null,
-    sourceName: null,
+    sourceName: options.sourceName ?? null,
     imageUri: null,
     title,
     notes: null,
@@ -120,7 +172,7 @@ export function draftFromPastedText(options: {
     ingredients,
     instructions,
     confidence: {
-      title: options.titleHint?.trim() ? 'high' : 'medium',
+      title: titleConfidence,
       ingredients: ingredients.length ? 'medium' : 'unknown',
       instructions: instructions.length ? 'medium' : 'unknown',
     },
