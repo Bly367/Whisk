@@ -28,7 +28,6 @@ async function loadOcrModule(): Promise<{
 
     // Dynamic import prevents top-level static import that crashes Expo Go
     // eslint-disable-next-line import/no-unresolved -- Module may not be installed; graceful degradation
-    // @ts-expect-error -- expo-mlkit-ocr may not be installed; graceful degradation via dynamic import
     const ExpoMlkitOcr = await import('expo-mlkit-ocr');
     if (
       !ExpoMlkitOcr ||
