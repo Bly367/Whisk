@@ -10,7 +10,11 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "app.whisk.mobile"
+      "bundleIdentifier": "app.whisk.mobile",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Whisk needs camera access to capture recipe photos for scanning.",
+        "NSPhotoLibraryUsageDescription": "Whisk needs access to your photos to import recipe images."
+      }
     },
     "android": {
       "adaptiveIcon": {
