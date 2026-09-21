@@ -79,8 +79,8 @@ export const ocrAdapter: ImportAdapter = {
         error: {
           code: 'native_unavailable',
           message:
-            'OCR requires a dev client rebuild with native modules. Running in Expo Go? Build a development client to use OCR, or paste text manually.',
-          fallbacks: ['paste_text', 'manual', 'try_again'],
+            'OCR is not available on this device. This usually means the app needs to be rebuilt with OCR support. Try pasting text manually or using a website link instead.',
+          fallbacks: ['paste_text', 'manual'],
         },
       };
     }
