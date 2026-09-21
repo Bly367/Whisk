@@ -12,6 +12,20 @@ async function loadOcrModule(): Promise<{
   isSupported: () => boolean;
 } | null> {
   try {
+    // In test environment, use synchronous require to work with Jest mocks
+    if (process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID !== undefined) {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const ExpoMlkitOcr = require('expo-mlkit-ocr');
+      if (
+        !ExpoMlkitOcr ||
+        typeof ExpoMlkitOcr.recognizeText !== 'function' ||
+        typeof ExpoMlkitOcr.isSupported !== 'function'
+      ) {
+        return null;
+      }
+      return ExpoMlkitOcr;
+    }
+
     // Dynamic import prevents top-level static import that crashes Expo Go
     // eslint-disable-next-line import/no-unresolved -- Module may not be installed; graceful degradation
     // @ts-expect-error -- expo-mlkit-ocr may not be installed; graceful degradation via dynamic import

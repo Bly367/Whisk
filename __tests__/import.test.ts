@@ -170,7 +170,7 @@ describe('share sheet + OCR', () => {
     });
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.error.code).toBe('needs_input';
+    expect(result.error.code).toBe('needs_input');
   });
 
   it('OCR adapter loads without throwing when native module is missing', async () => {
@@ -180,18 +180,44 @@ describe('share sheet + OCR', () => {
   });
 
   it('OCR returns native_unavailable error when module is missing', async () => {
+    const ocrMock = jest.requireMock('expo-mlkit-ocr');
+    
+    // Temporarily make the module appear unavailable
+    const originalRecognizeText = ocrMock.recognizeText;
+    const originalIsSupported = ocrMock.isSupported;
+    delete ocrMock.recognizeText;
+    delete ocrMock.isSupported;
+    
     const result = await ocrAdapter.import({ imageUri: 'file:///photo.jpg' });
+    
+    // Restore
+    ocrMock.recognizeText = originalRecognizeText;
+    ocrMock.isSupported = originalIsSupported;
+    
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(['stub', 'native_unavailable']).toContain(result.error.code);
+    expect(result.error.code).toBe('native_unavailable');
     expect(result.error.fallbacks).toContain('paste_text');
   });
 
   it('OCR never invents fields from an image URI when module unavailable', async () => {
+    const ocrMock = jest.requireMock('expo-mlkit-ocr');
+    
+    // Temporarily make the module appear unavailable
+    const originalRecognizeText = ocrMock.recognizeText;
+    const originalIsSupported = ocrMock.isSupported;
+    delete ocrMock.recognizeText;
+    delete ocrMock.isSupported;
+    
     const result = await ocrAdapter.import({ imageUri: 'file:///photo.jpg' });
+    
+    // Restore
+    ocrMock.recognizeText = originalRecognizeText;
+    ocrMock.isSupported = originalIsSupported;
+    
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(['stub', 'native_unavailable']).toContain(result.error.code);
+    expect(result.error.code).toBe('native_unavailable');
   });
 
   it('OCR requires an image URI', async () => {
