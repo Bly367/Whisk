@@ -50,7 +50,7 @@ export default function ImportShareScreen() {
     <Screen testID="screen-import-share" showSyncStatus={false}>
       <PlaceholderHero
         title="Share into Whisk"
-        body="Entry point for Share → Whisk from social apps and browsers. Paste what was shared until the OS hand-off is connected."
+        body="Import recipes from Instagram, TikTok, YouTube Shorts, Facebook Reels, or cooking websites. For social posts, paste both the link and the caption text with ingredients and steps. Whisk imports recipe text, not video content."
       />
 
       <View style={styles.field}>
@@ -76,10 +76,11 @@ export default function ImportShareScreen() {
       </View>
 
       <View style={styles.field}>
-        <Text variant="headline">Caption (optional)</Text>
+        <Text variant="headline">Caption (required for social posts)</Text>
         <Text variant="caption" tone="secondary">
-          Social posts often need the caption — Whisk will not invent ingredients from a bare social
-          URL.
+          For Instagram Reels, TikTok videos, or YouTube Shorts: paste the complete post caption
+          here, including all ingredients and cooking steps. Whisk cannot extract recipes from video
+          content — it needs the text you provide.
         </Text>
         <TextInput
           value={caption}

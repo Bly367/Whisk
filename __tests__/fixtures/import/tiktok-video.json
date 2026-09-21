@@ -1,0 +1,12 @@
+{
+  "source": "tiktok",
+  "url": "https://www.tiktok.com/@chef/video/7234567890123456789",
+  "caption": "Garlic Butter Shrimp Pasta 🍤🧄\n\nIngredients:\n- 1 lb large shrimp, peeled\n- 12 oz linguine\n- 4 tbsp butter\n- 6 cloves garlic, minced\n- 1/4 cup white wine\n- 1 lemon, juiced\n- 1/4 cup parsley, chopped\n- Red pepper flakes to taste\n- Salt and pepper\n\nSteps:\n1. Cook pasta according to package directions\n2. Melt butter in large skillet over medium heat\n3. Add garlic, cook until fragrant (30 seconds)\n4. Add shrimp, cook until pink (3-4 mins)\n5. Pour in wine and lemon juice, simmer 2 mins\n6. Toss in cooked pasta and parsley\n7. Season with salt, pepper, red pepper flakes\n8. Serve hot with extra lemon!\n\n#pasta #shrimp #quickdinner #cooking",
+  "expect": {
+    "ok": true,
+    "titleFragment": "Garlic Butter Shrimp Pasta",
+    "minIngredients": 7,
+    "minInstructions": 7,
+    "adapterId": "share-sheet"
+  }
+}

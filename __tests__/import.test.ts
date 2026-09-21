@@ -177,6 +177,20 @@ describe('share sheet + OCR stubs', () => {
     if (result.ok) return;
     expect(result.error.code).toBe('stub');
   });
+
+  it('OCR stub accepts manual text paste alongside imageUri', async () => {
+    const result = await ocrAdapter.import({
+      imageUri: 'file:///photo.jpg',
+      text: 'Simple Salad\n\nIngredients:\n- 2 cups lettuce\n- 1 tomato\n\nSteps:\n1. Wash vegetables\n2. Chop and mix',
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.draft.title).toContain('Salad');
+    expect(result.draft.imageUri).toBe('file:///photo.jpg');
+    expect(result.draft.ingredients.length).toBeGreaterThan(0);
+    expect(result.draft.instructions.length).toBeGreaterThan(0);
+    expect(result.draft.warnings.some((w) => w.code === 'manual_transcription')).toBe(true);
+  });
 });
 
 describe('import commit trust gates', () => {
@@ -247,5 +261,100 @@ describe('url helpers', () => {
     const url = canonicalizeUrl('https://www.Instagram.com/p/abc/?utm_source=share');
     expect(url).toBe('https://instagram.com/p/abc/');
     expect(isSocialSource(detectSource(url))).toBe(true);
+  });
+
+  it('detects Instagram reel URLs', () => {
+    expect(detectSource('https://www.instagram.com/reel/CxYz123abc/')).toBe('instagram');
+    expect(detectSource('https://instagram.com/reel/xyz/')).toBe('instagram');
+  });
+
+  it('detects TikTok video URLs', () => {
+    expect(detectSource('https://www.tiktok.com/@user/video/123')).toBe('tiktok');
+    expect(detectSource('https://vm.tiktok.com/abc123')).toBe('tiktok');
+  });
+
+  it('detects YouTube Shorts URLs', () => {
+    expect(detectSource('https://youtube.com/shorts/AbC123')).toBe('youtube');
+    expect(detectSource('https://www.youtube.com/shorts/xyz')).toBe('youtube');
+    expect(detectSource('https://youtu.be/AbC123')).toBe('youtube');
+  });
+
+  it('detects Facebook reel URLs', () => {
+    expect(detectSource('https://www.facebook.com/reel/123456')).toBe('facebook');
+    expect(detectSource('https://facebook.com/reel/xyz')).toBe('facebook');
+  });
+});
+
+describe('multi-source import fixtures', () => {
+  const fixtures = {
+    'website-allrecipes.json': require('./fixtures/import/website-allrecipes.json'),
+    'website-bbc-good-food.json': require('./fixtures/import/website-bbc-good-food.json'),
+    'instagram-reel.json': require('./fixtures/import/instagram-reel.json'),
+    'tiktok-video.json': require('./fixtures/import/tiktok-video.json'),
+    'youtube-short.json': require('./fixtures/import/youtube-short.json'),
+    'facebook-reel.json': require('./fixtures/import/facebook-reel.json'),
+    'pinterest-pin.json': require('./fixtures/import/pinterest-pin.json'),
+  };
+
+  Object.entries(fixtures).forEach(([filename, fixture]) => {
+    it(`imports ${filename} through appropriate adapter`, async () => {
+      let result;
+      if (fixture.source === 'website') {
+        const adapter = createWebsiteAdapter(async () => fixture.htmlSnippet || '');
+        result = await adapter.import({ url: fixture.url });
+      } else {
+        result = await shareSheetAdapter.import({
+          url: fixture.url,
+          text: fixture.caption,
+          sharedContent: `${fixture.url}\n\n${fixture.caption}`,
+        });
+      }
+
+      expect(result.ok).toBe(fixture.expect.ok);
+
+      if (result.ok && fixture.expect.ok) {
+        if (fixture.expect.titleFragment) {
+          expect(result.draft.title.toLowerCase()).toContain(
+            fixture.expect.titleFragment.toLowerCase(),
+          );
+        }
+        if (fixture.expect.minIngredients !== undefined) {
+          expect(result.draft.ingredients.length).toBeGreaterThanOrEqual(
+            fixture.expect.minIngredients,
+          );
+        }
+        if (fixture.expect.minInstructions !== undefined) {
+          expect(result.draft.instructions.length).toBeGreaterThanOrEqual(
+            fixture.expect.minInstructions,
+          );
+        }
+        if (fixture.expect.adapterId) {
+          expect(result.draft.adapterId).toBe(fixture.expect.adapterId);
+        }
+      }
+    });
+  });
+
+  it('rejects social URLs without caption (honest stub)', async () => {
+    const result = await shareSheetAdapter.import({
+      url: 'https://www.instagram.com/reel/abc123/',
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe('needs_input');
+      expect(result.error.message).toContain('caption');
+    }
+  });
+
+  it('does not invent recipe from video bytes', async () => {
+    const result = await shareSheetAdapter.import({
+      url: 'https://www.tiktok.com/@user/video/123',
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.fallbacks).toEqual(
+        expect.arrayContaining(['paste_text', 'scan', 'manual']),
+      );
+    }
   });
 });

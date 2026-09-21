@@ -99,7 +99,7 @@ export const shareSheetAdapter: ImportAdapter = {
         ok: false,
         error: {
           code: 'needs_input',
-          message: `Shared ${source} links need the post caption or recipe text. Paste it below, scan a screenshot, or create manually — Whisk will not invent ingredients.`,
+          message: `This ${source} link needs the post caption to create a recipe. Paste the full caption text below (with ingredients and steps). Whisk does not download or analyze video content — it needs the text you provide.`,
           fallbacks: ['paste_text', 'scan', 'manual', 'try_again'],
         },
       };
@@ -136,7 +136,7 @@ export function emptyShareSheetPlaceholder(): ImportAdapterResult {
     error: {
       code: 'stub',
       message:
-        'Use Share → Whisk from Instagram, TikTok, or your browser. Until the OS hand-off is connected on device, paste the shared link and caption here.',
+        "Share recipes from Instagram Reels, TikTok, YouTube Shorts, or cooking websites into Whisk. For social posts, you'll need to paste the caption text — Whisk imports recipe text, not video content. Until device sharing is fully connected, paste the link and caption here.",
       fallbacks: DEFAULT_FALLBACKS,
     },
   };

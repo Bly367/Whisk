@@ -1,0 +1,12 @@
+{
+  "source": "youtube",
+  "url": "https://youtube.com/shorts/AbC123XyZ",
+  "caption": "Easy Veggie Stir Fry 🥦🥕\n\nIngredients:\n- 2 cups broccoli florets\n- 1 red bell pepper, sliced\n- 1 cup snap peas\n- 2 carrots, sliced\n- 3 cloves garlic, minced\n- 2 tbsp vegetable oil\n- 3 tbsp soy sauce\n- 1 tbsp sesame oil\n- 1 tsp fresh ginger, grated\n- Cooked rice for serving\n\nSteps:\n1. Heat vegetable oil in wok or large pan over high heat\n2. Add garlic and ginger, stir fry 30 seconds\n3. Add carrots, cook 2 minutes\n4. Add broccoli and bell pepper, cook 3 minutes\n5. Add snap peas, cook 2 more minutes\n6. Pour in soy sauce and sesame oil\n7. Toss everything together for 1 minute\n8. Serve over rice!\n\nHealthy and delicious! Subscribe for more quick recipes 👍",
+  "expect": {
+    "ok": true,
+    "titleFragment": "Veggie Stir Fry",
+    "minIngredients": 8,
+    "minInstructions": 7,
+    "adapterId": "share-sheet"
+  }
+}

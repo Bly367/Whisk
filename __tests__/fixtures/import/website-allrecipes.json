@@ -1,0 +1,12 @@
+{
+  "source": "website",
+  "url": "https://www.allrecipes.com/recipe/12345/best-banana-bread/",
+  "htmlSnippet": "<html><head><script type=\"application/ld+json\">{\"@context\":\"https://schema.org\",\"@type\":\"Recipe\",\"name\":\"Best Banana Bread\",\"description\":\"This banana bread recipe creates the most delicious, moist loaf with loads of banana flavor.\",\"author\":{\"@type\":\"Person\",\"name\":\"Chef John\"},\"image\":[\"https://www.allrecipes.com/thmb/banana-bread.jpg\"],\"prepTime\":\"PT15M\",\"cookTime\":\"PT60M\",\"recipeYield\":\"1 loaf (8 servings)\",\"recipeIngredient\":[\"2 cups all-purpose flour\",\"1 teaspoon baking soda\",\"1/4 teaspoon salt\",\"1/2 cup butter\",\"3/4 cup brown sugar\",\"2 eggs, beaten\",\"2 1/3 cups mashed overripe bananas\"],\"recipeInstructions\":[{\"@type\":\"HowToStep\",\"text\":\"Preheat oven to 350 degrees F (175 degrees C). Lightly grease a 9x5 inch loaf pan.\"},{\"@type\":\"HowToStep\",\"text\":\"In a large bowl, combine flour, baking soda and salt.\"},{\"@type\":\"HowToStep\",\"text\":\"In a separate bowl, cream together butter and brown sugar. Stir in eggs and mashed bananas until well blended.\"},{\"@type\":\"HowToStep\",\"text\":\"Stir banana mixture into flour mixture; stir just to moisten. Pour batter into prepared loaf pan.\"},{\"@type\":\"HowToStep\",\"text\":\"Bake in preheated oven for 60 to 65 minutes, until a toothpick inserted into center of the loaf comes out clean.\"}]}</script></head></html>",
+  "expect": {
+    "ok": true,
+    "titleFragment": "Banana Bread",
+    "minIngredients": 5,
+    "minInstructions": 4,
+    "adapterId": "website-jsonld"
+  }
+}

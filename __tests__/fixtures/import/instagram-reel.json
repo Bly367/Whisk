@@ -1,0 +1,12 @@
+{
+  "source": "instagram",
+  "url": "https://www.instagram.com/reel/CxYz123abc/",
+  "caption": "Weeknight Chicken Tacos 🌮✨\n\nIngredients:\n- 1 lb chicken breast, diced\n- 1 tbsp olive oil\n- 2 tsp taco seasoning\n- 8 small tortillas\n- 1 cup shredded lettuce\n- 1 tomato, diced\n- 1/2 cup shredded cheese\n- 1/4 cup sour cream\n- Fresh cilantro\n- Lime wedges\n\nInstructions:\n1. Heat oil in skillet over medium-high heat\n2. Season chicken with taco seasoning\n3. Cook chicken until golden and cooked through (6-8 mins)\n4. Warm tortillas in dry pan or microwave\n5. Assemble tacos: chicken, lettuce, tomato, cheese\n6. Top with sour cream and cilantro\n7. Squeeze lime over tacos and serve!\n\nPerfect for busy weeknights! 💯\n\n#tacotuesday #quickrecipe #chickentacos #weeknightdinner #easycooking",
+  "expect": {
+    "ok": true,
+    "titleFragment": "Chicken Tacos",
+    "minIngredients": 8,
+    "minInstructions": 6,
+    "adapterId": "share-sheet"
+  }
+}

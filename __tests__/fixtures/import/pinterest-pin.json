@@ -1,0 +1,12 @@
+{
+  "source": "pinterest",
+  "url": "https://www.pinterest.com/pin/987654321098765432/",
+  "caption": "Classic Margarita Recipe 🍹\n\nIngredients:\n- 2 oz tequila (silver/blanco)\n- 1 oz fresh lime juice\n- 1 oz Cointreau or triple sec\n- Ice cubes\n- Salt for rim\n- Lime wedge for garnish\n\nInstructions:\n1. Rub lime wedge around glass rim\n2. Dip rim in salt\n3. Fill cocktail shaker with ice\n4. Add tequila, lime juice, and Cointreau\n5. Shake vigorously for 15 seconds\n6. Strain into prepared glass with ice\n7. Garnish with lime wedge\n\nPin this for your next party! 🎉",
+  "expect": {
+    "ok": true,
+    "titleFragment": "Margarita",
+    "minIngredients": 4,
+    "minInstructions": 5,
+    "adapterId": "share-sheet"
+  }
+}
