@@ -1,11 +1,13 @@
+import { recognizeText, isSupported } from 'expo-mlkit-ocr';
+
 import { draftFromPastedText } from '@/import/parse/pasteText';
 import type { ImportAdapter, ImportAdapterInput, ImportAdapterResult } from '@/import/types';
 
 export const OCR_ADAPTER_ID = 'ocr-photo';
 
 /**
- * OCR / photo import stub.
- * Entry point + fallbacks ship now; real OCR lands when the vision pipeline is ready.
+ * OCR / photo import — thin path using expo-mlkit-ocr.
+ * Recognizes text from images and feeds the existing paste-text parser.
  * Never invents recipe fields from an image URI alone.
  * Allows manual text paste alongside imageUri as a workaround until OCR ships.
  */
@@ -23,50 +25,94 @@ export const ocrAdapter: ImportAdapter = {
       return {
         ok: false,
         error: {
-          code: 'stub',
-          message:
-            'Photo and screenshot OCR is coming next. For now, paste recipe text, use a website link, or create the recipe manually.',
-          fallbacks: ['paste_text', 'manual', 'try_again'],
+          code: 'needs_input',
+          message: 'Choose a photo or screenshot to scan recipe text.',
+          fallbacks: ['try_again', 'paste_text', 'manual'],
         },
       };
     }
 
-    // Image provided with manual text paste — create draft with photo as reference
-    if (input.text?.trim()) {
-      const draft = draftFromPastedText({
-        text: input.text,
-        adapterId: OCR_ADAPTER_ID,
-      });
-      if (draft) {
+    if (!isSupported()) {
+      return {
+        ok: false,
+        error: {
+          code: 'unsupported',
+          message:
+            'OCR is not supported on this device. Paste the recipe text manually or use a website link.',
+          fallbacks: ['paste_text', 'manual'],
+        },
+      };
+    }
+
+    try {
+      const result = await recognizeText(input.imageUri);
+
+      if (!result?.text?.trim()) {
         return {
-          ok: true,
-          draft: {
-            ...draft,
-            sourceKind: 'ocr',
-            imageUri: input.imageUri,
-            warnings: [
-              {
-                code: 'manual_transcription',
-                message:
-                  'Recipe text was typed manually from the photo. OCR will extract text automatically when it ships.',
-              },
-              ...draft.warnings,
-            ],
+          ok: false,
+          error: {
+            code: 'parse_failed',
+            message:
+              'No text found in this image. Make sure the recipe is clearly visible and try again, or paste the text manually.',
+            fallbacks: ['try_again', 'paste_text', 'manual'],
           },
         };
       }
-    }
 
-    // Image provided but no text and OCR not implemented — refuse silent/wrong extraction.
-    return {
-      ok: false,
-      error: {
-        code: 'stub',
-        message:
-          'Whisk saved a reference to your photo but cannot read it yet. Paste the text you see in the photo below to create a draft, or use manual entry so nothing incorrect is stored.',
-        fallbacks: ['paste_text', 'manual', 'try_again'],
-      },
-    };
+      const draft = draftFromPastedText({
+        text: result.text,
+        titleHint: null,
+        sourceUrl: null,
+        adapterId: OCR_ADAPTER_ID,
+      });
+
+      if (!draft) {
+        return {
+          ok: false,
+          error: {
+            code: 'parse_failed',
+            message:
+              'Could not extract a recipe from this image. Check the photo quality and try again, or paste the text manually.',
+            fallbacks: ['try_again', 'paste_text', 'manual'],
+          },
+        };
+      }
+
+      return {
+        ok: true,
+        draft: {
+          ...draft,
+          sourceKind: 'ocr',
+          imageUri: input.imageUri,
+          confidence: {
+            ...draft.confidence,
+            title: 'low',
+            ingredients: 'low',
+            instructions: 'low',
+          },
+          warnings: [
+            {
+              code: 'low_confidence',
+              message:
+                'This draft came from OCR. Double-check all quantities, ingredients, and steps before saving.',
+            },
+            ...draft.warnings.filter((w) => w.code !== 'low_confidence'),
+          ],
+        },
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        error: {
+          code: 'parse_failed',
+          message:
+            error instanceof Error
+              ? `OCR failed: ${error.message}`
+              : 'Could not read text from this image. Try a clearer photo or paste the text manually.',
+          fallbacks: ['try_again', 'paste_text', 'manual'],
+        },
+      };
+    }
   },
 };
 

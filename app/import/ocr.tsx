@@ -1,6 +1,7 @@
+import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { ImportFallbacks } from '@/components/import/ImportFallbacks';
 import { Button } from '@/components/ui/Button';
@@ -12,13 +13,11 @@ import { ocrAdapter, runImport, useImportSessionStore } from '@/import';
 import { useTheme } from '@/theme/ThemeProvider';
 
 /**
- * OCR / photo path stub — entry + honest fallbacks, no invented recipe fields.
- * Allows manual text paste alongside imageUri until OCR ships.
+ * OCR / photo path — pick/take photo → recognize text → preview draft.
  */
 export default function ImportOcrScreen() {
   const { colors } = useTheme();
-  const [imageUri] = useState<string | null>(null); // TODO: wire to image picker when available
-  const [manualText, setManualText] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
   const phase = useImportSessionStore((s) => s.phase);
   const error = useImportSessionStore((s) => s.error);
   const setImporting = useImportSessionStore((s) => s.setImporting);
@@ -26,118 +25,108 @@ export default function ImportOcrScreen() {
   const setFailed = useImportSessionStore((s) => s.setFailed);
   const clear = useImportSessionStore((s) => s.clear);
 
-  const loading = phase === 'importing';
+  const handlePickImage = async (useCamera: boolean) => {
+    setIsProcessing(true);
+    clear();
 
-  const handleImport = async () => {
-    setImporting();
-    const result = await runImport(
-      {
-        imageUri: imageUri || undefined,
-        text: manualText.trim() || undefined,
-      },
-      ocrAdapter.id,
-    );
-    if (result.ok) {
-      setPreview(result.draft);
-      router.push('/import/preview');
-      return;
+    try {
+      const permissionMethod = useCamera
+        ? ImagePicker.requestCameraPermissionsAsync
+        : ImagePicker.requestMediaLibraryPermissionsAsync;
+      const { status } = await permissionMethod();
+
+      if (status !== 'granted') {
+        setFailed({
+          code: 'needs_input',
+          message: `Camera ${useCamera ? 'camera' : 'photo library'} permission is required to scan recipes.`,
+          fallbacks: ['try_again', 'paste_text', 'manual'],
+        });
+        setIsProcessing(false);
+        return;
+      }
+
+      const pickerMethod = useCamera ? ImagePicker.launchCameraAsync : ImagePicker.launchImageLibraryAsync;
+      const result = await pickerMethod({
+        mediaTypes: 'images',
+        quality: 0.8,
+        allowsEditing: false,
+      });
+
+      if (result.canceled) {
+        setIsProcessing(false);
+        return;
+      }
+
+      setImporting();
+      const ocrResult = await ocrAdapter.import({
+        imageUri: result.assets[0].uri,
+      });
+
+      if (ocrResult.ok) {
+        setPreview(ocrResult.draft);
+        router.push('/import/preview');
+      } else {
+        setFailed(ocrResult.error);
+      }
+    } catch (err) {
+      setFailed({
+        code: 'parse_failed',
+        message: err instanceof Error ? err.message : 'Failed to process image.',
+        fallbacks: ['try_again', 'paste_text', 'manual'],
+      });
+    } finally {
+      setIsProcessing(false);
     }
-    setFailed(result.error);
   };
+
+  const loading = phase === 'importing' || isProcessing;
 
   return (
     <Screen testID="screen-import-ocr" showSyncStatus={false}>
       <PlaceholderHero
-        title="Scan a photo"
-        body="Screenshot and cookbook OCR will land here. Until then, you can paste the recipe text you see in a photo to create a draft with the photo as reference. Whisk will never guess a recipe from a photo without a review step."
+        title="Scan a recipe"
+        body="Take a photo or choose one from your library. Whisk will extract the text and let you review before saving."
       />
-
-      <View
-        style={[styles.card, { backgroundColor: colors.sunken, borderColor: colors.border }]}
-        testID="ocr-stub-card"
-      >
-        <Text variant="headline" tone="warning">
-          OCR not ready yet
-        </Text>
-        <Text variant="body" tone="secondary">
-          Photo OCR is coming. For now, you can manually type the recipe text you see in a photo or
-          screenshot.
-        </Text>
-      </View>
-
-      <Button
-        label="Choose photo (coming soon)"
-        variant="secondary"
-        disabled
-        testID="ocr-pick-disabled"
-        accessibilityHint="Photo picker will be available when OCR ships"
-      />
-
-      <View style={styles.field}>
-        <Text variant="headline">Manual text from photo (optional workaround)</Text>
-        <Text variant="caption" tone="secondary">
-          If you have a recipe photo or screenshot, paste the text you see here. The photo will be
-          attached as a reference once the picker is wired.
-        </Text>
-        <TextInput
-          value={manualText}
-          onChangeText={setManualText}
-          placeholder="Paste recipe text from your photo..."
-          placeholderTextColor={colors.textSecondary}
-          multiline
-          style={[
-            styles.input,
-            {
-              backgroundColor: colors.card,
-              borderColor: colors.border,
-              color: colors.textPrimary,
-            },
-          ]}
-          testID="ocr-manual-text-input"
-          accessibilityLabel="Manual text from photo"
-        />
-      </View>
 
       {error && phase === 'failed' ? (
         <View
-          style={[
-            styles.errorCard,
-            { borderColor: colors.warning, backgroundColor: colors.sunken },
-          ]}
-          testID="ocr-error"
+          style={[styles.card, { backgroundColor: colors.sunken, borderColor: colors.warning }]}
+          testID="ocr-error-card"
         >
           <Text variant="headline" tone="warning">
-            OCR stub
+            OCR failed
           </Text>
           <Text variant="body" tone="secondary">
             {error.message}
           </Text>
-          <ImportFallbacks
-            actions={error.fallbacks}
-            onTryAgain={() => {
-              clear();
-              void handleImport();
-            }}
-          />
         </View>
       ) : null}
 
-      {manualText.trim() ? (
+      <ImportFallbacks
+        actions={error?.fallbacks ?? ['paste_text', 'manual']}
+        onTryAgain={() => {
+          clear();
+        }}
+      />
+
+      <View style={styles.buttons}>
         <Button
-          label="Create draft from text"
-          onPress={handleImport}
+          label="Take photo"
+          variant="primary"
+          onPress={() => handlePickImage(true)}
           loading={loading}
-          testID="ocr-submit"
+          testID="ocr-take-photo"
+          accessibilityHint="Open camera to photograph a recipe"
         />
-      ) : (
-        <ImportFallbacks
-          actions={['paste_text', 'manual', 'try_again']}
-          onTryAgain={() => {
-            clear();
-            router.replace('/import/ocr');
-          }}
+        <Button
+          label="Choose from library"
+          variant="secondary"
+          onPress={() => handlePickImage(false)}
+          loading={loading}
+          testID="ocr-pick-photo"
+          accessibilityHint="Select a recipe photo from your library"
         />
-      )}
+      </View>
     </Screen>
   );
 }
@@ -149,22 +138,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.card,
     borderWidth: 1,
   },
-  field: {
-    gap: spacing.sm,
-  },
-  input: {
-    minHeight: 120,
-    borderWidth: 1,
-    borderRadius: radius.control,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    fontSize: 17,
-    textAlignVertical: 'top',
-  },
-  errorCard: {
+  buttons: {
     gap: spacing.md,
-    padding: spacing.lg,
-    borderRadius: radius.card,
-    borderWidth: 1,
   },
 });
