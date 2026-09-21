@@ -79,6 +79,9 @@
           "ios": {
             "deploymentTarget": "16.4",
             "useFrameworks": "static"
+          },
+          "android": {
+            "minSdkVersion": 24
           }
         }
       ],

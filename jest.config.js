@@ -8,6 +8,8 @@ module.exports = {
     '^@react-native-async-storage/async-storage$':
       '@react-native-async-storage/async-storage/jest/async-storage-mock',
     '^expo-secure-store$': '<rootDir>/__mocks__/expo-secure-store.ts',
+    '^whisper\\.rn$': '<rootDir>/__mocks__/whisper.rn.ts',
+    '^expo-video-audio-extractor$': '<rootDir>/__mocks__/expo-video-audio-extractor.ts',
     '\\.(wav|mp3|m4a)$': '<rootDir>/__mocks__/fileMock.js',
   },
   transformIgnorePatterns: [

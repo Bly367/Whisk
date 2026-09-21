@@ -144,29 +144,64 @@ export async function transcribeVideo(
 - **Transcribing**: Show progress bar (extracting 0-30%, transcribing 30-100%)
 - **Transcribed**: Fill caption field with transcript, allow review/edit before import
 
-## Development Mode (\_\_DEV\_\_)
+## Native Dependencies & Installation
 
-In development builds (before native rebuild):
-- `transcribeVideo()` returns a **fixture transcript** (chocolate chip cookies recipe)
-- Audio extraction simulates success with `.m4a` path
-- Model download simulates progress (no actual file)
+### Required Packages
 
-This allows **UI testing and parser validation** without native dependencies.
+Real transcription requires these native modules:
 
-## Native Dependencies
+1. **`whisper.rn`** — On-device Whisper inference (version 0.7.4+)
+2. **`expo-video-audio-extractor`** — Audio extraction from video (version 0.1.0+)
+3. **`expo-file-system`** — File management (included in Expo SDK)
 
-To enable real transcription, app must be rebuilt with:
+### Installation Steps
 
-- **Audio extraction**: `expo-av` or `expo-video-audio-extractor`
-- **Whisper**: `whisper.rn` or equivalent React Native Whisper binding
+These dependencies are already installed in `package.json`. To enable them in your development build:
+
+```bash
+# 1. Dependencies are already in package.json, just install
+npm install
+
+# 2. For iOS: Install CocoaPods dependencies
+cd ios && npx pod-install && cd ..
+
+# 3. Build development client with EAS (REQUIRED)
+# Choose the platform you want to build for:
+
+# iOS development build (requires Apple Developer account)
+npm run eas:dev:ios:device
+
+# OR Android development build
+npm run eas:dev:android
+
+# 4. Install the development build on your device when ready
+# Follow the QR code or download link from EAS Build
+```
+
+**Important:** These native modules **do NOT work in Expo Go**. You must use a development build or production build.
+
+### EAS Build Profiles
+
+The app already has EAS build profiles configured in `eas.json`. The relevant profile for development builds is:
+
+- **`development-device`** (iOS) — Builds a development client for physical devices
+- **`development`** (Android) — Builds a development client for Android devices
 
 ### First-Time Setup (After Rebuild)
 
 On first video transcribe:
-1. Whisper model downloads (~40MB for tiny.en)
+1. Whisper model downloads (~40MB for `ggml-tiny.en.bin`, ~140MB for `ggml-base.en.bin`)
 2. Progress shown to user ("Downloading speech model...")
-3. Model cached in app documents
-4. Subsequent transcriptions are instant (offline)
+3. Model cached in app documents directory (`FileSystem.documentDirectory`)
+4. Subsequent transcriptions are instant (offline, no re-download)
+
+### Model Files
+
+Models are downloaded from HuggingFace on first use:
+- **tiny.en** (default): `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin`
+- **base.en**: `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin`
+
+The app defaults to `tiny.en` for faster transcription and smaller download size.
 
 ## Privacy & Security
 
