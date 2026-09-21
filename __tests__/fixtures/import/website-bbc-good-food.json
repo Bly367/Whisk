@@ -1,0 +1,12 @@
+{
+  "source": "website",
+  "url": "https://www.bbcgoodfood.com/recipes/simple-tomato-soup",
+  "htmlSnippet": "<html><head><script type=\"application/ld+json\">{\"@context\":\"https://schema.org\",\"@type\":\"Recipe\",\"name\":\"Simple Tomato Soup\",\"description\":\"A comforting classic soup that's easy to make and perfect for lunch.\",\"author\":{\"@type\":\"Organization\",\"name\":\"BBC Good Food\"},\"image\":[\"https://images.bbci.co.uk/food/recipes/tomato_soup.jpg\"],\"prepTime\":\"PT10M\",\"cookTime\":\"PT40M\",\"recipeYield\":\"4 servings\",\"recipeIngredient\":[\"2 tbsp olive oil\",\"2 onions, roughly chopped\",\"2 carrots, chopped\",\"1kg ripe tomatoes, halved\",\"3 garlic cloves, crushed\",\"1 tbsp tomato purée\",\"1 tsp sugar\",\"1 litre vegetable stock\",\"Small bunch basil\"],\"recipeInstructions\":[{\"@type\":\"HowToStep\",\"text\":\"Heat oil in a large pan. Add onions and carrots, cook for 10 mins until soft.\"},{\"@type\":\"HowToStep\",\"text\":\"Add tomatoes, garlic, tomato purée and sugar. Cook for 5 mins.\"},{\"@type\":\"HowToStep\",\"text\":\"Pour in stock, bring to boil then simmer for 20 mins.\"},{\"@type\":\"HowToStep\",\"text\":\"Blend until smooth with a hand blender.\"},{\"@type\":\"HowToStep\",\"text\":\"Season to taste and stir through basil before serving.\"}]}</script></head></html>",
+  "expect": {
+    "ok": true,
+    "titleFragment": "Tomato Soup",
+    "minIngredients": 7,
+    "minInstructions": 4,
+    "adapterId": "website-jsonld"
+  }
+}

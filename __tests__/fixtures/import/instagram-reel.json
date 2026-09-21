@@ -1,0 +1,12 @@
+{
+  "source": "instagram",
+  "url": "https://www.instagram.com/reel/CxYz123abc/",
+  "caption": "🍝 Quick Pasta Carbonara Recipe!\n\nIngredients:\n- 400g spaghetti\n- 200g pancetta or bacon, diced\n- 4 large eggs\n- 100g Parmesan cheese, grated\n- Black pepper to taste\n- Salt for pasta water\n\nInstructions:\n1. Cook spaghetti in salted boiling water according to package directions\n2. While pasta cooks, fry pancetta until crispy\n3. Beat eggs with Parmesan and lots of black pepper\n4. Drain pasta (save 1 cup pasta water)\n5. Toss hot pasta with pancetta, remove from heat\n6. Quickly stir in egg mixture, adding pasta water to create creamy sauce\n7. Serve immediately with extra Parmesan!\n\n#pasta #carbonara #quickrecipe #cooking",
+  "expect": {
+    "ok": true,
+    "titleFragment": "Pasta Carbonara",
+    "minIngredients": 5,
+    "minInstructions": 5,
+    "adapterId": "share-sheet"
+  }
+}

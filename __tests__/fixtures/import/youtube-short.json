@@ -1,0 +1,12 @@
+{
+  "source": "youtube",
+  "url": "https://youtube.com/shorts/AbC123XyZ",
+  "caption": "Best Guacamole Recipe 🥑\n\nIngredients:\n- 3 ripe avocados\n- 1 lime, juiced\n- 1/2 tsp salt\n- 1/2 cup diced onion\n- 3 tbsp cilantro, chopped\n- 2 roma tomatoes, diced\n- 1 tsp minced garlic\n- Pinch of cayenne pepper\n\nSteps:\n1. Mash avocados in a bowl\n2. Add lime juice and salt, mix well\n3. Fold in onion, cilantro, tomatoes\n4. Add garlic and cayenne\n5. Taste and adjust seasoning\n6. Serve with tortilla chips!\n\nSubscribe for more quick recipes!",
+  "expect": {
+    "ok": true,
+    "titleFragment": "Guacamole",
+    "minIngredients": 6,
+    "minInstructions": 5,
+    "adapterId": "share-sheet"
+  }
+}

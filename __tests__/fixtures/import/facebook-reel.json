@@ -1,0 +1,12 @@
+{
+  "source": "facebook",
+  "url": "https://www.facebook.com/reel/123456789012345",
+  "caption": "Mom's Famous Chicken Soup 🍲\n\nIngredients:\n- 1 whole chicken (3-4 lbs)\n- 8 cups water\n- 3 carrots, sliced\n- 3 celery stalks, chopped\n- 1 onion, diced\n- 4 cloves garlic, minced\n- 2 bay leaves\n- Salt and pepper to taste\n- Fresh parsley\n- 2 cups egg noodles\n\nDirections:\n1. Place chicken in large pot with water\n2. Bring to boil, then simmer 1 hour\n3. Remove chicken, shred meat\n4. Add vegetables to broth, cook 15 minutes\n5. Return shredded chicken to pot\n6. Add noodles, cook 8-10 minutes\n7. Season with salt, pepper, parsley\n8. Serve hot and enjoy!\n\nShare if you love homemade soup! 💙",
+  "expect": {
+    "ok": true,
+    "titleFragment": "Chicken Soup",
+    "minIngredients": 8,
+    "minInstructions": 7,
+    "adapterId": "share-sheet"
+  }
+}

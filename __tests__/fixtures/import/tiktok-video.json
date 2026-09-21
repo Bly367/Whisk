@@ -1,0 +1,12 @@
+{
+  "source": "tiktok",
+  "url": "https://www.tiktok.com/@foodchannel/video/7234567890123456789",
+  "caption": "Easy Chocolate Chip Cookies 🍪\n\nWhat you need:\n- 2 1/4 cups flour\n- 1 tsp baking soda\n- 1 tsp salt\n- 1 cup butter softened\n- 3/4 cup sugar\n- 3/4 cup brown sugar\n- 2 eggs\n- 2 tsp vanilla\n- 2 cups chocolate chips\n\nSteps:\n1. Mix flour, baking soda, salt\n2. Cream butter and sugars\n3. Add eggs and vanilla\n4. Combine wet and dry ingredients\n5. Fold in chocolate chips\n6. Drop spoonfuls on baking sheet\n7. Bake 375°F for 9-11 minutes\n\nPerfect cookies every time! #baking #cookies #recipe",
+  "expect": {
+    "ok": true,
+    "titleFragment": "Chocolate Chip Cookies",
+    "minIngredients": 7,
+    "minInstructions": 6,
+    "adapterId": "share-sheet"
+  }
+}

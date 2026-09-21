@@ -19,6 +19,7 @@ export type ImportWarningCode =
   | 'low_confidence'
   | 'unsupported_source'
   | 'private_or_unavailable'
+  | 'manual_transcription'
   | 'stub';
 
 export type ImportWarning = {
