@@ -3,6 +3,10 @@
  * Uses tiny.en or base.en model for fast, offline transcription.
  */
 
+import { initWhisper } from 'whisper.rn';
+import type { WhisperContext } from 'whisper.rn';
+import * as FileSystem from 'expo-file-system/legacy';
+
 export type WhisperTranscriptResult = {
   text: string;
   segments?: {
@@ -25,6 +29,96 @@ export type WhisperError = {
   originalError?: unknown;
 };
 
+// Model hosting URLs (HuggingFace whisper.cpp GGML models)
+const MODEL_HOST = 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main';
+const MODEL_FILES = {
+  tiny: 'ggml-tiny.en.bin',
+  base: 'ggml-base.en.bin',
+} as const;
+
+// Cached Whisper context (singleton per model size)
+let cachedContext: WhisperContext | null = null;
+let cachedModelSize: 'tiny' | 'base' | null = null;
+
+/**
+ * Get model file path in document directory.
+ */
+function getModelPath(modelSize: 'tiny' | 'base'): string {
+  return `${FileSystem.documentDirectory}${MODEL_FILES[modelSize]}`;
+}
+
+/**
+ * Ensure Whisper model is downloaded and ready to use.
+ * Downloads on first call; subsequent calls return immediately if cached.
+ */
+async function ensureModelDownloaded(
+  modelSize: 'tiny' | 'base',
+  onProgress?: (progress: number) => void,
+): Promise<string> {
+  const modelPath = getModelPath(modelSize);
+  const modelUrl = `${MODEL_HOST}/${MODEL_FILES[modelSize]}`;
+
+  // Check if model already exists
+  const fileInfo = await FileSystem.getInfoAsync(modelPath);
+  if (fileInfo.exists) {
+    onProgress?.(1.0);
+    return modelPath;
+  }
+
+  // Download model with progress tracking
+  const downloadResumable = FileSystem.createDownloadResumable(
+    modelUrl,
+    modelPath,
+    {},
+    (downloadProgress) => {
+      const progress = downloadProgress.totalBytesWritten / downloadProgress.totalBytesExpectedToWrite;
+      onProgress?.(progress);
+    },
+  );
+
+  const result = await downloadResumable.downloadAsync();
+  if (!result) {
+    throw new Error('Model download failed');
+  }
+
+  return result.uri;
+}
+
+/**
+ * Get or create Whisper context.
+ * Reuses cached context if same model size.
+ */
+async function getWhisperContext(
+  modelSize: 'tiny' | 'base',
+  onProgress?: (progress: number) => void,
+): Promise<WhisperContext> {
+  // Return cached context if same model
+  if (cachedContext && cachedModelSize === modelSize) {
+    return cachedContext;
+  }
+
+  // Release old context if switching models
+  if (cachedContext) {
+    await cachedContext.release();
+    cachedContext = null;
+    cachedModelSize = null;
+  }
+
+  // Download model if needed
+  const modelPath = await ensureModelDownloaded(modelSize, onProgress);
+
+  // Initialize Whisper context
+  const context = await initWhisper({
+    filePath: modelPath,
+  });
+
+  // Cache for reuse
+  cachedContext = context;
+  cachedModelSize = modelSize;
+
+  return context;
+}
+
 /**
  * Transcribe audio file using on-device Whisper model.
  * Downloads model on first use (lazy initialization with progress callback).
@@ -43,62 +137,57 @@ export async function transcribeAudio(
 ): Promise<
   { ok: true; result: WhisperTranscriptResult } | { ok: false; error: WhisperError }
 > {
-  // TODO: Implement with whisper.rn native module
-  // Model: tiny.en or base.en (offline, ~40MB download on first use)
-  
-  if (__DEV__) {
-    // In development, return a fixture transcript for testing
-    // This simulates a recipe video caption transcription
-    const fixtureTranscript = `
-    Hey everyone! Today I'm making my famous chocolate chip cookies.
-    
-    You'll need:
-    - 2 cups all-purpose flour
-    - 1 teaspoon baking soda
-    - 1/2 teaspoon salt
-    - 1 cup butter softened
-    - 3/4 cup granulated sugar
-    - 3/4 cup brown sugar
-    - 2 eggs
-    - 2 teaspoons vanilla extract
-    - 2 cups chocolate chips
-    
-    First, preheat your oven to 375 degrees.
-    Mix the flour, baking soda, and salt in a bowl.
-    In another bowl, cream together the butter and both sugars until fluffy.
-    Beat in the eggs one at a time, then add vanilla.
-    Gradually stir in the flour mixture.
-    Fold in the chocolate chips.
-    Drop rounded tablespoons of dough onto baking sheets.
-    Bake for 9 to 11 minutes until golden brown.
-    Let them cool on the baking sheet for 2 minutes before transferring to a wire rack.
-    Enjoy!
-    `.trim();
+  const modelSize = options?.modelSize || 'tiny';
+  const startTime = Date.now();
 
-    // Simulate processing time
-    await new Promise((resolve) => setTimeout(resolve, 500));
+  try {
+    // Get or initialize Whisper context (may download model on first use)
+    const context = await getWhisperContext(modelSize, (downloadProgress) => {
+      // Map download progress to 0-50% of total progress
+      options?.onProgress?.(downloadProgress * 0.5);
+    });
 
-    if (options?.onProgress) {
-      options.onProgress(1.0);
-    }
+    // Transcribe audio
+    const { promise } = context.transcribe(audioPath, {
+      language: options?.language === 'auto' ? undefined : 'en',
+    });
+
+    const { result } = await promise;
+
+    // Map transcription completion to 50-100% progress
+    options?.onProgress?.(1.0);
+
+    const durationMs = Date.now() - startTime;
 
     return {
       ok: true,
       result: {
-        text: fixtureTranscript,
+        text: result,
         language: 'en',
-        durationMs: 500,
+        durationMs,
+      },
+    };
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('Native module not linked')) {
+      return {
+        ok: false,
+        error: {
+          code: 'model_not_downloaded',
+          message: 'Whisper transcription requires native module. Rebuild app with EAS to enable.',
+          originalError: error,
+        },
+      };
+    }
+
+    return {
+      ok: false,
+      error: {
+        code: 'transcription_failed',
+        message: error instanceof Error ? error.message : 'Transcription failed',
+        originalError: error,
       },
     };
   }
-
-  return {
-    ok: false,
-    error: {
-      code: 'model_not_downloaded',
-      message: 'Whisper transcription requires native module. Rebuild app with EAS to enable.',
-    },
-  };
 }
 
 /**
@@ -108,11 +197,18 @@ export async function transcribeAudio(
 export async function checkWhisperModelStatus(
   modelSize: 'tiny' | 'base' = 'tiny',
 ): Promise<{ ready: boolean; progress: number | null }> {
-  // TODO: Implement model status check with whisper.rn
-  if (__DEV__) {
-    return { ready: true, progress: 1.0 };
+  try {
+    const modelPath = getModelPath(modelSize);
+    const fileInfo = await FileSystem.getInfoAsync(modelPath);
+    
+    if (fileInfo.exists) {
+      return { ready: true, progress: 1.0 };
+    }
+    
+    return { ready: false, progress: null };
+  } catch {
+    return { ready: false, progress: null };
   }
-  return { ready: false, progress: null };
 }
 
 /**
@@ -123,21 +219,17 @@ export async function downloadWhisperModel(
   modelSize: 'tiny' | 'base' = 'tiny',
   onProgress?: (progress: number) => void,
 ): Promise<{ ok: true } | { ok: false; error: WhisperError }> {
-  // TODO: Implement model download with whisper.rn
-  if (__DEV__) {
-    // Simulate download progress
-    for (let i = 0; i <= 10; i++) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      if (onProgress) onProgress(i / 10);
-    }
+  try {
+    await ensureModelDownloaded(modelSize, onProgress);
     return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      error: {
+        code: 'model_not_downloaded',
+        message: error instanceof Error ? error.message : 'Model download failed',
+        originalError: error,
+      },
+    };
   }
-  
-  return {
-    ok: false,
-    error: {
-      code: 'model_not_downloaded',
-      message: 'Whisper model download requires native module. Rebuild app with EAS to enable.',
-    },
-  };
 }
