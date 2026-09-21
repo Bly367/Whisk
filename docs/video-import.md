@@ -153,6 +153,7 @@ Real transcription requires these native modules:
 1. **`whisper.rn`** — On-device Whisper inference (version 0.7.4+)
 2. **`expo-video-audio-extractor`** — Audio extraction from video (version 0.1.0+)
 3. **`expo-file-system`** — File management (included in Expo SDK)
+4. **`buffer`** — Node.js Buffer polyfill for Metro bundling (required by `safe-buffer` dependency)
 
 ### Installation Steps
 
@@ -179,6 +180,8 @@ npm run eas:dev:android
 ```
 
 **Important:** These native modules **do NOT work in Expo Go**. You must use a development build or production build.
+
+**Metro Bundling:** The `whisper.rn` package depends on `safe-buffer`, which requires the Node.js `buffer` polyfill for Metro to resolve properly. The app includes a global `Buffer` polyfill in `app/_layout.tsx` to ensure Metro can bundle the app for device/dev-client builds.
 
 ### EAS Build Profiles
 
