@@ -1,6 +1,6 @@
 import { useLocalSearchParams, router, Stack } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AccessibilityInfo, Animated, Pressable, StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, Animated, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/Button';
@@ -235,48 +235,54 @@ export default function CookModeScreen() {
         </View>
       </View>
 
-      <Animated.View
-        style={[styles.stepBody, { opacity: stepOpacity }]}
-        accessibilityLiveRegion="polite"
-        testID="cook-step-body"
+      <ScrollView
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
       >
-        {total === 0 ? (
-          <Text variant="title2" tone="secondary">
-            This recipe has no steps yet. Add directions from the recipe editor.
-          </Text>
-        ) : (
-          <>
+        <Animated.View
+          style={[styles.stepBody, { opacity: stepOpacity }]}
+          accessibilityLiveRegion="polite"
+          testID="cook-step-body"
+        >
+          {total === 0 ? (
+            <Text variant="title2" tone="secondary">
+              This recipe has no steps yet. Add directions from the recipe editor.
+            </Text>
+          ) : (
             <Text
               variant="title1"
+              maxFontSizeMultiplier={1.5}
               testID="cook-step-text"
               accessibilityLabel={`${progressLabel}. ${current?.text ?? ''}`}
             >
               {current?.text}
             </Text>
-            {recipe.ingredients.length > 0 ? (
-              <View
-                style={[
-                  styles.ingredients,
-                  { backgroundColor: colors.sunken, borderColor: colors.border },
-                ]}
-              >
-                <Text variant="caption" tone="secondary">
-                  Ingredients nearby
-                </Text>
-                <Text variant="callout">
-                  {recipe.ingredients
-                    .slice(0, 6)
-                    .map((i) => [i.quantity, i.unit, i.name].filter(Boolean).join(' '))
-                    .join(' · ')}
-                  {recipe.ingredients.length > 6 ? '…' : ''}
-                </Text>
-              </View>
-            ) : null}
-          </>
-        )}
-      </Animated.View>
+          )}
+        </Animated.View>
 
-      {recipeId ? <CookTimersPanel recipeId={recipeId} /> : null}
+        {total > 0 && recipe.ingredients.length > 0 ? (
+          <View
+            style={[
+              styles.ingredients,
+              { backgroundColor: colors.sunken, borderColor: colors.border },
+            ]}
+          >
+            <Text variant="caption" tone="secondary">
+              Ingredients nearby
+            </Text>
+            <Text variant="callout" maxFontSizeMultiplier={1.3}>
+              {recipe.ingredients
+                .slice(0, 6)
+                .map((i) => [i.quantity, i.unit, i.name].filter(Boolean).join(' '))
+                .join(' · ')}
+              {recipe.ingredients.length > 6 ? '…' : ''}
+            </Text>
+          </View>
+        ) : null}
+
+        {recipeId ? <CookTimersPanel recipeId={recipeId} /> : null}
+      </ScrollView>
 
       <View style={styles.controls} testID="cook-hands-free-controls">
         <Pressable
@@ -297,7 +303,7 @@ export default function CookModeScreen() {
             })
           }
         >
-          <Text variant="headline">Back</Text>
+          <Text variant="headline" maxFontSizeMultiplier={1.3}>Back</Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
@@ -315,7 +321,7 @@ export default function CookModeScreen() {
             })
           }
         >
-          <Text variant="headline" style={{ color: colors.textOnYolk }}>
+          <Text variant="headline" maxFontSizeMultiplier={1.3} style={{ color: colors.textOnYolk }}>
             {isLast || total === 0 ? 'Finish' : 'Next'}
           </Text>
         </Pressable>
@@ -349,11 +355,16 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: radius.pill,
   },
-  stepBody: {
+  scrollContainer: {
     flex: 1,
-    gap: spacing.xl,
-    justifyContent: 'center',
-    minHeight: 120,
+  },
+  scrollContent: {
+    gap: spacing.lg,
+    paddingBottom: spacing.md,
+  },
+  stepBody: {
+    gap: spacing.md,
+    minHeight: 100,
   },
   ingredients: {
     gap: spacing.xs,

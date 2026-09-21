@@ -9,6 +9,7 @@ import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { radius, spacing } from '@/constants/tokens';
 import { runImport, SHARE_SHEET_ADAPTER_ID, useImportSessionStore } from '@/import';
+import { consumePendingSharePayload } from '@/import/pendingSharePayload';
 import { useTheme } from '@/theme/ThemeProvider';
 
 /**
@@ -32,15 +33,29 @@ export default function ImportShareScreen() {
 
   const loading = phase === 'importing';
 
-  // Pre-fill fields from OS share intent params (only once on mount)
+  // Pre-fill fields from OS share intent (store first, then query params as fallback)
   useEffect(() => {
     if (!initializedFromParams.current) {
-      if (params.url) {
-        setShared(params.url);
+      // First try to consume pending payload from in-memory store
+      const pending = consumePendingSharePayload();
+      
+      if (pending) {
+        if (pending.url) {
+          setShared(pending.url);
+        }
+        if (pending.caption) {
+          setCaption(pending.caption);
+        }
+      } else {
+        // Fallback to query params for manual paste or legacy navigation
+        if (params.url) {
+          setShared(params.url);
+        }
+        if (params.caption) {
+          setCaption(params.caption);
+        }
       }
-      if (params.caption) {
-        setCaption(params.caption);
-      }
+      
       initializedFromParams.current = true;
     }
   }, [params.url, params.caption]);

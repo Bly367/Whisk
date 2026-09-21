@@ -11,20 +11,22 @@ This feature allows users to tap "Share" in other apps (Instagram, TikTok, YouTu
 ### Architecture
 
 1. **expo-share-intent** (v8.0+ for Expo SDK 57) — Native module that receives share intents from iOS and Android
-2. **Share intent parser** (`import/shareIntent.ts`) — Parses incoming share data (URL + caption extraction)
-3. **Share intent handler** (`import/shareIntentHandler.ts`) — React hook that listens for shares and navigates to import screen
-4. **Import/share screen** (`app/import/share.tsx`) — UI that receives shared data via URL params or manual paste
+2. **Share intent parser** (`import/shareIntent.ts`) — Parses incoming share data (URL + caption extraction, preserves newlines)
+3. **Pending payload store** (`import/pendingSharePayload.ts`) — In-memory store for passing share data without query param truncation
+4. **Share intent handler** (`import/shareIntentHandler.ts`) — React hook that listens for shares and navigates to import screen
+5. **Import/share screen** (`app/import/share.tsx`) — UI that receives shared data from store (or query params as fallback) or manual paste
 
 ### Files Changed
 
 - `app.json` — Added expo-share-intent plugin with iOS/Android configuration
 - `package.json` — Added expo-share-intent dependency
 - `app/_layout.tsx` — Added share intent handler to root layout
-- `app/import/share.tsx` — Updated to handle URL params from OS share
-- `import/shareIntent.ts` — Share intent parsing logic
-- `import/shareIntentHandler.ts` — React hook for handling incoming shares
+- `app/import/share.tsx` — Updated to consume pending payload from store (query params as fallback)
+- `import/shareIntent.ts` — Share intent parsing logic (preserves newlines in captions)
+- `import/shareIntentHandler.ts` — React hook for handling incoming shares (stores payload, navigates without query params)
+- `import/pendingSharePayload.ts` — In-memory store for passing share data without query param truncation
 - `import/index.ts` — Exported share intent utilities
-- `__tests__/shareIntent.test.ts` — Unit tests for share parsing
+- `__tests__/shareIntent.test.ts` — Unit tests for share parsing (multiline caption preservation)
 
 ### Configuration
 
@@ -49,11 +51,12 @@ This feature allows users to tap "Share" in other apps (Instagram, TikTok, YouTu
 1. User taps "Share" in Instagram/TikTok/YouTube/browser
 2. User selects "Whisk" from share sheet
 3. `expo-share-intent` receives the share data (URL, text)
-4. `useShareIntentHandler` hook parses the data and extracts URL + caption
-5. App navigates to `/import/share?url=...&caption=...`
-6. Import screen pre-fills fields with shared data
-7. User taps "Continue" to proceed with existing import flow
-8. Share adapter routes to website adapter (non-social) or requires caption (social)
+4. `useShareIntentHandler` hook parses the data and extracts URL + caption (preserving newlines)
+5. Parsed payload is stored in `pendingSharePayload` (prevents long caption truncation in query params)
+6. App navigates to `/import/share` (no query params)
+7. Import screen consumes pending payload on mount and pre-fills fields
+8. User taps "Continue" to proceed with existing import flow
+9. Share adapter routes to website adapter (non-social) or requires caption (social)
 
 ## Testing
 
@@ -144,7 +147,8 @@ npx expo run:android --device
 
 - **No video bytes:** Share intents receive URLs and text only, not video file data. This is by design — URLs + captions are sufficient for import.
 - **Expo Go unsupported:** Share extensions require native code. Use dev client builds.
-- **Social URL-only shares:** Instagram/TikTok URLs without captions will prompt user to paste caption (per existing share adapter behavior — Whisk does not invent recipes from URL-only social shares).
+- **Social URL-only shares:** Instagram/TikTok often only provide URLs without captions (OS limitation). URLs without captions will prompt user to paste caption (per existing share adapter behavior — Whisk does not invent recipes from URL-only social shares).
+- **Caption preservation:** When text IS present, multiline captions (with ingredients/steps on separate lines) are fully preserved via in-memory store, not truncated by query param limits.
 
 ## Library Selection
 
