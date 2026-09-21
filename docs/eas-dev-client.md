@@ -99,6 +99,32 @@ eas build --profile production --platform android
 - **Purpose**: App Store / Play Store submission
 - **Distribution**: Store builds
 
+## Simulator vs Device Builds (iOS)
+
+For iOS development, this project provides two profiles:
+
+### Simulator Profile (`development`)
+
+```bash
+npm run eas:dev:ios      # Builds for iOS Simulator
+```
+
+- **Best for**: Day-to-day development and testing
+- **Faster**: No provisioning/signing overhead
+- **Limitations**: Some native features behave differently on simulator
+
+### Device Profile (`development-device`)
+
+```bash
+npm run eas:dev:ios:device      # Builds for physical iPhone/iPad
+```
+
+- **Best for**: Testing real device behavior, especially IAP
+- **IAP Testing**: StoreKit sandbox purchases are **more reliable on physical devices**
+- **Requires**: Apple Developer account and device provisioning (EAS guides you through this)
+
+**Recommendation**: Use the simulator profile for daily development. When testing in-app purchases (PR #22), use the device profile on a physical iPhone to avoid StoreKit sandbox quirks that can occur on simulator.
+
 ## First-Time Build Workflow
 
 ### iOS Development Client
