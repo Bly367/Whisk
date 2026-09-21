@@ -93,8 +93,19 @@ export const shareSheetAdapter: ImportAdapter = {
             },
           };
         }
+
+        // Caption was provided but couldn't be parsed
+        return {
+          ok: false,
+          error: {
+            code: 'parse_failed',
+            message: `Could not find ingredients or steps in the ${source} caption. Social captions need clear recipe details with ingredients and cooking steps. Try editing the caption to make the recipe clearer, or use manual entry.`,
+            fallbacks: ['paste_text', 'manual', 'try_again'],
+          },
+        };
       }
 
+      // No caption provided at all
       return {
         ok: false,
         error: {

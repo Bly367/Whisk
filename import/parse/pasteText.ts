@@ -23,20 +23,65 @@ export function draftFromPastedText(options: {
 
   const title = (options.titleHint?.trim() || lines[0]).trim();
   const body = options.titleHint?.trim() ? lines : lines.slice(1);
+
+  // Look for explicit section headers
   const splitAt = body.findIndex((line) => /^(directions|instructions|method|steps)\b/i.test(line));
-  const ingredientSection = splitAt >= 0 ? body.slice(0, splitAt) : body;
-  const stepSection = splitAt >= 0 ? body.slice(splitAt + 1) : [];
+
+  let ingredientSection: string[];
+  let stepSection: string[];
+
+  if (splitAt >= 0) {
+    // Explicit sections found
+    ingredientSection = body.slice(0, splitAt);
+    stepSection = body.slice(splitAt + 1);
+  } else {
+    // No explicit sections - use heuristics to separate ingredients from steps
+    // Ingredient-like: starts with quantity/number, has measurements, or has bullet/emoji
+    // Step-like: imperative verbs, longer sentences, numbered steps
+    const heuristicSplit = body.findIndex((line, idx) => {
+      if (idx === 0) return false; // Don't split on first line
+      const isStepLike =
+        /^\d+\.\s/.test(line) || // "1. Mix flour"
+        /^(mix|add|cook|bake|heat|stir|combine|pour|bring|place|season|serve|fold|whisk|chop|slice|dice|preheat|blend|simmer|boil)/i.test(
+          line,
+        ); // Imperative verbs
+      const isIngredientLike =
+        /^[\d\/]+\s/.test(line) || // "1 cup" or "1/2 tsp"
+        /^[🔸🔹▪️•\-\*]\s/.test(line) || // Emoji or traditional bullets
+        /(cup|tbsp|tsp|oz|lb|gram|kg|ml|liter|pinch|dash|clove|slice)/i.test(line);
+      return isStepLike && !isIngredientLike;
+    });
+
+    if (heuristicSplit >= 0) {
+      ingredientSection = body.slice(0, heuristicSplit);
+      stepSection = body.slice(heuristicSplit);
+    } else {
+      // Can't confidently split - treat shorter lines as ingredients, longer as steps
+      const avgLength = body.reduce((sum, line) => sum + line.length, 0) / body.length;
+      ingredientSection = body.filter((line) => line.length <= avgLength * 1.2);
+      stepSection = body.filter((line) => line.length > avgLength * 1.2);
+
+      // If that didn't work well, fallback: first half ingredients, second half steps
+      if (ingredientSection.length === 0 || stepSection.length === 0) {
+        const midpoint = Math.floor(body.length / 2);
+        ingredientSection = body.slice(0, midpoint);
+        stepSection = body.slice(midpoint);
+      }
+    }
+  }
 
   const ingredients: IngredientInput[] = ingredientSection
     .filter((line) => !/^(ingredients)\b/i.test(line))
     .map((line, index) => parseIngredientLine(line, index))
     .filter((ing) => ing.name.trim().length > 0);
 
-  const instructions: CookStep[] = stepSection.map((step, index) => ({
-    id: createId(),
-    text: step,
-    position: index,
-  }));
+  const instructions: CookStep[] = stepSection
+    .filter((line) => !/^(directions|instructions|method|steps)\b/i.test(line))
+    .map((step, index) => ({
+      id: createId(),
+      text: step,
+      position: index,
+    }));
 
   if (!ingredients.length && !instructions.length) return null;
 
