@@ -25,7 +25,7 @@ type Props = {
 
 /**
  * Multi-timer strip for cook mode. Completion uses visual banner + live region +
- * one-shot audible/haptic (expo-av ding + Vibration) on rising completionSignaled.
+ * one-shot audible/haptic (expo-audio ding + Vibration) on rising completionSignaled.
  * Pause/resume helpers exist on the session store; UI keeps add/dismiss for large-target hands-free.
  */
 export function CookTimersPanel({ recipeId }: Props) {

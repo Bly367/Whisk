@@ -24,36 +24,36 @@ export async function fireCookTimerCompletionCues(
   }
 }
 
-type LoadedSound = {
-  replayAsync: () => Promise<unknown>;
-  unloadAsync: () => Promise<unknown>;
+type AudioPlayer = {
+  play: () => void;
+  seekTo: (seconds: number) => void;
+  release: () => void;
 };
 
-let soundModule: LoadedSound | null = null;
+let audioPlayer: AudioPlayer | null = null;
 
-/** Default audible: short bundled ding via expo-av (fails soft on unsupported platforms). */
+/** Default audible: short bundled ding via expo-audio (fails soft on unsupported platforms). */
 export async function playDefaultCookTimerAudible(): Promise<void> {
   try {
-    // Lazy import keeps Jest unit tests free of ExponentAV native module.
-    const { Audio } = await import('expo-av');
-    await Audio.setAudioModeAsync({
-      playsInSilentModeIOS: true,
-      allowsRecordingIOS: false,
-      staysActiveInBackground: false,
-      shouldDuckAndroid: true,
-      playThroughEarpieceAndroid: false,
+    // Lazy import keeps Jest unit tests free of native audio module.
+    const { setAudioModeAsync, createAudioPlayer } = await import('expo-audio');
+    await setAudioModeAsync({
+      playsInSilentMode: true,
+      allowsRecording: false,
+      shouldPlayInBackground: false,
     });
 
-    if (soundModule) {
-      await soundModule.replayAsync();
+    if (audioPlayer) {
+      audioPlayer.seekTo(0);
+      audioPlayer.play();
       return;
     }
 
-    const { sound } = await Audio.Sound.createAsync(
+    const player = createAudioPlayer(
       require('../../assets/sounds/cook-timer-done.wav'),
-      { shouldPlay: true, volume: 1 },
     );
-    soundModule = sound;
+    player.play();
+    audioPlayer = player;
   } catch {
     // Web / test / missing native module: visual + live region still apply.
   }
@@ -77,9 +77,13 @@ export function createDefaultCookTimerCompletionCuePorts(): CookTimerCompletionC
 
 /** Test helper — drop cached sound between suites. */
 export function resetCookTimerCompletionSoundForTests(): void {
-  const previous = soundModule;
-  soundModule = null;
+  const previous = audioPlayer;
+  audioPlayer = null;
   if (previous) {
-    void previous.unloadAsync().catch(() => undefined);
+    try {
+      previous.release();
+    } catch {
+      // Ignore release errors in test cleanup
+    }
   }
 }
