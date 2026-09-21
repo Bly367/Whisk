@@ -6,6 +6,9 @@ export type ParsedShareIntent = {
   url?: string;
   text?: string;
   caption?: string;
+  videoPath?: string;
+  imagePath?: string;
+  mimeType?: string;
 };
 
 /**
@@ -31,6 +34,7 @@ function collapseWhitespace(text: string): string {
 /**
  * Parse share intent data into format expected by import system.
  * Extracts URL from text if present, and separates caption from URL.
+ * Handles video and image file shares for on-device transcription.
  */
 export function parseShareIntent(shareIntent: ShareIntent | null): ParsedShareIntent | null {
   if (!shareIntent) {
@@ -40,6 +44,27 @@ export function parseShareIntent(shareIntent: ShareIntent | null): ParsedShareIn
   // Get raw text from share (could be URL, text, or both)
   const rawText = shareIntent.text?.trim() || '';
   const webUrl = shareIntent.webUrl?.trim() || '';
+
+  // Check for media files (video or image)
+  let videoPath: string | undefined;
+  let imagePath: string | undefined;
+  let mimeType: string | undefined;
+
+  if (shareIntent.files && shareIntent.files.length > 0) {
+    // Find first video file
+    const videoFile = shareIntent.files.find((file) => file.mimeType?.startsWith('video/'));
+    if (videoFile) {
+      videoPath = videoFile.path;
+      mimeType = videoFile.mimeType ?? undefined;
+    } else {
+      // If no video, check for image
+      const imageFile = shareIntent.files.find((file) => file.mimeType?.startsWith('image/'));
+      if (imageFile) {
+        imagePath = imageFile.path;
+        mimeType = imageFile.mimeType ?? undefined;
+      }
+    }
+  }
 
   // Reject hostile URL schemes
   if (webUrl && hasHostileScheme(webUrl)) {
@@ -55,6 +80,9 @@ export function parseShareIntent(shareIntent: ShareIntent | null): ParsedShareIn
       url: webUrl,
       text: rawText,
       caption: caption || undefined,
+      videoPath,
+      imagePath,
+      mimeType,
     };
   }
 
@@ -71,6 +99,18 @@ export function parseShareIntent(shareIntent: ShareIntent | null): ParsedShareIn
       url: extractedUrl,
       text: rawText,
       caption,
+      videoPath,
+      imagePath,
+      mimeType,
+    };
+  }
+
+  // Media file without URL or text
+  if (videoPath || imagePath) {
+    return {
+      videoPath,
+      imagePath,
+      mimeType,
     };
   }
 

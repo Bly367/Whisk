@@ -330,4 +330,146 @@ describe('parseShareIntent', () => {
     const result = parseShareIntent(intent);
     expect(result).toBeNull();
   });
+
+  it('should handle video file share with URL', () => {
+    const intent: ShareIntent = {
+      text: 'https://www.instagram.com/p/ABC123/',
+      webUrl: 'https://www.instagram.com/p/ABC123/',
+      files: [
+        {
+          path: 'file:///var/mobile/Containers/Data/Application/video.mp4',
+          mimeType: 'video/mp4',
+          fileName: 'video.mp4',
+          size: 1024000,
+          width: null,
+          height: null,
+          duration: null,
+        },
+      ],
+      meta: undefined,
+      type: 'media',
+    };
+
+    const result = parseShareIntent(intent);
+    expect(result).toEqual({
+      url: 'https://www.instagram.com/p/ABC123/',
+      text: 'https://www.instagram.com/p/ABC123/',
+      caption: undefined,
+      videoPath: 'file:///var/mobile/Containers/Data/Application/video.mp4',
+      mimeType: 'video/mp4',
+    });
+  });
+
+  it('should handle video file share without URL', () => {
+    const intent: ShareIntent = {
+      text: null,
+      webUrl: null,
+      files: [
+        {
+          path: '/data/user/0/app.whisk.mobile/files/shared_video.mp4',
+          mimeType: 'video/mp4',
+          fileName: 'shared_video.mp4',
+          size: 2048000,
+          width: null,
+          height: null,
+          duration: null,
+        },
+      ],
+      meta: undefined,
+      type: 'media',
+    };
+
+    const result = parseShareIntent(intent);
+    expect(result).toEqual({
+      videoPath: '/data/user/0/app.whisk.mobile/files/shared_video.mp4',
+      mimeType: 'video/mp4',
+    });
+  });
+
+  it('should handle image file share', () => {
+    const intent: ShareIntent = {
+      text: null,
+      webUrl: null,
+      files: [
+        {
+          path: 'file:///var/mobile/Containers/Data/Application/photo.jpg',
+          mimeType: 'image/jpeg',
+          fileName: 'photo.jpg',
+          size: 512000,
+          width: null,
+          height: null,
+          duration: null,
+        },
+      ],
+      meta: undefined,
+      type: 'media',
+    };
+
+    const result = parseShareIntent(intent);
+    expect(result).toEqual({
+      imagePath: 'file:///var/mobile/Containers/Data/Application/photo.jpg',
+      mimeType: 'image/jpeg',
+    });
+  });
+
+  it('should prioritize first video file when multiple files shared', () => {
+    const intent: ShareIntent = {
+      text: null,
+      webUrl: null,
+      files: [
+        {
+          path: '/data/video1.mp4',
+          mimeType: 'video/mp4',
+          fileName: 'video1.mp4',
+          size: 1024000,
+          width: null,
+          height: null,
+          duration: null,
+        },
+        {
+          path: '/data/video2.mp4',
+          mimeType: 'video/mp4',
+          fileName: 'video2.mp4',
+          size: 2048000,
+          width: null,
+          height: null,
+          duration: null,
+        },
+      ],
+      meta: undefined,
+      type: 'media',
+    };
+
+    const result = parseShareIntent(intent);
+    expect(result).toEqual({
+      videoPath: '/data/video1.mp4',
+      mimeType: 'video/mp4',
+    });
+  });
+
+  it('should ignore non-video/image files', () => {
+    const intent: ShareIntent = {
+      text: 'Some text content',
+      webUrl: null,
+      files: [
+        {
+          path: '/data/document.pdf',
+          mimeType: 'application/pdf',
+          fileName: 'document.pdf',
+          size: 102400,
+          width: null,
+          height: null,
+          duration: null,
+        },
+      ],
+      meta: undefined,
+      type: 'media',
+    };
+
+    const result = parseShareIntent(intent);
+    expect(result).toEqual({
+      text: 'Some text content',
+      caption: 'Some text content',
+    });
+  });
 });
