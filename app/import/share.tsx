@@ -15,6 +15,7 @@ const stageCopy: Record<AutoStage, string> = {
   downloading_video: 'Preparing the video…',
   downloading_model: 'Downloading the transcription model…',
   extracting_audio: 'Extracting audio…',
+  reading_transcript: "Reading the video's captions…",
   transcribing: 'Transcribing the recipe…',
   saving: 'Saving recipe…',
   saved: 'Recipe saved.',

@@ -23,7 +23,7 @@ This feature allows users to tap "Share" in other apps and have Whisk automatica
 - `app/_layout.tsx` — Added share intent handler to root layout
 - `app/import/share.tsx` — Updated to consume one payload from the store
 - `import/shareIntent.ts` — Share intent parsing logic (preserves newlines in captions)
-- `import/shareIntentHandler.ts` — React hook for handling incoming shares (stores payload, navigates without query params)
+- `import/shareIntentHandler.ts` — React hook for handling incoming shares (stores payload and navigates to the automatic importer)
 - `import/sharePayloadStore.ts` — One-shot Zustand store for passing share data without query param truncation
 - `import/index.ts` — Exported share intent utilities
 - `__tests__/shareIntent.test.ts` — Unit tests for share parsing (multiline caption preservation)
@@ -53,7 +53,7 @@ This feature allows users to tap "Share" in other apps and have Whisk automatica
 1. User taps "Share" in Instagram/TikTok/YouTube/browser
 2. User selects "Whisk" from share sheet
 3. `expo-share-intent` receives the share data (URL, text)
-4. `useShareIntentHandler` hook parses the data and extracts URL + caption (preserving newlines)
+4. `useShareIntentHandler` hook parses the data and preserves the shared text
 5. Parsed payload is stored in the one-shot share payload store
 6. App navigates to `/import/share`
 7. The import screen consumes the payload and starts automatically
@@ -106,13 +106,13 @@ npx expo run:android --device
    - Open Instagram app
    - Tap Share on a recipe post
    - Select "Whisk"
-   - Verify URL and caption pre-filled
+   - Verify automatic import starts
 
 2. **TikTok video URL:**
    - Open TikTok app
    - Tap Share on a recipe video
    - Select "Whisk"
-   - Verify URL pre-filled (caption if provided)
+   - Verify automatic import starts (caption if provided)
 
 3. **YouTube video URL:**
    - Open YouTube app
@@ -124,7 +124,7 @@ npx expo run:android --device
    - Open recipe website in browser
    - Tap Share button
    - Select "Whisk"
-   - Verify URL pre-filled
+   - Verify automatic website import starts
 
 
 ## Rebuild Requirements
@@ -149,7 +149,7 @@ npx expo run:android --device
 - **No video bytes:** Share intents receive URLs and text only, not video file data. This is by design — URLs + captions are sufficient for import.
 - **Expo Go unsupported:** Share extensions require native code. Use dev client builds.
 - **Social URL-only shares:** Instagram/TikTok often only provide URLs without captions (OS limitation). Whisk tries public metadata and audio when available, then offers a clear retry/manual fallback.
-- **Caption preservation:** When text IS present, multiline captions (with ingredients/steps on separate lines) are fully preserved via in-memory store, not truncated by query param limits.
+- **Caption preservation:** When text is present, multiline captions (with ingredients/steps on separate lines) are fully preserved via the in-memory store.
 
 ## Library Selection
 

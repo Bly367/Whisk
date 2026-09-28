@@ -1,7 +1,7 @@
 import type { IngredientInput } from '@/data/contracts';
 
 const UNIT_PATTERN =
-  /^(fl\s+oz|tsp|teaspoons?|tbsp|tablespoons?|cups?|oz|ounces?|lb|lbs|pounds?|grams?|g|kg|ml|l|cloves?|cans?|packages?|pinch|pinches|sticks?|bunch(?:es)?|sprigs?|slices?|fillets?)\b\s*(.*)$/i;
+  /^(fl\s+oz|tsp|teaspoons?|tbsp|tablespoons?|cups?|oz|ounces?|lb|lbs|pounds?|grams?|g|kg|ml|l|cloves?|cans?|packages?|pinch|pinches|sticks?|bunch(?:es)?|sprigs?|slices?|fillets?|stalks?|rind)\b\s*(.*)$/i;
 
 export function parseIngredientLine(line: string, position = 0): IngredientInput {
   // Strip emoji bullets and common list markers
@@ -13,19 +13,22 @@ export function parseIngredientLine(line: string, position = 0): IngredientInput
     return { name: '', position };
   }
 
-  const match = cleaned.match(/^(\d+(?:\.\d+)?(?:\s+\d+\/\d+)?|\d+\/\d+|[¼½¾⅓⅔⅛⅜⅝⅞])?\s*(.*)$/u);
+  const match = cleaned.match(/^(\d+(?:\s*[–-]\s*\d+)?(?:\.\d+)?(?:\s+\d+\/\d+)?|\d+\/\d+|[¼½¾⅓⅔⅛⅜⅝⅞])?\s*(.*)$/u);
   if (!match) {
     return { name: cleaned, position };
   }
 
   const quantity = (match[1] ?? '').trim() || null;
   const remainder = (match[2] ?? '').trim();
-  const unitMatch = remainder.match(UNIT_PATTERN);
+  const metricNote = remainder.match(/^([^()]+?)\s*\((\d+(?:\.\d+)?\s*(?:g|kg|ml|l))\)\s*(.*)$/i);
+  const remainderWithoutMetric = (metricNote ? `${metricNote[1]} ${metricNote[3]}`.trim() : remainder).replace(/^(?:small|medium|large|fresh|unsalted|dried|low-sodium)\s+/i, '');
+  const unitMatch = remainderWithoutMetric.match(UNIT_PATTERN);
   if (unitMatch) {
     return {
       quantity,
       unit: unitMatch[1],
       name: (unitMatch[2] ?? '').trim() || cleaned,
+      note: metricNote?.[2] ?? null,
       position,
     };
   }
@@ -33,7 +36,8 @@ export function parseIngredientLine(line: string, position = 0): IngredientInput
   return {
     quantity,
     unit: null,
-    name: remainder || cleaned,
+    name: remainderWithoutMetric || cleaned,
+    note: metricNote?.[2] ?? null,
     position,
   };
 }

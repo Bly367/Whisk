@@ -8,6 +8,7 @@ export type SocialMeta = {
   caption?: string;
   author?: string;
   videoUrl?: string;
+  transcriptUrl?: string;
   videoHeaders?: Record<string, string>;
   linkedUrls: string[];
   blocked?: 'login_wall' | 'http_error';
@@ -101,6 +102,7 @@ export async function fetchSocialMeta(
       .trim();
   let videoUrl =
     directHttps(meta(html, 'og:video')) ?? directHttps(meta(html, 'og:video:secure_url'));
+  let transcriptUrl: string | undefined;
   let author: string | undefined;
   let videoHeaders: Record<string, string> | undefined;
   if (
@@ -119,6 +121,22 @@ export async function fetchSocialMeta(
     if (!caption) return { source, canonicalUrl: url, linkedUrls: [], blocked: 'login_wall' };
   }
   if (source === 'tiktok') {
+    const item =
+      rehydration(html)?.__DEFAULT_SCOPE__?.['webapp.video-detail']?.itemInfo?.itemStruct;
+    if (item) {
+      const contents = Array.isArray(item.contents) ? item.contents : [];
+      caption = contents.length > 1
+        ? contents.map((entry: { desc?: string }) => entry.desc ?? '').join('\n')
+        : typeof item.desc === 'string' ? item.desc : caption;
+      videoUrl = item.video?.playAddr || item.video?.downloadAddr || videoUrl;
+      const subtitle = Array.isArray(item.video?.subtitleInfos)
+        ? item.video.subtitleInfos.find((entry: { Source?: string; Format?: string; LanguageCodeName?: string; Url?: string }) =>
+            entry.Source === 'ASR' && entry.Format === 'webvtt' && entry.LanguageCodeName?.toLowerCase().startsWith('eng') && typeof entry.Url === 'string')
+        : undefined;
+      transcriptUrl = subtitle?.Url;
+      author = item.author?.bioLink?.link;
+    }
+    if (!item) {
     try {
       const target = new URL(url);
       const oembed = await get(
@@ -129,19 +147,12 @@ export async function fetchSocialMeta(
     } catch {
       /* page metadata is enough */
     }
-    const item =
-      rehydration(html)?.__DEFAULT_SCOPE__?.['webapp.video-detail']?.itemInfo?.itemStruct;
-    if (item) {
-      if (typeof item.desc === 'string' && item.desc.length > (caption?.length ?? 0))
-        caption = item.desc;
-      videoUrl = item.video?.playAddr || item.video?.downloadAddr || videoUrl;
-      author = item.author?.bioLink?.link;
-      const token = page.setCookie?.match(/(?:^|[;,]\s*)tt_chain_token=([^;,\s]+)/)?.[1];
-      videoHeaders = {
-        Referer: 'https://www.tiktok.com/',
-        ...(token ? { Cookie: `tt_chain_token=${token}` } : {}),
-      };
     }
+    const token = page.setCookie?.match(/(?:^|[,;]\s*)tt_chain_token=([^;,\s]+)/)?.[1];
+    videoHeaders = {
+      Referer: 'https://www.tiktok.com/',
+      ...(token ? { Cookie: `tt_chain_token=${token}` } : {}),
+    };
   }
   return {
     source,
@@ -149,6 +160,7 @@ export async function fetchSocialMeta(
     caption: caption || undefined,
     author,
     videoUrl,
+    transcriptUrl,
     videoHeaders,
     linkedUrls: links(caption ?? '', author),
   };

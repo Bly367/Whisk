@@ -6,9 +6,12 @@ import { detectSource } from '@/import/parse/url';
 import { fetchSocialMeta, type SocialMeta } from '@/import/social/socialMeta';
 import { videoFromUrl } from '@/import/social/videoFromUrl';
 import { transcribeVideo } from '@/import/transcribe';
-import { scoreDraft } from '@/import/score';
+import { AUTO_SAVE_MIN_INGREDIENTS, scoreDraft } from '@/import/score';
 import type { ImportDraft } from '@/import/types';
 import { useAutoImportStore } from '@/import/autoImportStore';
+import { cleanSocialCaption } from '@/import/social/cleanCaption';
+import { fetchText, type FetchTextResult } from '@/import/net/fetchText';
+import { isPublicHttpsUrl } from '@/import/net/publicUrl';
 
 export type AutoImportPayload = {
   url?: string;
@@ -23,6 +26,7 @@ export type AutoStage =
   | 'downloading_video'
   | 'downloading_model'
   | 'extracting_audio'
+  | 'reading_transcript'
   | 'transcribing'
   | 'saving'
   | 'saved'
@@ -33,6 +37,7 @@ export type AutoImportDeps = {
   transcribeVideo?: typeof transcribeVideo;
   websiteImport?: (url: string) => Promise<{ ok: true; draft: ImportDraft } | { ok: false }>;
   commitImportDraft?: (draft: ImportDraft) => { id: string };
+  fetchText?: typeof fetchText;
 };
 export type AutoImportResult =
   | {
@@ -100,14 +105,12 @@ async function runAutoImportUnsafe(
       meta = null;
     }
     if (meta) {
-      const caption = [meta.caption, payload.sharedText].filter(Boolean).join('\n\n');
+      const shared = payload.sharedText?.replace(/https?:\/\/\S+/gi, '').trim();
+      const caption = [meta.caption, shared].filter(Boolean).join('\n\n');
       const parsed = caption ? safePastedDraft(caption, meta) : null;
-      const spoken = caption ? safeTranscriptDraft(caption, meta) : null;
-      if (parsed) candidates.push({ draft: parsed, source: 'caption' });
-      if (spoken && (!parsed || scoreDraft(spoken).score > scoreDraft(parsed).score))
-        candidates.push({ draft: spoken, source: 'caption' });
+      if (parsed && captionCandidate(parsed)) candidates.push({ draft: parsed, source: 'caption' });
       const passingCaption = candidates.find(
-        (item) => item.source === 'caption' && scoreDraft(item.draft).passes,
+        (item) => item.source === 'caption' && captionCandidate(item.draft) && scoreDraft(item.draft).passes,
       );
       if (passingCaption) return save(passingCaption.draft, 'caption', meta.source, onStage, deps);
       for (const link of meta.linkedUrls) {
@@ -124,6 +127,15 @@ async function runAutoImportUnsafe(
 
   let cleanup: (() => Promise<void>) | undefined;
   let audioDraft: ImportDraft | null = null;
+  if (!isLocal && meta?.transcriptUrl) {
+    onStage('reading_transcript');
+    const transcript = await readSubtitle(meta, deps);
+    if (transcript) {
+      const subtitleDraft = safeTranscriptDraft(transcript, meta);
+      if (subtitleDraft && audioCandidate(subtitleDraft))
+        return save(subtitleDraft, 'audio', meta.source, onStage, deps, true, hintsFor(meta, audioReason));
+    }
+  }
   if (payload.videoPath || meta?.videoUrl) {
     let videoPath = payload.videoPath;
     if (!videoPath && meta) {
@@ -177,7 +189,7 @@ async function runAutoImportUnsafe(
         hintsFor(meta, audioReason),
       );
     }
-    if (scoreDraft(audioDraft).passes) {
+    if (audioCandidate(audioDraft)) {
       if (cleanup) await cleanup();
       return save(
         audioDraft,
@@ -185,7 +197,7 @@ async function runAutoImportUnsafe(
         meta?.source ?? payload.sourceName ?? 'Photos',
         onStage,
         deps,
-        false,
+        scoreDraft(audioDraft).ingredients < AUTO_SAVE_MIN_INGREDIENTS,
         hintsFor(meta, audioReason),
       );
     }
@@ -238,12 +250,50 @@ async function safeWebsiteImport(
 }
 function safePastedDraft(text: string, meta: SocialMeta): ImportDraft | null {
   try {
-    return draftFromPastedText({
-      text,
+    const cleaned = ['instagram', 'tiktok', 'facebook', 'youtube', 'pinterest'].includes(meta.source)
+      ? cleanSocialCaption(text, meta.source)
+      : null;
+    const draft = draftFromPastedText({
+      text: cleaned?.text ?? text,
       sourceUrl: meta.canonicalUrl,
       sourceName: meta.source,
       adapterId: 'share-auto',
     });
+    if (!draft) return null;
+    if (cleaned) {
+      draft.title = cleaned.title;
+      draft.notes = [cleaned.notes, draft.notes].filter(Boolean).join('\n');
+      for (const ingredient of draft.ingredients) {
+        const group = [...cleaned.groups.entries()].find(([line]) => line.includes(ingredient.name.toLowerCase()));
+        if (group) ingredient.groupName = group[1];
+      }
+    }
+    return draft;
+  } catch {
+    return null;
+  }
+}
+
+function captionCandidate(draft: ImportDraft): boolean {
+  const quantified = draft.ingredients.filter((item) => item.name.trim().length >= 2 && (item.quantity || item.unit)).length;
+  const steps = draft.instructions.filter((step) => step.text.trim()).length;
+  return (quantified >= 2 && steps >= 1) || (quantified >= 3 && steps === 0);
+}
+
+function audioCandidate(draft: ImportDraft): boolean {
+  return scoreDraft(draft).passes || scoreDraft(draft).steps >= 3;
+}
+
+async function readSubtitle(meta: SocialMeta, deps: AutoImportDeps): Promise<string | null> {
+  const value = meta.transcriptUrl;
+  if (!value || !isPublicHttpsUrl(value)) return null;
+  try {
+    const parsed = new URL(value);
+    const host = parsed.hostname.toLowerCase();
+    if (!['tiktokcdn.com', 'tiktokcdn-us.com', 'tiktok.com'].some((allowed) => host === allowed || host.endsWith(`.${allowed}`))) return null;
+    const result: FetchTextResult = await (deps.fetchText ?? fetchText)(value, { headers: meta.videoHeaders, maxBytes: 256 * 1024 });
+    if (result.status < 200 || result.status >= 300) return null;
+    return result.text.replace(/^WEBVTT[^\n]*\n/i, '').split(/\r?\n/).filter((line) => line.trim() && !/^\d{2}:\d{2}:\d{2}[.,]\d{3}\s+-->/.test(line) && !/^\d+$/.test(line.trim())).join(' ');
   } catch {
     return null;
   }
@@ -281,7 +331,7 @@ async function save(
   const tagged = {
     ...draft,
     sourceName,
-    notes: [draft.notes, `Imported automatically from ${source}.`].filter(Boolean).join(' '),
+    notes: [source === 'audio' ? `Transcript: ${(draft.sourceEvidence ?? '').slice(0, 4000)}` : null, draft.notes, `Imported automatically from ${source}.`].filter(Boolean).join(' '),
   };
   onStage('saving');
   let recipe: { id: string };

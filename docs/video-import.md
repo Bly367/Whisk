@@ -34,7 +34,8 @@ Automatic caption → linked recipe (if any) → audio → remaining-links fallb
 3. From Photos app (or Files), user taps **Share** → **Whisk**.
 4. Whisk receives the video file and starts automatically.
 5. Whisk:
-   - Extracts audio from video as 16kHz mono 16-bit PCM WAV
+   - Reads a public English WebVTT subtitle track when the shared URL provides one
+   - Extracts audio from video as 16kHz mono 16-bit PCM WAV when captions are unavailable
    - Transcribes audio with Whisper (offline, on-device)
    - Parses the transcript and saves a review-marked recipe
 6. User reviews the saved recipe and can undo the automatic save.
@@ -111,19 +112,23 @@ export async function transcribeVideo(
 
 **Pipeline steps:**
 
-1. **Audio extraction** (`import/transcribe/audioExtract.ts`):
+1. **Subtitle track** (`import/autoImport.ts`):
+   - Validates the public HTTPS URL and TikTok CDN allowlist
+   - Reads bounded WebVTT text before downloading video
+
+2. **Audio extraction** (`import/transcribe/audioExtract.ts`):
    - Decodes the first audio track to a streamed 16kHz mono 16-bit PCM WAV
    - Uses the local iOS Expo module in `modules/whisk-audio/`
    - Returns audio file path + duration
 
-2. **Whisper transcription** (`import/transcribe/whisper.ts`):
+3. **Whisper transcription** (`import/transcribe/whisper.ts`):
    - Transcribes audio with `whisper.rn` native module
    - Model: `tiny.en` (default, ~40MB) or `base.en` (~140MB)
    - Downloads model on first use (lazy init with progress callback)
    - Model cached in app documents (persistent, offline-ready)
    - Returns transcript text + segments + language + duration
 
-3. **Cleanup**:
+4. **Cleanup**:
    - Deletes extracted audio file after transcription
 
 ### Share Screen UI

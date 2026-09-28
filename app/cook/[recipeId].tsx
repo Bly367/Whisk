@@ -20,6 +20,22 @@ import { motionDuration, useReduceMotion } from '@/hooks/useReduceMotion';
 import { ensureMinTouchTarget, hitSlop } from '@/theme/a11y';
 import { useTheme } from '@/theme/ThemeProvider';
 
+const ingredientWords = (name: string) => name
+  .toLowerCase()
+  .replace(/\([^)]*\)/g, '')
+  .split(/[^a-z0-9]+/)
+  .filter((word) => word.length >= 3 && !['and', 'for', 'the', 'with'].includes(word));
+
+export function ingredientsForCookStep<T extends { name: string }>(ingredients: T[], stepText: string): T[] {
+  const text = stepText.toLowerCase();
+  const matched = ingredients.filter((ingredient) => {
+    const name = ingredient.name.toLowerCase().replace(/\([^)]*\)/g, '').trim();
+    if (name && new RegExp(`\\b${name.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}\\b`, 'i').test(text)) return true;
+    return ingredientWords(ingredient.name).some((word) => new RegExp(`\\b${word}\\b`, 'i').test(text));
+  });
+  return matched.length > 0 ? matched : ingredients;
+}
+
 /**
  * Cook mode — step focus, large Back/Next (hands-free targets), multi-timers,
  * keep-awake, persisted progress. No upgrade / paywall / chick chrome here.
@@ -72,6 +88,12 @@ export default function CookModeScreen() {
   const total = steps.length;
   const current = steps[stepIndex];
   const isLast = total > 0 && stepIndex >= total - 1;
+  const [showAllIngredients, setShowAllIngredients] = useState(false);
+  const nearbyIngredients = useMemo(
+    () => ingredientsForCookStep(recipe?.ingredients ?? [], current?.text ?? ''),
+    [current?.text, recipe?.ingredients],
+  );
+  const visibleIngredients = showAllIngredients ? recipe?.ingredients ?? [] : nearbyIngredients;
 
   const progressLabel = useMemo(() => {
     if (total === 0) return 'No steps';
@@ -268,16 +290,32 @@ export default function CookModeScreen() {
               { backgroundColor: colors.sunken, borderColor: colors.border },
             ]}
           >
-            <Text variant="caption" tone="secondary">
-              Ingredients nearby
-            </Text>
-            <Text variant="callout" maxFontSizeMultiplier={1.3}>
-              {recipe.ingredients
-                .slice(0, 6)
-                .map((i) => [i.quantity, i.unit, i.name].filter(Boolean).join(' '))
-                .join(' · ')}
-              {recipe.ingredients.length > 6 ? '…' : ''}
-            </Text>
+            <Text variant="caption" tone="secondary">Ingredients</Text>
+            <View style={styles.ingredientChips}>
+              {visibleIngredients.map((ingredient) => (
+                <View key={ingredient.id} style={[styles.ingredientChip, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                  <Text variant="caption" style={{ color: colors.textPrimary }}>
+                    {[ingredient.quantity, ingredient.unit].filter(Boolean).join(' ')}
+                  </Text>
+                  <Text variant="callout" maxFontSizeMultiplier={1.3} style={{ color: colors.textPrimary }}>
+                    {ingredient.name}
+                  </Text>
+                  {ingredient.note ? <Text variant="caption" tone="secondary">{ingredient.note}</Text> : null}
+                </View>
+              ))}
+            </View>
+            {nearbyIngredients.length < recipe.ingredients.length ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setShowAllIngredients((shown) => !shown)}
+                hitSlop={hitSlop}
+                style={styles.ingredientToggle}
+              >
+                <Text variant="caption" style={{ color: colors.textPrimary }}>
+                  {showAllIngredients ? 'Show fewer' : `Show all ${recipe.ingredients.length}`}
+                </Text>
+              </Pressable>
+            ) : null}
           </View>
         ) : null}
 
@@ -371,6 +409,23 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     borderRadius: radius.card,
     borderWidth: 1,
+  },
+  ingredientChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  ingredientChip: {
+    maxWidth: '100%',
+    borderWidth: 1,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    gap: 2,
+  },
+  ingredientToggle: {
+    alignSelf: 'flex-start',
+    paddingVertical: spacing.xs,
   },
   controls: {
     flexDirection: 'row',

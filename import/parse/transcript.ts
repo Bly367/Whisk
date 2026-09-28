@@ -56,7 +56,16 @@ function stripDiscourse(value: string): string {
   let previous = '';
   while (result !== previous) {
     previous = result;
-    result = result.replace(/^(?:okay|alright|so|then|now|first|next|and then|finally)\s+/i, '').replace(/^(?:for the sauce|once[^,]*|while[^,]*),\s*/i, '').replace(/^(?:we're|we are|I'm|I am|you're|you are)\s+gonna\s+/i, '').replace(/^(?:go ahead and|I like to|make sure you)\s+/i, '').replace(/^and\s+(?=(?:add|bake|bring|crack|cook|drizzle|finish|flip|make|pat|pour|pop|reduce|serve|simmer|sprinkle|stir|whisk|air fry)\b)/i, '').trim();
+    result = result
+      .replace(/^(?:okay|alright|so|then|now|first|next|and then|finally),?\s+/i, '')
+      .replace(/^(?:for the sauce|once[^,]*|while[^,]*|after (?:that|one minute|[^,]+)),\s*/i, '')
+      .replace(/^(?:we're|we are|I'm|I am|you're|you are)\s+(?:going to|gonna)\s+/i, '')
+      .replace(/^(?:I|we|you)\s+(?:want to|wanna|need to|have to|will|'ll)\s+/i, '')
+      .replace(/^let's\s+/i, '')
+      .replace(/^(?:I|we)\s+(?:just\s+)?/i, '')
+      .replace(/^(?:go ahead and|I like to|make sure you)\s+/i, '')
+      .replace(/^and\s+(?=(?:add|bake|bring|crack|cook|drizzle|finish|flip|make|pat|pour|pop|reduce|serve|simmer|sprinkle|stir|whisk|air fry)\b)/i, '')
+      .trim();
   }
   return result;
 }
@@ -67,7 +76,8 @@ function stepCandidates(sentence: string): string[] {
 
 export function draftFromTranscript(options: { segments?: { text: string }[]; text: string; sharedText?: string; sourceUrl?: string | null; sourceName?: string | null }): ImportDraft | null {
   const text = [options.text, options.sharedText].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
-  const sentences = ((options.segments?.map((s) => s.text).join(' ') ?? text).split(/(?<=[.!?])\s+/)).map((s) => s.trim()).filter((s) => s && !FILLER.test(s));
+  const sentenceText = options.segments?.length ? options.segments.map((s) => s.text).join(' ') : text;
+  const sentences = sentenceText.split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter((s) => s && !FILLER.test(s));
   if (!sentences.length) return null;
   const titleMatch = text.match(/(?:making|this is my|today we're making|best)\s+(?:my\s+)?([^.!?]+?)(?:\s+you'll ever make)?[.!?]/i);
   const title = titleMatch?.[1] ? titleMatch[1].trim().replace(/^\w/, (c) => c.toUpperCase()) : options.sourceName ? `Recipe from ${options.sourceName}` : 'Recipe from shared video';
