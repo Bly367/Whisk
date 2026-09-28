@@ -28,3 +28,47 @@ it.each(['tuscan.txt', 'noodles.txt', 'cookies.txt'])('parses voice-over fixture
   expect(draft?.ingredients.length).toBeGreaterThanOrEqual(3);
   expect(draft?.instructions.length).toBeGreaterThanOrEqual(2);
 });
+
+describe('unseen voice-over transcripts', () => {
+  it('extracts shakshuka ingredients without kitchen or timing junk', () => {
+    const draft = draftFromTranscript({ text: fixture('shakshuka.txt') });
+    expect(draft).not.toBeNull();
+    expect(draft?.ingredients.length).toBeGreaterThanOrEqual(6);
+    expect(draft?.instructions.length).toBeGreaterThanOrEqual(4);
+    expect(draft?.ingredients.map((item) => [item.name, item.quantity])).toEqual(
+      expect.arrayContaining([
+        ['olive oil', null],
+        ['onion', '1'],
+        ['bell pepper', '1'],
+        ['garlic', '3'],
+        ['cumin', '1'],
+        ['smoked paprika', '1'],
+        ['crushed tomatoes', '28'],
+        ['eggs', '4'],
+      ]),
+    );
+    expect(draft?.ingredients.map((item) => item.name)).not.toEqual(
+      expect.arrayContaining([expect.stringMatching(/minutes?|degrees|pan|bowl|sheet|tray|lid|oven|^of\s/i)]),
+    );
+  });
+
+  it('extracts salmon sauce quantities and avoids process nouns', () => {
+    const draft = draftFromTranscript({ text: fixture('salmon.txt') });
+    expect(draft).not.toBeNull();
+    expect(draft?.ingredients.length).toBeGreaterThanOrEqual(6);
+    expect(draft?.instructions.length).toBeGreaterThanOrEqual(4);
+    expect(draft?.ingredients.map((item) => [item.name, item.quantity])).toEqual(
+      expect.arrayContaining([
+        ['soy sauce', '0.25'],
+        ['honey', '2'],
+        ['rice vinegar', '1'],
+        ['ginger', '1'],
+        ['garlic', '1'],
+        ['salmon fillets', '2'],
+      ]),
+    );
+    expect(draft?.ingredients.map((item) => item.name)).not.toEqual(
+      expect.arrayContaining([expect.stringMatching(/minutes?|degrees|pan|bowl|sheet|tray|lid|oven|^of\s/i)]),
+    );
+  });
+});
