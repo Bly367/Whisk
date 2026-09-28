@@ -23,6 +23,37 @@ it('returns null for filler-only speech', () => {
   expect(draftFromTranscript({ text: 'Hey guys, follow for more, comment RECIPE!' })).toBeNull();
 });
 
+it('understands going-to speech and discourse before imperatives', () => {
+  const text = "I'm going to add my onions. Then we're going to add in our ground beef. Now I am going to stir it. Finally, I will serve it over rice.";
+  const draft = draftFromTranscript({ text });
+  expect(draft?.instructions.map((step) => step.text)).toEqual(
+    expect.arrayContaining(['add my onions.', 'add in our ground beef.', 'stir it.', 'serve it over rice.']),
+  );
+});
+
+it.each([
+  "I want to chop the herbs.",
+  "Let's mix the sauce.",
+  "We need to pour it in.",
+  "After one minute, we're going to add the garlic.",
+  "I just stir everything together.",
+])('accepts a new speech lead-in: %s', (text) => {
+  expect(draftFromTranscript({ text })?.instructions.length).toBeGreaterThan(0);
+});
+
+it('parses the Whisper bulgogi transcript into useful steps', () => {
+  const draft = draftFromTranscript({ text: fs.readFileSync(path.join(__dirname, 'fixtures/social/tiktok-bulgogi-whisper-tiny-en.txt'), 'utf8') });
+  expect(draft?.instructions.length).toBeGreaterThanOrEqual(4);
+  expect(draft?.instructions.map((step) => step.text.toLowerCase())).toEqual(
+    expect.arrayContaining([
+      expect.stringContaining('add my onions'),
+      expect.stringContaining('add in our ground beef'),
+      expect.stringContaining('stir it'),
+      expect.stringContaining('serve my bologue'),
+    ]),
+  );
+});
+
 it.each(['tuscan.txt', 'noodles.txt', 'cookies.txt'])('parses voice-over fixture %s', (name) => {
   const draft = draftFromTranscript({ text: fixture(name), sourceName: 'TikTok' });
   expect(draft?.ingredients.length).toBeGreaterThanOrEqual(3);
