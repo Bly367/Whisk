@@ -2,9 +2,17 @@ import { extractAudioFromVideo } from '@/import/transcribe/audioExtract';
 import {
   configureWhiskAudioMock,
   type PcmWavResult,
-} from '@/modules/whisk-audio';
+} from '../__mocks__/whisk-audio';
 import { transcribeVideo } from '@/import/transcribe';
-import { lastTranscribedAudioPath, resetWhisperMock } from 'whisper.rn';
+import { lastTranscribedAudioPath, resetWhisperMock } from '../__mocks__/whisper.rn';
+
+jest.mock('expo-file-system/legacy', () => ({
+  ...jest.requireActual('expo-file-system/legacy'),
+  cacheDirectory: '/cache/',
+  documentDirectory: '/documents/',
+  getInfoAsync: jest.fn(async () => ({ exists: true })),
+  deleteAsync: jest.fn(async () => undefined),
+}));
 
 const success = (overrides: Partial<PcmWavResult> = {}) =>
   configureWhiskAudioMock({
