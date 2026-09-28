@@ -1,13 +1,12 @@
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Button } from '@/components/ui/Button';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { runAutoImport, type AutoStage, type AutoImportPayload } from '@/import/autoImport';
-import { consumeSharePayload } from '@/import/sharePayload';
-import { useShareIntentContext } from 'expo-share-intent';
+import { useSharePayloadStore } from '@/import/sharePayloadStore';
 
 const stageCopy: Record<AutoStage, string> = {
   receiving: 'Receiving the shared post…',
@@ -23,23 +22,35 @@ const stageCopy: Record<AutoStage, string> = {
 };
 
 export default function ImportShareScreen() {
-  const { hasShareIntent } = useShareIntentContext();
-  const [payload, setPayload] = useState<AutoImportPayload | null>(null);
+  const payload = useSharePayloadStore((state) => state.payload);
+  const takePayload = useSharePayloadStore((state) => state.takePayload);
+  const [activePayload, setActivePayload] = useState<AutoImportPayload | null>(null);
   const [stage, setStage] = useState<AutoStage>('receiving');
   const [error, setError] = useState<string | null>(null);
   const [hint, setHint] = useState(false);
+  const running = useRef(false);
   const run = useCallback(async (next: AutoImportPayload) => {
-    setError(null);
-    const result = await runAutoImport(next, {}, (nextStage) => setStage(nextStage));
-    if (result.ok) router.replace(`/recipe/${result.recipe.id}`);
-    else {
-      setError(result.reason);
-      setHint(result.hints?.includes('ig_save_reel') ?? false);
+    if (running.current) return;
+    running.current = true;
+    try {
+      setError(null);
+      const result = await runAutoImport(next, {}, (nextStage) => setStage(nextStage));
+      if (result.ok) router.replace(`/recipe/${result.recipe.id}`);
+      else {
+        setError(result.reason);
+        setHint(result.hints?.includes('ig_save_reel') ?? false);
+      }
+    } catch (error) {
+      setStage('failed');
+      setError(error instanceof Error ? error.message : "Couldn't find a recipe in this post");
+      setHint(false);
+    } finally {
+      running.current = false;
     }
   }, []);
   useEffect(() => {
-    if (!hasShareIntent || payload) return;
-    const pending = consumeSharePayload();
+    if (!payload || running.current) return;
+    const pending = takePayload();
     if (!pending) return;
     const next = {
       url: pending.url,
@@ -47,9 +58,9 @@ export default function ImportShareScreen() {
       videoPath: pending.videoPath,
       sourceName: pending.url,
     };
-    setPayload(next);
+    setActivePayload(next);
     void run(next);
-  }, [hasShareIntent, payload, run]);
+  }, [payload, takePayload, run]);
   const chooseVideo = async () => {
     const picked = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['videos'],
@@ -58,7 +69,7 @@ export default function ImportShareScreen() {
     const asset = picked.canceled ? null : picked.assets[0];
     if (asset?.uri) {
       const next = { videoPath: asset.uri, sourceName: 'Photos' };
-      setPayload(next);
+      setActivePayload(next);
       void run(next);
     }
   };
@@ -76,7 +87,7 @@ export default function ImportShareScreen() {
                 Save the reel, then share it from Photos to import from its audio
               </Text>
             ) : null}
-            <Button label="Try again" onPress={() => payload && void run(payload)} />
+            <Button label="Try again" onPress={() => activePayload && void run(activePayload)} />
             <Button label="Choose video" onPress={() => void chooseVideo()} />
             <Button label="Create manually" onPress={() => router.push('/import/manual')} />
           </>

@@ -1,5 +1,6 @@
 import { canonicalizeUrl, detectSource, type DetectedSource } from '@/import/parse/url';
 import { fetchText, type FetchTextOptions, type FetchTextResult } from '@/import/net/fetchText';
+import { isPublicHttpsUrl } from '@/import/net/publicUrl';
 
 export type SocialMeta = {
   source: DetectedSource;
@@ -19,10 +20,9 @@ const decode = (s: string) =>
     .replace(/&quot;|&#34;/gi, '"')
     .replace(/&#39;|&apos;/gi, "'")
     .replace(/&#10;|&#xA;/gi, '\n')
-    .replace(/\\n/g, '\n')
     .replace(/&amp;/gi, '&')
-    .replace(/&#x([\da-f]+);/gi, (_, h) => String.fromCharCode(parseInt(h, 16)))
-    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
+    .replace(/&#x([\da-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)));
 const meta = (html: string, key: string) => {
   const re = new RegExp(`<meta[^>]+(?:property|name)=["']${key}["'][^>]+content=["']([^"']*)`, 'i');
   const rev = new RegExp(
@@ -41,7 +41,8 @@ function links(text: string, extra?: string) {
   return found
     .map((url) => {
       try {
-        return canonicalizeUrl(url.replace(/[),.;!?]+$/, ''));
+        const candidate = url.replace(/[),.;!?]+$/, '');
+        return isPublicHttpsUrl(candidate) ? canonicalizeUrl(candidate) : '';
       } catch {
         return '';
       }
@@ -95,6 +96,7 @@ export async function fetchSocialMeta(
   if (source === 'instagram' && caption)
     caption = caption
       .replace(/^[\d.,KkMm]+ likes?, [\d.,KkMm]+ comments? - \S+ on [^:]+: \"/i, '')
+      .trim()
       .replace(/\"\.?$/, '')
       .trim();
   let videoUrl =
@@ -114,12 +116,14 @@ export async function fetchSocialMeta(
     } catch {
       /* fall through */
     }
-    if (!caption || /comment RECIPE/i.test(caption))
-      return { source, canonicalUrl: url, linkedUrls: [], blocked: 'login_wall' };
+    if (!caption) return { source, canonicalUrl: url, linkedUrls: [], blocked: 'login_wall' };
   }
   if (source === 'tiktok') {
     try {
-      const oembed = await get(`https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`);
+      const target = new URL(url);
+      const oembed = await get(
+        `https://www.tiktok.com/oembed?url=${encodeURIComponent(`https://www.tiktok.com${target.pathname}`)}`,
+      );
       const title = JSON.parse(oembed.text).title;
       if (typeof title === 'string') caption = title;
     } catch {
@@ -132,7 +136,7 @@ export async function fetchSocialMeta(
         caption = item.desc;
       videoUrl = item.video?.playAddr || item.video?.downloadAddr || videoUrl;
       author = item.author?.bioLink?.link;
-      const token = page.setCookie?.match(/(?:^|;\s*)tt_chain_token=([^;]+)/)?.[1];
+      const token = page.setCookie?.match(/(?:^|[;,]\s*)tt_chain_token=([^;,\s]+)/)?.[1];
       videoHeaders = {
         Referer: 'https://www.tiktok.com/',
         ...(token ? { Cookie: `tt_chain_token=${token}` } : {}),

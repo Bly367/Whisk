@@ -20,7 +20,7 @@ it('downloads an allowlisted video and cleanup is idempotent', async () => {
       downloadFile: async () => ({
         uri: 'file:///cache/whisk-share/a.mp4',
         size: 100,
-        contentType: 'video/mp4',
+        bytes: Uint8Array.from([0, 0, 0, 0, 0x66, 0x74, 0x79, 0x70]),
       }),
       removeFile: remove,
     },
@@ -47,10 +47,20 @@ it('creates the share directory before downloading and rejects non-ftyp files', 
 });
 
 it('maps a native 403 response and timeout without throwing', async () => {
-  await expect(videoFromUrl({ videoUrl: 'https://v16.tiktokcdn.com/a.mp4' }, {
-    downloadFile: async () => { throw new Error('response has status 403'); },
-  })).resolves.toEqual({ ok: false, reason: 'http_403' });
-  await expect(videoFromUrl({ videoUrl: 'https://v16.tiktokcdn.com/a.mp4' }, {
-    downloadFile: () => new Promise(() => {}), timeoutMs: 1,
-  } as any)).resolves.toEqual({ ok: false, reason: 'timeout' });
+  await expect(
+    videoFromUrl(
+      { videoUrl: 'https://v16.tiktokcdn.com/a.mp4' },
+      {
+        downloadFile: async () => {
+          throw new Error('response has status 403');
+        },
+      },
+    ),
+  ).resolves.toEqual({ ok: false, reason: 'http_403' });
+  await expect(
+    videoFromUrl({ videoUrl: 'https://v16.tiktokcdn.com/a.mp4' }, {
+      downloadFile: () => new Promise(() => {}),
+      timeoutMs: 1,
+    } as any),
+  ).resolves.toEqual({ ok: false, reason: 'timeout' });
 });

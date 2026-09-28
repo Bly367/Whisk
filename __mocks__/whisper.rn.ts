@@ -9,7 +9,7 @@ export interface WhisperContext {
     audioPath: string,
     options?: { language?: string },
   ) => {
-    promise: Promise<{ result: string }>;
+    promise: Promise<{ result: string; segments?: { t0: number; t1: number; text: string }[] }>;
     stop: () => void;
   };
   release: () => Promise<void>;

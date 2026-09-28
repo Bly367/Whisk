@@ -8,7 +8,7 @@
 
 Whisk accepts **shared video files** from Instagram Reels, TikTok, YouTube Shorts, and other social media, transcribes the audio **on-device** using Whisper, and feeds the transcript into the existing caption→recipe parser.
 
-This solves the iOS friction where copying captions from Instagram/TikTok is difficult or impossible in-app.
+This solves the iOS friction where copying captions from Instagram/TikTok is difficult or impossible in-app. Share auto-import runs a bounded fallback chain and marks automatic saves for review with undo.
 
 ## Key Design Decisions
 
@@ -35,7 +35,7 @@ Automatic caption → linked recipe (if any) → audio → remaining-links fallb
 4. Whisk receives the video file, shows "Video ready — transcribe to recipe".
 5. User taps **Transcribe Video** button.
 6. Whisk:
-   - Extracts audio from video (16kHz mono WAV/M4A)
+   - Extracts audio from video as 16kHz mono 16-bit PCM WAV
    - Transcribes audio with Whisper (offline, on-device)
    - Fills the caption field with transcript
 7. User reviews/edits transcript, taps **Continue**.
@@ -46,7 +46,7 @@ Automatic caption → linked recipe (if any) → audio → remaining-links fallb
 When user shares from inside Instagram/TikTok app (not from Photos):
 
 - IG/TikTok sends **URL only** (no video file).
-- Whisk shows: _"This [social source] link needs the post caption to create a recipe. Paste the full caption text below, or save the Reel to Photos and share the video file for automatic transcription."_
+- Whisk tries the public caption, linked recipe pages, and audio when available; if those fail it offers retry, choose video, or manual creation.
 
 This is **UX honesty** — we tell users why we need the caption or video file.
 

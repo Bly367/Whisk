@@ -14,6 +14,14 @@ export const WEBSITE_ADAPTER_ID = 'website-jsonld';
 async function fetchHtml(url: string): Promise<string> {
   const response = await fetchText(url);
   if (response.status < 200 || response.status >= 300) throw new Error(`HTTP ${response.status}`);
+  const contentType = response.contentType ?? '';
+  if (
+    contentType &&
+    !contentType.includes('text/html') &&
+    !contentType.includes('application/xhtml+xml')
+  ) {
+    throw Object.assign(new Error('not-html'), { code: 'unsupported' as const });
+  }
   return response.text;
 }
 

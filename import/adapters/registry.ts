@@ -1,9 +1,8 @@
 import { ocrAdapter } from '@/import/adapters/ocrAdapter';
-import { shareSheetAdapter } from '@/import/adapters/shareSheetAdapter';
 import { websiteAdapter } from '@/import/adapters/websiteAdapter';
 import type { ImportAdapter, ImportAdapterInput, ImportAdapterResult } from '@/import/types';
 
-const defaultAdapters: ImportAdapter[] = [websiteAdapter, shareSheetAdapter, ocrAdapter];
+const defaultAdapters: ImportAdapter[] = [websiteAdapter, ocrAdapter];
 
 let adapters: ImportAdapter[] = [...defaultAdapters];
 

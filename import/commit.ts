@@ -45,7 +45,8 @@ export function toRecipeCreateInput(draft: ImportDraft): RecipeCreateInput {
 
 /**
  * Trust gate: refuse blank or content-empty saves.
- * Callers must show preview and get explicit confirm before invoking.
+ * Manual callers must show preview and get explicit confirmation before invoking;
+ * share auto-import uses the separate content-confidence gate below.
  */
 export function assertDraftReadyToSave(draft: ImportDraft): RecipeCreateInput {
   const input = toRecipeCreateInput(draft);
@@ -70,7 +71,7 @@ export type CommitImportOptions = {
 };
 
 /**
- * Persist only after preview confirmation.
+ * Persist a reviewed manual draft after confirmation.
  * Uses `RecipeCreateInput` → `recipes.create` from `@/data`.
  */
 export function commitImportDraft(

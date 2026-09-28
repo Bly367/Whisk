@@ -21,13 +21,13 @@ Aligned at a high level with **OWASP MASVS** (storage, auth, network, platform, 
 
 ## 2. Threat model (current + Phase 2)
 
-| Asset | Risk if compromised | Primary controls |
-| --- | --- | --- |
-| Recipe library, plans, grocery lists | Data loss, privacy leak, silent overwrite | Typed repositories, autosave, trash/undo, export |
-| Import pipeline (URL / OCR / share) | Malicious content, SSRF-like fetches, bad writes | Preview + confidence, allowlisted schemes, no silent commit |
-| Unlock / influencer / admin codes | Piracy, unfair unlimited access | Client-side honesty + server verification when billing ships; no privileged secrets in repo |
-| Future account / household sync | Account takeover, cross-user data bleed | Authn/z at API, tenancy checks, encrypted transport |
-| Device storage | Casual access on unlocked device | OS app sandbox; sensitive tokens in secure storage only |
+| Asset                                | Risk if compromised                              | Primary controls                                                                                           |
+| ------------------------------------ | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| Recipe library, plans, grocery lists | Data loss, privacy leak, silent overwrite        | Typed repositories, autosave, trash/undo, export                                                           |
+| Import pipeline (URL / OCR / share)  | Malicious content, SSRF-like fetches, bad writes | Preview + confidence, allowlisted schemes, no silent commit; share auto-save is content-gated and undoable |
+| Unlock / influencer / admin codes    | Piracy, unfair unlimited access                  | Client-side honesty + server verification when billing ships; no privileged secrets in repo                |
+| Future account / household sync      | Account takeover, cross-user data bleed          | Authn/z at API, tenancy checks, encrypted transport                                                        |
+| Device storage                       | Casual access on unlocked device                 | OS app sandbox; sensitive tokens in secure storage only                                                    |
 
 **Out of scope for MVP-era local guest mode:** full disk encryption product claims, anti-tamper DRM, or pretending client-only unlock codes are unbreakable.
 
@@ -47,13 +47,13 @@ Aligned at a high level with **OWASP MASVS** (storage, auth, network, platform, 
 
 ### Classification
 
-| Class | Examples | Rules |
-| --- | --- | --- |
-| **Public** | App copy, aisle labels, design tokens | No special handling |
-| **User content** | Recipes, notes, photos, grocery items | User-controlled; sanitize for XSS if ever rendered as HTML/WebView |
-| **Identity** | Email, auth tokens, household IDs | Secure storage; never log in full |
-| **Payment** | Receipts, product IDs, redeem results | Prefer Store/Play APIs; do not log PAN/PII; minimize retention |
-| **Telemetry** | Import kind, status, duration, error codes | No recipe body, captions, or photo bytes in analytics |
+| Class            | Examples                                   | Rules                                                              |
+| ---------------- | ------------------------------------------ | ------------------------------------------------------------------ |
+| **Public**       | App copy, aisle labels, design tokens      | No special handling                                                |
+| **User content** | Recipes, notes, photos, grocery items      | User-controlled; sanitize for XSS if ever rendered as HTML/WebView |
+| **Identity**     | Email, auth tokens, household IDs          | Secure storage; never log in full                                  |
+| **Payment**      | Receipts, product IDs, redeem results      | Prefer Store/Play APIs; do not log PAN/PII; minimize retention     |
+| **Telemetry**    | Import kind, status, duration, error codes | No recipe body, captions, or photo bytes in analytics              |
 
 ### Storage
 
@@ -78,6 +78,7 @@ Aligned at a high level with **OWASP MASVS** (storage, auth, network, platform, 
 - Do not follow unbounded redirects; cap size/time of fetched documents.
 - Treat fetched HTML/JSON as **untrusted**. Parse into structured preview fields; never `eval` or execute remote script.
 - Server-side fetchers (Edge Functions) must block private/link-local IPs (SSRF) when introduced.
+- Share auto-import may persist only a non-empty, content-gated draft; the recipe detail screen must mark it for review and provide undo.
 
 ### OCR / photos / paste
 
@@ -150,7 +151,7 @@ When accounts / household sync land:
 Security-relevant behavior gets automated tests **before** implementation (same red → green rule as product tests):
 
 - URL scheme rejection / import failure paths
-- Preview-required before recipe commit
+- Preview-required before manual recipe commit; share auto-imports require a content gate, review marker, and undo path
 - Export completeness and delete/trash recovery
 - Local data deletion clears all tables and resets to fresh guest state
 - Export remains functional before and after deletion
@@ -175,8 +176,8 @@ Maintainers should patch on a private branch when practical, then publish a shor
 
 ## 13. Document control
 
-| Version | Notes |
-| --- | --- |
-| 1.0 | Initial standards for post-MVP / Phase 2 multi-agent work |
+| Version | Notes                                                     |
+| ------- | --------------------------------------------------------- |
+| 1.0     | Initial standards for post-MVP / Phase 2 multi-agent work |
 
 Update this file when auth, sync, web extension, or billing backends change the threat model. Security regressions block integration merges the same way trust/offline regressions do.

@@ -1,5 +1,6 @@
-import { File, Paths } from 'expo-file-system';
+import { Directory, File, Paths } from 'expo-file-system';
 import type { SocialMeta } from '@/import/social/socialMeta';
+import { isPublicHttpsUrl } from '@/import/net/publicUrl';
 
 export type VideoFailure =
   | 'no_video_url'
@@ -13,15 +14,19 @@ export type VideoFailure =
 export type VideoDownload = {
   uri: string;
   size?: number;
-  contentType?: string;
+  bytes?: Uint8Array;
   delete?: () => void | Promise<void>;
+  open?: () => { readBytes: (length: number) => Uint8Array };
 };
 export type VideoDeps = {
+  createDirectory?: () => Promise<void>;
   downloadFile?: (
     url: string,
-    options: { headers?: Record<string, string>; timeoutMs: number },
+    options: { headers?: Record<string, string> },
   ) => Promise<VideoDownload>;
   removeFile?: (uri: string) => Promise<void>;
+  readHeader?: (file: VideoDownload) => Uint8Array;
+  timeoutMs?: number;
 };
 const ALLOWED = [
   'cdninstagram.com',
@@ -33,58 +38,100 @@ const ALLOWED = [
   'byteoversea.com',
   'ibyteimg.com',
 ];
+const cacheDir = () => new Directory(Paths.cache, 'whisk-share');
+
+function failureFrom(error: unknown): VideoFailure {
+  const message = error instanceof Error ? error.message : String(error);
+  const status = message.match(/status\s+(\d{3})/i)?.[1];
+  if (status === '401' || status === '403') return 'http_403';
+  if (status) return 'http_error';
+  return 'network';
+}
+
+export async function sweepShareCache(): Promise<void> {
+  try {
+    const directory = cacheDir();
+    for (const item of directory.list()) item.delete();
+  } catch {
+    // Cache cleanup is best-effort.
+  }
+}
+
 export async function videoFromUrl(
   meta: Partial<SocialMeta>,
   deps: VideoDeps = {},
 ): Promise<
   { ok: true; uri: string; cleanup: () => Promise<void> } | { ok: false; reason: VideoFailure }
 > {
-  if (!meta.videoUrl) return { ok: false, reason: 'no_video_url' };
-  let parsed: URL;
+  if (!meta.videoUrl || !isPublicHttpsUrl(meta.videoUrl))
+    return { ok: false, reason: meta.videoUrl ? 'network' : 'no_video_url' };
+  const parsed = new URL(meta.videoUrl);
+  if (!ALLOWED.some((host) => parsed.hostname === host || parsed.hostname.endsWith(`.${host}`)))
+    return { ok: false, reason: 'network' };
+  const directory = cacheDir();
   try {
-    parsed = new URL(meta.videoUrl);
+    await (deps.createDirectory
+      ? deps.createDirectory()
+      : directory.create({ intermediates: true, idempotent: true }));
   } catch {
     return { ok: false, reason: 'network' };
   }
-  if (
-    parsed.protocol !== 'https:' ||
-    !ALLOWED.some((host) => parsed.hostname === host || parsed.hostname.endsWith(`.${host}`))
-  )
-    return { ok: false, reason: 'network' };
   const destination = new File(
-    Paths.cache,
-    'whisk-share',
+    directory,
     `${Date.now()}-${Math.random().toString(36).slice(2)}.mp4`,
   );
-  let file: VideoDownload;
+  let file: VideoDownload | undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    file = deps.downloadFile
-      ? await deps.downloadFile(meta.videoUrl, { headers: meta.videoHeaders, timeoutMs: 12_000 })
-      : ((await File.downloadFileAsync(meta.videoUrl, destination, {
+    const download = deps.downloadFile
+      ? deps.downloadFile(meta.videoUrl, { headers: meta.videoHeaders })
+      : (File.downloadFileAsync(meta.videoUrl, destination, {
           headers: meta.videoHeaders,
           idempotent: true,
-        })) as unknown as VideoDownload);
+        }) as unknown as Promise<VideoDownload>);
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error('timeout')), deps.timeoutMs ?? 12_000);
+    });
+    file = await Promise.race([download, timeout]);
   } catch (error) {
-    const status = (error as { status?: number }).status;
-    return {
-      ok: false,
-      reason:
-        status === 401 || status === 403
-          ? 'http_403'
-          : error instanceof DOMException && error.name === 'AbortError'
-            ? 'timeout'
-            : 'network',
-    };
+    try {
+      await (deps.removeFile?.(destination.uri) ?? destination.delete?.());
+      if (file?.uri && file.uri !== destination.uri)
+        await (deps.removeFile?.(file.uri) ?? file.delete?.());
+    } catch {
+      // Cleanup is best-effort when a native download failed or timed out.
+    }
+    if (error instanceof Error && error.message === 'timeout')
+      return { ok: false, reason: 'timeout' };
+    return { ok: false, reason: failureFrom(error) };
+  } finally {
+    if (timer) clearTimeout(timer);
   }
   const uri = file.uri;
-  const size = file.size ?? (file as any).info?.size;
-  const type = file.contentType ?? '';
-  if ((size ?? 0) > 150 * 1024 * 1024) {
-    await (deps.removeFile?.(uri) ?? file.delete?.());
-    return { ok: false, reason: 'too_large' };
-  }
-  if (type && !type.includes('mp4') && !type.includes('quicktime')) {
-    await (deps.removeFile?.(uri) ?? file.delete?.());
+  const remove = async () => {
+    try {
+      await (deps.removeFile?.(uri) ?? file?.delete?.());
+    } catch {
+      // Cleanup is best-effort.
+    }
+  };
+  try {
+    if ((file.size ?? 0) > 150 * 1024 * 1024) {
+      await remove();
+      return { ok: false, reason: 'too_large' };
+    }
+    const opened = file.open?.();
+    const header = deps.readHeader
+      ? deps.readHeader(file)
+      : opened
+        ? opened.readBytes(12)
+        : file.bytes;
+    if (!header || header.length < 8 || String.fromCharCode(...header.slice(4, 8)) !== 'ftyp') {
+      await remove();
+      return { ok: false, reason: 'not_video' };
+    }
+  } catch {
+    await remove();
     return { ok: false, reason: 'not_video' };
   }
   let cleaned = false;
@@ -94,7 +141,7 @@ export async function videoFromUrl(
     cleanup: async () => {
       if (cleaned) return;
       cleaned = true;
-      await (deps.removeFile?.(uri) ?? file.delete?.());
+      await remove();
     },
   };
 }

@@ -3,12 +3,12 @@ import type { ImportDraft } from '@/import/types';
 import { parseIngredientLine } from '@/import/parse/ingredients';
 
 const IMPERATIVE =
-  /^(add|bake|boil|bring|chop|combine|cook|dice|fold|heat|melt|mix|place|pour|preheat|season|serve|simmer|slice|stir|toss|whisk|blend|let)\b/i;
+  /^(add|bake|boil|bring|chop|combine|cook|dice|fold|heat|melt|mix|place|pour|preheat|season|serve|simmer|slice|stir|toss|whisk|blend|let|sear|chill|scoop|spoon|put|get|throw|drain|cut|fry|roast|grill|sprinkle|top|garnish|transfer|cover|remove|brown|knead|roll|shape|marinate|adding|start)\b/i;
 const FILLER =
   /^(hey guys|follow for more|comment recipe|comment RECIPE|like and subscribe)[!. ]*$/i;
-const NUM = '(?:\\d+(?:[./]\\d+)?|a|an|one|two|three|four|five|half|quarter|a quarter)';
+const NUM = '(?:\\d+(?:\\.\\d+)?(?:\\s+and\\s+1/4)?|a|an|one|two|three|four|five|six|seven|eight|half(?:\\s+a)?|quarter(?:\\s+a)?)';
 const UNIT =
-  '(?:cups?|tbsp|tablespoons?|tsp|teaspoons?|grams?|ounces?|oz|pounds?|lb|cloves?|pinch|cans?)';
+  '(?:cups?|tbsp|tablespoons?|tsp|teaspoons?|grams?|ounces?|oz|pounds?|lb|cloves?|pinch|cans?|handful|breasts?)';
 const NUMBER_WORDS: Record<string, string> = {
   one: '1',
   two: '2',
@@ -29,11 +29,11 @@ export function draftFromTranscript(options: {
     .join(' ')
     .replace(/\s+/g, ' ')
     .trim();
-  const sentences = (options.segments?.map((s) => s.text) ?? text.split(/(?<=[.!?])\s+/))
+  const sentences = ((options.segments?.map((s) => s.text).join(' ') ?? text).split(/(?<=[.!?])\s+/))
     .map((s) => s.trim())
     .filter((s) => s && !FILLER.test(s));
   if (!sentences.length) return null;
-  const titleMatch = text.match(/(?:making|this is my)\s+(?:my\s+)?([^.!?]+)/i);
+  const titleMatch = text.match(/(?:making|this is my|today we're making|best)\s+(?:my\s+)?([^.!?]+?)(?:\s+you'll ever make)?[.!?]/i);
   const title = titleMatch?.[1]
     ? titleMatch[1].trim().replace(/^\w/, (c) => c.toUpperCase())
     : options.sourceName
@@ -42,19 +42,28 @@ export function draftFromTranscript(options: {
   const quantityLines: string[] = [];
   const steps: string[] = [];
   for (const sentence of sentences) {
-    if (IMPERATIVE.test(sentence)) steps.push(sentence);
-    const matches = sentence.match(new RegExp(`${NUM}\\s+${UNIT}\\s+[a-z][^,.;]+`, 'gi'));
+    const cleaned = sentence
+      .replace(/^(?:okay\s+)?(?:so\s+)?(?:then\s+)?(?:now\s+)?(?:first\s+)?(?:next\s+)?(?:and then\s+)?(?:start by\s+)?(?:once|while)\s+/i, '')
+      .replace(/^(?:you're gonna|you are going to|go ahead and)\s+/i, '');
+    if (IMPERATIVE.test(cleaned)) steps.push(cleaned);
+    const matches = sentence.match(new RegExp(`${NUM}(?:\\s+${UNIT})?\\s+(?:of\\s+)?[a-z][^,.;]+?(?=\\s*(?:,|\\band\\b|\\.|$))`, 'gi'));
     if (matches) quantityLines.push(...matches);
   }
   const ingredients = quantityLines
     .flatMap((line) => line.split(/,\s+|\s+and\s+/i))
     .map((line, i) => {
-      let normalized = line.replace(/^a quarter\s+/i, '0.25 ').replace(/^a half\s+/i, '0.5 ');
+      let normalized = line.replace(/^a quarter\s+/i, '0.25 ').replace(/^a half\s+/i, '0.5 ').replace(/^(\d+)\s+and\s+1\/4\b/i, '$1.25 ');
       normalized = normalized.replace(
         /^(one|two|three|four|five)\b/i,
         (word) => NUMBER_WORDS[word.toLowerCase()] ?? word,
       );
       normalized = normalized
+        .replace(/^of\s+/i, '')
+        .replace(/\s+(?:until|and\s+(?:pour|mix|toss|bake|cook|sear)\b).*$/i, '')
+        .replace(/\s+that's.*$/i, '')
+        .replace(/\s+with\s+.*$/i, '')
+        .replace(/^a\b/i, '1')
+        .replace(/^an\b/i, '1')
         .replace(/\bgrams?\b/gi, 'g')
         .replace(/\btablespoons?\b/gi, 'tbsp')
         .replace(/\bteaspoons?\b/gi, 'tsp');

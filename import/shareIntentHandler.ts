@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react';
 import { useShareIntentContext } from 'expo-share-intent';
 
 import { parseShareIntent } from '@/import/shareIntent';
-import { setSharePayload } from '@/import/sharePayload';
+import { useSharePayloadStore } from '@/import/sharePayloadStore';
 
 /**
  * Hook to handle incoming share intents and navigate to import screen.
@@ -42,7 +42,7 @@ export function useShareIntentHandler() {
         // Store parsed data in memory instead of query params
         // This prevents long captions from being truncated/encoded poorly
         // and handles video/image file paths that can't go in URLs
-        setSharePayload(parsed);
+        useSharePayloadStore.getState().setPayload(parsed);
 
         // Navigate to share import screen without query params
         if (pathname !== '/import/share') router.navigate('/import/share');
