@@ -32,3 +32,25 @@ it('downloads an allowlisted video and cleanup is idempotent', async () => {
   }
   expect(remove).toHaveBeenCalledTimes(1);
 });
+
+it('creates the share directory before downloading and rejects non-ftyp files', async () => {
+  const create = jest.fn();
+  const remove = jest.fn();
+  const result = await videoFromUrl({ videoUrl: 'https://v16.tiktokcdn.com/a.mp4' }, {
+    createDirectory: create,
+    downloadFile: async () => ({ uri: 'file:///cache/a.mp4', size: 10, bytes: new Uint8Array(12) }),
+    removeFile: remove,
+  } as any);
+  expect(create).toHaveBeenCalled();
+  expect(result).toEqual({ ok: false, reason: 'not_video' });
+  expect(remove).toHaveBeenCalled();
+});
+
+it('maps a native 403 response and timeout without throwing', async () => {
+  await expect(videoFromUrl({ videoUrl: 'https://v16.tiktokcdn.com/a.mp4' }, {
+    downloadFile: async () => { throw new Error('response has status 403'); },
+  })).resolves.toEqual({ ok: false, reason: 'http_403' });
+  await expect(videoFromUrl({ videoUrl: 'https://v16.tiktokcdn.com/a.mp4' }, {
+    downloadFile: () => new Promise(() => {}), timeoutMs: 1,
+  } as any)).resolves.toEqual({ ok: false, reason: 'timeout' });
+});
