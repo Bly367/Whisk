@@ -43,7 +43,12 @@ function isCta(value: string): boolean {
 }
 
 function isCookingStep(line: string): boolean {
-  return STEP.test(line) || /^(?:save some|follow the package directions)\b/i.test(line);
+  return !/^(?:let me|let us|let['’]s know|make sure)\b/i.test(line) && (STEP.test(line) || /^(?:save some|follow the package directions)\b/i.test(line));
+}
+
+function isMeasuredIngredientLine(line: string): boolean {
+  const value = line.replace(/^[-*•]\s*/, '').trim();
+  return QUANTITY.test(value) && MEASUREMENT.test(value);
 }
 
 function sectionName(line: string): string | null {
@@ -63,7 +68,7 @@ function titleFrom(line: string, sourceName: string): string {
     .replace(/\s+/g, ' ')
     .replace(/^["']+|["']+$/g, '')
     .trim();
-  if (!title) return `Recipe from ${sourceName}`;
+  if (!title || /^\d+(?:[.,]\d+)?$/.test(title)) return `Recipe from ${sourceName}`;
   return title.length <= 80 ? title : title.slice(0, 80).replace(/\s+\S*$/, '');
 }
 
@@ -96,7 +101,8 @@ function socialIngredientLine(line: string): IngredientInput[] {
     if (juice) normalized = `${juice[1]} ${juice[2]}`;
     normalized = normalized
       .replace(/^(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b/i, (word) => NUMBER_WORDS[word.toLowerCase()] ?? word)
-      .replace(/^half\s+a?\s*/i, '0.5 ')
+      .replace(/^half\s+a\s+(?=\S)/i, '0.5 ')
+      .replace(/^half\s+(?=(?:cups?|tbsp|tablespoons?|tsp|teaspoons?|oz|ounces?|lb|lbs?|pounds?|g|kg|ml|l|cloves?|cans?|sticks?|bunch(?:es)?|sprigs?|slices?|fillets?|stalks?)\b)/i, '0.5 ')
       .replace(/^½\b/, '0.5')
       .replace(/^¼\b/, '0.25');
     const afterNameUnit = normalized.match(/^(\d+(?:\s+\d+\/\d+|\s*\/\d+|\s*(?:to|[–-])\s*\d+)?|[¼½¾⅓⅔⅛⅜⅝⅞])\s+(.+?)\s+(cloves?|fillets?|stalks?)\b(.*)$/i);
@@ -143,7 +149,10 @@ export function cleanSocialCaption(input: string, sourceName: string): CleanCapt
     }
     if (kept.length) lines.push(kept.join(' ').replace(/\*$/, '').trim());
   }
-  const titleLine = lines.find((line) => !SECTION.test(line) && !isIngredientLike(line) && !/^[\d.,]+\s*[KMB]?\s+likes?/i.test(line)) ?? '';
+  const firstLine = lines[0] ?? '';
+  const titleLine = firstLine && !sectionName(firstLine) && !isNumberedStep(firstLine) && !isMeasuredIngredientLine(firstLine)
+    ? firstLine
+    : '';
   const title = titleFrom(titleLine, sourceName);
   const bodyLines = lines[0] === titleLine ? lines.slice(1) : lines;
   const ingredientLines: { line: string; group: string | null }[] = [];
@@ -158,6 +167,10 @@ export function cleanSocialCaption(input: string, sourceName: string): CleanCapt
       inIngredients = /^(?:ingredients?)/i.test(section);
       group = null;
       if (/^(?:instructions?|directions?|method|steps?|how to make)/i.test(section)) inIngredients = false;
+      continue;
+    }
+    if (/^(?:note|tip):/i.test(line)) {
+      notes.push(line);
       continue;
     }
     if (isGroupHeader(line, next)) {
