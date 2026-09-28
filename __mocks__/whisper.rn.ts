@@ -16,6 +16,11 @@ export interface WhisperContext {
 }
 
 let nextContextId = 1;
+export let lastTranscribedAudioPath: string | null = null;
+
+export function resetWhisperMock(): void {
+  lastTranscribedAudioPath = null;
+}
 
 export async function initWhisper(_options: {
   filePath: string;
@@ -25,6 +30,7 @@ export async function initWhisper(_options: {
   return {
     id: contextId,
     transcribe: (audioPath: string, _options?: { language?: string }) => {
+      lastTranscribedAudioPath = audioPath;
       // Return fixture transcript for testing
       const fixtureTranscript = `
     Hey everyone! Today I'm making my famous chocolate chip cookies.

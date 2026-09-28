@@ -121,8 +121,8 @@ export async function transcribeVideo(
 **Pipeline steps:**
 
 1. **Audio extraction** (`import/transcribe/audioExtract.ts`):
-   - Extracts audio track from video as 16kHz mono WAV/M4A
-   - Uses Expo AV or `expo-video-audio-extractor` (no GPL dependencies)
+   - Decodes the first audio track to a streamed 16kHz mono 16-bit PCM WAV
+   - Uses the local iOS Expo module in `modules/whisk-audio/`
    - Returns audio file path + duration
 
 2. **Whisper transcription** (`import/transcribe/whisper.ts`):
@@ -151,9 +151,10 @@ export async function transcribeVideo(
 Real transcription requires these native modules:
 
 1. **`whisper.rn`** — On-device Whisper inference (version 0.7.4+)
-2. **`expo-video-audio-extractor`** — Audio extraction from video (version 0.1.0+)
-3. **`expo-file-system`** — File management (included in Expo SDK)
-4. **`buffer`** — Node.js Buffer polyfill for Metro bundling (required by `safe-buffer` dependency)
+2. **`expo-file-system`** — File management (included in Expo SDK)
+3. **`buffer`** — Node.js Buffer polyfill for Metro bundling (required by `safe-buffer` dependency)
+
+Audio extraction is provided by the local `modules/whisk-audio/` Expo module and is included automatically in iOS development builds.
 
 ### Installation Steps
 
