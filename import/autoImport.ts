@@ -7,6 +7,7 @@ import { fetchSocialMeta, type SocialMeta } from '@/import/social/socialMeta';
 import { videoFromUrl } from '@/import/social/videoFromUrl';
 import { transcribeVideo } from '@/import/transcribe';
 import { AUTO_SAVE_MIN_INGREDIENTS, scoreDraft } from '@/import/score';
+import { createId, nowIso } from '@/data/util';
 import type { ImportDraft } from '@/import/types';
 import { useAutoImportStore } from '@/import/autoImportStore';
 import { cleanSocialCaption } from '@/import/social/cleanCaption';
@@ -250,24 +251,39 @@ async function safeWebsiteImport(
 }
 function safePastedDraft(text: string, meta: SocialMeta): ImportDraft | null {
   try {
-    const cleaned = ['instagram', 'tiktok', 'facebook', 'youtube', 'pinterest'].includes(meta.source)
-      ? cleanSocialCaption(text, meta.source)
-      : null;
+    const social = ['instagram', 'tiktok', 'facebook', 'youtube', 'pinterest'].includes(meta.source);
+    const cleaned = social ? cleanSocialCaption(text, meta.source) : null;
+    if (cleaned) {
+      return {
+        id: createId(),
+        sourceKind: 'share_sheet',
+        sourceUrl: meta.canonicalUrl,
+        sourceName: meta.source,
+        imageUri: null,
+        title: cleaned.title,
+        notes: cleaned.notes || null,
+        servings: null,
+        prepMinutes: null,
+        cookMinutes: null,
+        ingredients: cleaned.ingredients.map((ingredient, position) => ({ ...ingredient, position })),
+        instructions: cleaned.steps,
+        confidence: {
+          title: cleaned.title.startsWith('Recipe from ') ? 'low' : 'medium',
+          ingredients: cleaned.ingredients.length ? 'medium' : 'unknown',
+          instructions: cleaned.steps.length ? 'medium' : 'unknown',
+        },
+        warnings: [{ code: 'low_confidence', message: 'Automatically drafted from shared social content. Review before serving.' }],
+        sourceEvidence: cleaned.text.slice(0, 4000),
+        adapterId: 'share-auto',
+        createdAt: nowIso(),
+      };
+    }
     const draft = draftFromPastedText({
-      text: cleaned?.text ?? text,
+      text,
       sourceUrl: meta.canonicalUrl,
       sourceName: meta.source,
       adapterId: 'share-auto',
     });
-    if (!draft) return null;
-    if (cleaned) {
-      draft.title = cleaned.title;
-      draft.notes = [cleaned.notes, draft.notes].filter(Boolean).join('\n');
-      for (const ingredient of draft.ingredients) {
-        const group = [...cleaned.groups.entries()].find(([line]) => line.includes(ingredient.name.toLowerCase()));
-        if (group) ingredient.groupName = group[1];
-      }
-    }
     return draft;
   } catch {
     return null;
@@ -281,7 +297,12 @@ function captionCandidate(draft: ImportDraft): boolean {
 }
 
 function audioCandidate(draft: ImportDraft): boolean {
-  return scoreDraft(draft).passes || scoreDraft(draft).steps >= 3;
+  if (scoreDraft(draft).passes) return true;
+  if (scoreDraft(draft).steps < 3) return false;
+  const meaningful = draft.instructions.filter((step) =>
+    /\b(?:add|air fry|bake|boil|bring|chop|combine|cook|crack|dice|drizzle|finish|flip|fold|heat|make|marinate|melt|mix|pat|place|pour|preheat|reduce|remove|roast|season|serve|simmer|slice|stir|toss|whisk|blend|let|sear|sprinkle|top|garnish|transfer|cover|brown|knead|roll|shape)\s+\w+|\b\d+(?:\.\d+)?\s*(?:minutes?|mins?|degrees?|°[FC])\b/i.test(step.text),
+  ).length;
+  return meaningful >= 2;
 }
 
 async function readSubtitle(meta: SocialMeta, deps: AutoImportDeps): Promise<string | null> {
@@ -292,7 +313,7 @@ async function readSubtitle(meta: SocialMeta, deps: AutoImportDeps): Promise<str
     const host = parsed.hostname.toLowerCase();
     if (!['tiktokcdn.com', 'tiktokcdn-us.com', 'tiktok.com'].some((allowed) => host === allowed || host.endsWith(`.${allowed}`))) return null;
     const result: FetchTextResult = await (deps.fetchText ?? fetchText)(value, { headers: meta.videoHeaders, maxBytes: 256 * 1024 });
-    if (result.status < 200 || result.status >= 300) return null;
+    if (result.status < 200 || result.status >= 300 || result.text.length > 256 * 1024) return null;
     return result.text.replace(/^WEBVTT[^\n]*\n/i, '').split(/\r?\n/).filter((line) => line.trim() && !/^\d{2}:\d{2}:\d{2}[.,]\d{3}\s+-->/.test(line) && !/^\d+$/.test(line.trim())).join(' ');
   } catch {
     return null;

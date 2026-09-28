@@ -77,7 +77,7 @@ Aligned at a high level with **OWASP MASVS** (storage, auth, network, platform, 
 - Accept only **https:** (and documented app schemes for share sheets). Reject `file:`, `javascript:`, and unexpected schemes.
 - Do not follow unbounded redirects; cap size/time of fetched documents.
 - Treat fetched HTML/JSON as **untrusted**. Parse into structured preview fields; never `eval` or execute remote script.
-- The allowed fetch set is limited to the shared post page, TikTok oEmbed, explicitly linked recipe pages, and the selected video download. Downloaded videos are kept in the cache only for transcription and are deleted afterward.
+- The allowed fetch set is limited to the shared post page, TikTok oEmbed, explicitly linked recipe pages, a TikTok WebVTT subtitle track from an allowlisted public HTTPS host (maximum 256 KB, using no cookies beyond the share session), and the selected video download. Downloaded videos are kept in the cache only for transcription and are deleted afterward.
 - Block private, loopback, link-local, and IPv4-mapped-private addresses before every fetch; never follow a user-controlled URL into an internal network.
 - Share auto-import may persist only a non-empty, content-gated draft; the recipe detail screen must mark it for review and provide undo.
 

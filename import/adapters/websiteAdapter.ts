@@ -27,7 +27,7 @@ async function fetchHtml(url: string): Promise<string> {
 
 /**
  * Website importer: fetch HTML and extract schema.org Recipe JSON-LD.
- * Social hosts are rejected here so the share-sheet adapter owns that path.
+ * Social hosts are rejected here; share auto-import (import/autoImport.ts) owns them.
  */
 export function createWebsiteAdapter(
   fetchHtmlImpl: (url: string) => Promise<string> = fetchHtml,

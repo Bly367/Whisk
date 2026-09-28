@@ -5,7 +5,7 @@ import { parseIngredientLine } from '@/import/parse/ingredients';
 const IMPERATIVE = /^(?:add|bake|boil|bring|chop|combine|cook|crack|dice|drizzle|finish|flip|fold|heat|make|melt|mix(?:\s+in)?|pat|place|pour(?:\s+in)?|preheat|reduce|season|serve|simmer|slice|stir(?:\s+in)?|toss|whisk(?:\s+in)?|blend|let|sear|chill|scoop|spoon|put|get|grab|throw|drain|cut|fry|air fry|roast|grill|sprinkle|top|garnish|transfer|cover|remove|brown|knead|roll|shape|marinate|adding|start)\b/i;
 const FILLER = /^(hey guys|follow for more|comment recipe|comment RECIPE|like and subscribe)[!. ]*$/i;
 const NUMBER_WORDS: Record<string, string> = { one: '1', two: '2', three: '3', four: '4', five: '5', six: '6', seven: '7', eight: '8', nine: '9', ten: '10', eleven: '11', twelve: '12' };
-const NUMBER = '(?:\\d+(?:\\s+and\\s+\\d+\\/\\d+)?(?:\\.\\d+)?|\\d+\\/\\d+|a\\s+(?:quarter|half)|an?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|half|quarter)';
+const NUMBER = '(?:\\d+(?:\\s+and\\s+\\d+\\/\\d+)?(?:\\.\\d+)?|\\d+\\s*(?:to|[-–])\\s*\\d+|\\d+\\/\\d+|a\\s+(?:quarter|half)|half\\s+a|an?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|half|quarter)';
 const UNIT = '(?:cups?|tbsp|tablespoons?|tsp|teaspoons?|ounces?|oz|pounds?|lbs?|grams?|g|kg|ml|l|cloves?|pinch(?:es)?|cans?|handful|breasts?|sticks?|bunch(?:es)?|sprigs?|slices?|fillets?)';
 const HEAD_JUNK = /^(?:minutes?|seconds?|degrees?|pan|skillet|bowl|sheet|tray|lid|oven|spoon)\b/i;
 const VERB_OR_PRONOUN = /^(?:i|i'm|we|we're|you|you're|your|it|this|that|start|sizzle|make|making|adding|going|go|is|are)\b/i;
@@ -15,6 +15,7 @@ function normalizeQuantity(value: string): string {
   const compact = value.toLowerCase().replace(/\s+/g, ' ').trim();
   if (compact === 'a quarter' || compact === 'quarter') return '0.25';
   if (compact === 'a half' || compact === 'half') return '0.5';
+  if (compact === 'half a') return '0.5';
   if (compact === 'a' || compact === 'an') return '1';
   const mixed = compact.match(/^(\d+)\s+and\s+(\d+)\/(\d+)$/);
   if (mixed) return String(Number(mixed[1]) + Number(mixed[2]) / Number(mixed[3]));
@@ -44,8 +45,9 @@ function ingredientLines(sentence: string): string[] {
     const listStart = sentence.search(LIST_CONTEXT);
     const tail = sentence.slice(Math.max(0, listStart)).replace(/^[^,]*?\b(?:need|sauce|together|goes|adding|glug of|with)\b\s*/i, '');
     for (const part of tail.split(/,|\band\b/i)) {
-      const candidate = cleanIngredientName(part.replace(/^(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+/i, ''));
-      if (isIngredientName(candidate) && !new RegExp(`^${NUMBER}`, 'i').test(candidate) && !new RegExp(`\\b(?:${UNIT}|start|go|your|quarter|half)\\b`, 'i').test(candidate)) lines.push(/^(?:a|an)\s+/i.test(part.trim()) ? `1 ${candidate}` : candidate);
+      const candidate = cleanIngredientName(part.replace(/^(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+/i, ''))
+        .replace(/\s+(?:minced|chopped|diced|sliced|grated|crumbled)$/i, '');
+      if (isIngredientName(candidate) && !new RegExp(`^${NUMBER}`, 'i').test(candidate) && !new RegExp(`\\b(?:${UNIT}|start|go|your|quarter|half|crack|serve|add|pour|stir|it|them|with)\\b`, 'i').test(candidate)) lines.push(/^(?:a|an)\s+/i.test(part.trim()) ? `1 ${candidate}` : candidate);
     }
   }
   return lines;
@@ -58,11 +60,11 @@ function stripDiscourse(value: string): string {
     previous = result;
     result = result
       .replace(/^(?:okay|alright|so|then|now|first|next|and then|finally),?\s+/i, '')
-      .replace(/^(?:for the sauce|once[^,]*|while[^,]*|after (?:that|one minute|[^,]+)),\s*/i, '')
+      .replace(/^(?:for the sauce|once[^,]*|while[^,]*|after (?:that|one minute|[^,]+)|(?:then|now|next)[^,]*),\s*/i, '')
       .replace(/^(?:we're|we are|I'm|I am|you're|you are)\s+(?:going to|gonna)\s+/i, '')
       .replace(/^(?:I|we|you)\s+(?:want to|wanna|need to|have to|will|'ll)\s+/i, '')
       .replace(/^let's\s+/i, '')
-      .replace(/^(?:I|we)\s+(?:just\s+)?/i, '')
+      .replace(/^(?:I|we)\s+just\s+/i, '')
       .replace(/^(?:go ahead and|I like to|make sure you)\s+/i, '')
       .replace(/^and\s+(?=(?:add|bake|bring|crack|cook|drizzle|finish|flip|make|pat|pour|pop|reduce|serve|simmer|sprinkle|stir|whisk|air fry)\b)/i, '')
       .trim();
@@ -81,12 +83,22 @@ export function draftFromTranscript(options: { segments?: { text: string }[]; te
   if (!sentences.length) return null;
   const titleMatch = text.match(/(?:making|this is my|today we're making|best)\s+(?:my\s+)?([^.!?]+?)(?:\s+you'll ever make)?[.!?]/i);
   const title = titleMatch?.[1] ? titleMatch[1].trim().replace(/^\w/, (c) => c.toUpperCase()) : options.sourceName ? `Recipe from ${options.sourceName}` : 'Recipe from shared video';
-  const quantityLines = sentences.flatMap(ingredientLines);
-  const steps = sentences.flatMap(stepCandidates);
+  const quantityLines = sentences.flatMap((sentence) => {
+    const mixedCup = sentence.match(/\ba\s+(cups?|tbsp|tsp|tablespoons?|teaspoons?|pounds?|lb|ounces?|oz)\s+and\s+a\s+half\s+([a-z][a-z' -]*)/i);
+    if (mixedCup) return [...ingredientLines(sentence.replace(mixedCup[0], '')), `1.5 ${mixedCup[1]} ${mixedCup[2]}`];
+    return ingredientLines(sentence);
+  });
+  const steps = sentences.flatMap(stepCandidates).map((step) => step.replace(/^(\w)/, (_, first) => first.toUpperCase()));
+  const seenIngredients = new Set<string>();
   const ingredients = quantityLines.map((line, position) => {
     const parsed = parseIngredientLine(line.replace(/\s+of\s+/i, ' '), position);
     return { ...parsed, name: cleanIngredientName(parsed.name).replace(/\s+clove$/i, '') };
-  }).filter((x) => x.name.trim() && isIngredientName(x.name));
+  }).filter((x) => {
+    const key = x.name.toLowerCase().replace(/\s+/g, ' ').trim();
+    if (!x.name.trim() || !isIngredientName(x.name) || seenIngredients.has(key)) return false;
+    seenIngredients.add(key);
+    return true;
+  });
   if (!ingredients.length && !steps.length) return null;
   return { id: createId(), sourceKind: 'share_sheet', sourceUrl: options.sourceUrl ?? null, sourceName: options.sourceName ?? null, imageUri: null, title, notes: null, servings: null, prepMinutes: null, cookMinutes: null, ingredients, instructions: steps.map((text, position) => ({ id: createId(), text, position })), confidence: { title: titleMatch ? 'medium' : 'low', ingredients: ingredients.length ? 'medium' : 'unknown', instructions: steps.length ? 'medium' : 'unknown' }, warnings: [{ code: 'low_confidence', message: 'Automatically drafted from spoken text. Review before serving.' }], sourceEvidence: text.slice(0, 4000), adapterId: 'transcript', createdAt: nowIso() };
 }

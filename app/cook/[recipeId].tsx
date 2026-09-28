@@ -9,6 +9,7 @@ import { motion, radius, spacing } from '@/constants/tokens';
 import { createOfflineReader, getDatabase, getRepositories } from '@/data';
 import type { RecipeWithIngredients } from '@/data/contracts';
 import { CookTimersPanel } from '@/features/cook/CookTimersPanel';
+import { ingredientsForCookStep } from '@/features/cook/cookIngredients';
 import {
   handsFreeNavFeedback,
   navigateCookStep,
@@ -19,22 +20,6 @@ import { useKeepAwakeWhileCooking } from '@/features/cook/useKeepAwakeWhileCooki
 import { motionDuration, useReduceMotion } from '@/hooks/useReduceMotion';
 import { ensureMinTouchTarget, hitSlop } from '@/theme/a11y';
 import { useTheme } from '@/theme/ThemeProvider';
-
-const ingredientWords = (name: string) => name
-  .toLowerCase()
-  .replace(/\([^)]*\)/g, '')
-  .split(/[^a-z0-9]+/)
-  .filter((word) => word.length >= 3 && !['and', 'for', 'the', 'with'].includes(word));
-
-export function ingredientsForCookStep<T extends { name: string }>(ingredients: T[], stepText: string): T[] {
-  const text = stepText.toLowerCase();
-  const matched = ingredients.filter((ingredient) => {
-    const name = ingredient.name.toLowerCase().replace(/\([^)]*\)/g, '').trim();
-    if (name && new RegExp(`\\b${name.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}\\b`, 'i').test(text)) return true;
-    return ingredientWords(ingredient.name).some((word) => new RegExp(`\\b${word}\\b`, 'i').test(text));
-  });
-  return matched.length > 0 ? matched : ingredients;
-}
 
 /**
  * Cook mode — step focus, large Back/Next (hands-free targets), multi-timers,
@@ -94,6 +79,10 @@ export default function CookModeScreen() {
     [current?.text, recipe?.ingredients],
   );
   const visibleIngredients = showAllIngredients ? recipe?.ingredients ?? [] : nearbyIngredients;
+
+  useEffect(() => {
+    setShowAllIngredients(false);
+  }, [stepIndex]);
 
   const progressLabel = useMemo(() => {
     if (total === 0) return 'No steps';
@@ -294,7 +283,7 @@ export default function CookModeScreen() {
             <View style={styles.ingredientChips}>
               {visibleIngredients.map((ingredient) => (
                 <View key={ingredient.id} style={[styles.ingredientChip, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                  <Text variant="caption" style={{ color: colors.textPrimary }}>
+                  <Text variant="caption" style={{ color: colors.textPrimary, fontWeight: '700' }}>
                     {[ingredient.quantity, ingredient.unit].filter(Boolean).join(' ')}
                   </Text>
                   <Text variant="callout" maxFontSizeMultiplier={1.3} style={{ color: colors.textPrimary }}>

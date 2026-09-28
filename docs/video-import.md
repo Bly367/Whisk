@@ -58,6 +58,8 @@ When user shares from inside Instagram/TikTok app (not from Photos):
 
 This is **UX honesty** — we tell users why we need the caption or video file.
 
+Audio drafts are auto-saved only when at least three cooking steps are found and at least two steps contain a cooking verb with an object, a quantity, a time, or a temperature. This keeps conversational chatter from becoming a saved recipe.
+
 ## Technical Architecture
 
 ### Share Intent Plugin Config

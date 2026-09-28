@@ -107,7 +107,7 @@ export default function AddScreen() {
     <Screen testID="screen-add" showSyncStatus={false}>
       <PlaceholderHero
         title="Add a recipe"
-        body="Bring one in from a link, a share, a photo, or scratch. You’ll review it before it’s saved. Share imports save automatically and can be undone."
+        body="Bring one in from a link, a share, a photo, or scratch. Links, photos and manual recipes open for review first; shares save automatically and can be undone."
       />
 
       <LimitNotice usage={usage} entitlement={entitlement} unlockCopy={unlockCopy} />

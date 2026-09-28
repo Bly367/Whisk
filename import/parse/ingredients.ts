@@ -13,7 +13,7 @@ export function parseIngredientLine(line: string, position = 0): IngredientInput
     return { name: '', position };
   }
 
-  const match = cleaned.match(/^(\d+(?:\s*[–-]\s*\d+)?(?:\.\d+)?(?:\s+\d+\/\d+)?|\d+\/\d+|[¼½¾⅓⅔⅛⅜⅝⅞])?\s*(.*)$/u);
+  const match = cleaned.match(/^(\d+\s+\d+\/\d+|\d+\s*(?:to|[–-])\s*\d+|\d+\/\d+|\d+(?:\.\d+)?|[¼½¾⅓⅔⅛⅜⅝⅞])?\s*(.*)$/u);
   if (!match) {
     return { name: cleaned, position };
   }
@@ -21,14 +21,16 @@ export function parseIngredientLine(line: string, position = 0): IngredientInput
   const quantity = (match[1] ?? '').trim() || null;
   const remainder = (match[2] ?? '').trim();
   const metricNote = remainder.match(/^([^()]+?)\s*\((\d+(?:\.\d+)?\s*(?:g|kg|ml|l))\)\s*(.*)$/i);
-  const remainderWithoutMetric = (metricNote ? `${metricNote[1]} ${metricNote[3]}`.trim() : remainder).replace(/^(?:small|medium|large|fresh|unsalted|dried|low-sodium)\s+/i, '');
+  const leadingMetric = remainder.match(/^\((\d+(?:\.\d+)?\s*(?:g|kg|ml|l))\)\s*(.*)$/i);
+  const effectiveMetric = metricNote ?? (leadingMetric ? { 2: leadingMetric[1] } : undefined);
+  const remainderWithoutMetric = (metricNote ? `${metricNote[1]} ${metricNote[3]}`.trim() : leadingMetric ? leadingMetric[2] : remainder).trim();
   const unitMatch = remainderWithoutMetric.match(UNIT_PATTERN);
   if (unitMatch) {
     return {
       quantity,
       unit: unitMatch[1],
       name: (unitMatch[2] ?? '').trim() || cleaned,
-      note: metricNote?.[2] ?? null,
+      note: effectiveMetric?.[2] ?? null,
       position,
     };
   }
@@ -37,7 +39,7 @@ export function parseIngredientLine(line: string, position = 0): IngredientInput
     quantity,
     unit: null,
     name: remainderWithoutMetric || cleaned,
-    note: metricNote?.[2] ?? null,
+    note: effectiveMetric?.[2] ?? null,
     position,
   };
 }

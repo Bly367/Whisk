@@ -148,10 +148,13 @@ export async function transcribeAudio(
 
     // Transcribe audio
     options?.onProgress?.('transcribing', 0);
-    const { promise } = context.transcribe(audioPath, {
+    const transcribeOptions: Parameters<WhisperContext['transcribe']>[1] & {
+      onProgress?: (progress: number) => void;
+    } = {
       language: options?.language === 'auto' ? undefined : 'en',
       onProgress: (progress: number) => options?.onProgress?.('transcribing', progress / 100),
-    } as never);
+    };
+    const { promise } = context.transcribe(audioPath, transcribeOptions);
 
     const transcription = (await promise) as {
       result: string;
