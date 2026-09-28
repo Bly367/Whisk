@@ -9,7 +9,6 @@ import { LeftoversTargetModal } from '@/components/plan/LeftoversTargetModal';
 import { SaveTemplateModal } from '@/components/plan/SaveTemplateModal';
 import {
   MEAL_SLOTS,
-  buildGroceryPreview,
   entriesForDaySlot,
   recipeTitleMap,
   slotLabel,
@@ -46,6 +45,8 @@ import {
   undoScheduleLeftovers,
   type TemplateApplyPreview,
 } from '@/features/plan-templates';
+import { buildGroceryPreviewFromPlan } from '@/features/shop/generateFromPlan';
+import { replaceGroceryListFromPreview } from '@/features/shop/replaceList';
 import { ensureMinTouchTarget, hitSlop } from '@/theme/a11y';
 import { useTheme } from '@/theme/ThemeProvider';
 
@@ -367,48 +368,30 @@ export default function PlanScreen() {
   };
 
   const groceryPreview = useMemo(() => {
-    if (!plan) return [];
-    const { recipes: recipeRepo } = getRepositories();
-    return buildGroceryPreview(plan.entries, recipesById, (recipeId) => {
-      const full = recipeRepo.getById(recipeId);
-      return (full?.ingredients ?? []).map((ing) => ({
-        name: ing.name,
-        quantity: ing.quantity ?? null,
-        unit: ing.unit ?? null,
-        aisle: ing.aisle ?? null,
-      }));
-    });
-  }, [plan, recipesById]);
+    if (!plan) return null;
+    return buildGroceryPreviewFromPlan(getRepositories(), { weekStart });
+  }, [plan, weekStart]);
 
-  const totalIngredients = groceryPreview.reduce((sum, line) => sum + line.ingredientCount, 0);
+  const groceryLines = groceryPreview?.drafts.map((draft, index) => ({
+    recipeId: `${draft.mergeKey}-${index}`,
+    recipeTitle: draft.recipeTitle ?? draft.name,
+    mealCount: draft.sources.length,
+    ingredientCount: 1,
+  })) ?? [];
+  const totalIngredients = groceryPreview?.drafts.length ?? 0;
 
   const confirmGrocery = () => {
-    if (!plan || groceryPreview.length === 0) return;
+    if (!groceryPreview) return;
     setGroceryBusy(true);
     try {
       const { grocery } = getRepositories();
-      const items = groceryPreview.flatMap((line) =>
-        line.ingredients.map((ing, index) => ({
-          name: ing.name,
-          quantity: ing.quantity,
-          unit: ing.unit,
-          aisle: ing.aisle,
-          recipeId: line.recipeId,
-          recipeTitle: line.recipeTitle,
-          mergeKey: `${line.recipeId}:${ing.name.toLowerCase()}`,
-          position: index,
-        })),
-      );
-      grocery.create({
-        name: `Week of ${formatWeekRange(weekStart)}`,
-        mealPlanId: plan.id,
-        items,
-      });
+      const current = grocery.list().find((item) => item.mealPlanId === groceryPreview.mealPlanId);
+      const previous = current ? grocery.getById(current.id) : null;
+      replaceGroceryListFromPreview(grocery, groceryPreview, previous);
       reportLocalPersistSuccess();
       setGroceryOpen(false);
-      // Stay on Plan — Shop list UI lands with W6; avoid false-success navigation.
       showSnack({
-        message: `${totalIngredients} item${totalIngredients === 1 ? '' : 's'} saved to Groceries. Find them on the Shop tab once list view ships.`,
+        message: `${totalIngredients} item${totalIngredients === 1 ? '' : 's'} ready on the Shop tab.`,
       });
     } catch (error) {
       reportLocalPersistFailure(
@@ -715,7 +698,7 @@ export default function PlanScreen() {
 
       <GrocerySummaryModal
         visible={groceryOpen}
-        lines={groceryPreview}
+        lines={groceryLines}
         totalIngredients={totalIngredients}
         confirming={groceryBusy}
         onClose={() => setGroceryOpen(false)}

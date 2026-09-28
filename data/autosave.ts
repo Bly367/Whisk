@@ -161,21 +161,6 @@ export function createRecipeAutosave(db: DbClient, options: AutosaveOptions = {}
       return sessionAnonymousDraftId;
     },
 
-    /** Load an existing draft by id (offline-safe). */
-    getDraft(recipeId: string): RecipeWithIngredients | null {
-      const recipe = recipes.getById(recipeId);
-      if (!recipe || recipe.status !== 'draft') {
-        return null;
-      }
-      return recipe;
-    },
-
-    listDrafts(): RecipeWithIngredients[] {
-      return recipes
-        .list({ status: 'draft', sort: 'newest' })
-        .map((item) => recipes.getById(item.id))
-        .filter((r): r is RecipeWithIngredients => r !== null);
-    },
   };
 }
 

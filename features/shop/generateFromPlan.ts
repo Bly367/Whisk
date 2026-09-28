@@ -41,13 +41,13 @@ export function buildGroceryPreviewFromPlan(
 ): GroceryGeneratePreview | null {
   const weekStart = options?.weekStart ?? startOfWeekMonday(options?.now ?? new Date());
   const plan: MealPlanWithEntries = repos.mealPlans.getOrCreateForWeek(weekStart);
-  const recipeIds = [
-    ...new Set(
-      plan.entries
-        .map((e) => e.recipeId)
-        .filter((id): id is string => typeof id === 'string' && id.length > 0),
-    ),
-  ];
+  const occurrenceCounts = new Map<string, number>();
+  for (const entry of plan.entries) {
+    if (entry.recipeId) {
+      occurrenceCounts.set(entry.recipeId, (occurrenceCounts.get(entry.recipeId) ?? 0) + 1);
+    }
+  }
+  const recipeIds = [...occurrenceCounts.keys()];
 
   if (recipeIds.length === 0) {
     return null;
@@ -57,8 +57,12 @@ export function buildGroceryPreviewFromPlan(
   for (const recipeId of recipeIds) {
     const recipe = repos.recipes.getById(recipeId);
     if (!recipe) continue;
+    const occurrences = occurrenceCounts.get(recipeId) ?? 1;
     for (const ingredient of recipe.ingredients) {
-      lines.push(ingredientToSource(ingredient, recipe.id, recipe.title));
+      const line = ingredientToSource(ingredient, recipe.id, recipe.title);
+      for (let index = 0; index < occurrences; index += 1) {
+        lines.push(line);
+      }
     }
   }
 

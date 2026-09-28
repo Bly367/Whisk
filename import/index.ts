@@ -42,7 +42,6 @@ export { useShareIntentHandler } from '@/import/shareIntentHandler';
 export {
   setPendingSharePayload,
   consumePendingSharePayload,
-  hasPendingSharePayload,
 } from '@/import/pendingSharePayload';
 
 /** Phase 2 compatibility packs (Paprika / JSON / Markdown) — see `@/import/compat`. */

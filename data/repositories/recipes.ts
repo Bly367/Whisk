@@ -365,9 +365,6 @@ export function createRecipeRepository(db: DbClient) {
       }));
     },
 
-    hardDelete(id: string): void {
-      db.run('DELETE FROM recipes WHERE id = ?', [id]);
-    },
   };
 }
 

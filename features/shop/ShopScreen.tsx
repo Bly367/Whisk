@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 
 import { Button } from '@/components/ui/Button';
 import { PlaceholderHero } from '@/components/ui/PlaceholderHero';
@@ -75,9 +76,11 @@ export function ShopScreen() {
     setList(loadActiveList());
   }, []);
 
-  useEffect(() => {
+  useFocusEffect(
+    useCallback(() => {
     refresh();
-  }, [refresh]);
+    }, [refresh]),
+  );
 
   useHouseholdGrocerySync({
     listId: list?.id ?? null,
@@ -121,11 +124,14 @@ export function ShopScreen() {
     setConfirming(true);
     try {
       const { grocery } = getRepositories();
+      const current = grocery
+        .list()
+        .find((item) => item.mealPlanId === preview.mealPlanId);
       // Create first, then retire prior list — never soft-delete before create.
       const { created, replacedListId, replacedListName } = replaceGroceryListFromPreview(
         grocery,
         preview,
-        list,
+        current ? grocery.getById(current.id) : null,
       );
       reportLocalPersistSuccess();
       setList(created);

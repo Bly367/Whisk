@@ -38,13 +38,3 @@ export function sanitizeCompatImageUri(raw: string | null | undefined): string |
   }
   return url.toString();
 }
-
-export function isAllowedCompatSourceUrl(raw: string | null | undefined): boolean {
-  if (raw == null || !String(raw).trim()) return true;
-  return sanitizeCompatSourceUrl(raw) != null;
-}
-
-export function isAllowedCompatImageUri(raw: string | null | undefined): boolean {
-  if (raw == null || !String(raw).trim()) return true;
-  return sanitizeCompatImageUri(raw) != null;
-}

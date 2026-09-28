@@ -2,6 +2,7 @@
   "expo": {
     "name": "Whisk",
     "slug": "whisk",
+    "owner": "bly367",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -12,6 +13,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "app.whisk.mobile",
       "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "Whisk needs camera access to capture recipe photos for scanning.",
         "NSPhotoLibraryUsageDescription": "Whisk needs access to your photos to import recipe images."
       }
@@ -89,6 +91,11 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "91ce0701-d346-4cbd-a029-c4da1786b1df"
+      }
     }
   }
 }

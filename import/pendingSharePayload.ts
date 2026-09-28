@@ -40,10 +40,3 @@ export function consumePendingSharePayload(): ParsedShareIntent | null {
   }
   return payload;
 }
-
-/**
- * Check if there's a pending payload without consuming it.
- */
-export function hasPendingSharePayload(): boolean {
-  return pendingPayload !== null;
-}

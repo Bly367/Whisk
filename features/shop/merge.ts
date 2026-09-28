@@ -1,3 +1,5 @@
+import { formatQuantity, parseQuantity } from '@/features/recipes/scale';
+
 /**
  * Careful grocery merge/dedupe with recoverable provenance for unmerge.
  */
@@ -84,28 +86,6 @@ export function parseMergeKey(mergeKey: string | null): {
   } catch {
     return { baseKey, sources: null };
   }
-}
-
-function parseQuantity(raw: string | null | undefined): number | null {
-  if (raw == null || raw.trim() === '') return null;
-  const cleaned = raw.trim().replace(/,/g, '');
-  // Support simple fractions like 1/2 or 1 1/2
-  const mixed = cleaned.match(/^(\d+)\s+(\d+)\/(\d+)$/);
-  if (mixed) {
-    return Number(mixed[1]) + Number(mixed[2]) / Number(mixed[3]);
-  }
-  const frac = cleaned.match(/^(\d+)\/(\d+)$/);
-  if (frac) {
-    return Number(frac[1]) / Number(frac[2]);
-  }
-  const n = Number(cleaned);
-  return Number.isFinite(n) ? n : null;
-}
-
-function formatQuantity(n: number): string {
-  if (Number.isInteger(n)) return String(n);
-  const rounded = Math.round(n * 100) / 100;
-  return String(rounded);
 }
 
 function canMergeQuantities(

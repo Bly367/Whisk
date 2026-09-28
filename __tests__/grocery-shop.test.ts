@@ -58,7 +58,7 @@ describe('grocery merge', () => {
     const chicken = drafts.find((d) => d.name.toLowerCase() === 'chicken');
     expect(chicken).toBeTruthy();
     expect(chicken!.wasMerged).toBe(true);
-    expect(chicken!.quantity).toBe('1.5');
+    expect(chicken!.quantity).toBe('1 1/2');
     expect(chicken!.recipeTitle).toBe('Tacos · Soup');
     expect(parseMergeKey(chicken!.mergeKey).sources).toHaveLength(2);
 
@@ -94,6 +94,42 @@ describe('grocery merge', () => {
 });
 
 describe('generate grocery from plan', () => {
+  it('scales repeated recipes before merging their ingredients', () => {
+    const db = createTestDbClient();
+    const repos = createRepositories(db);
+    const chili = repos.recipes.create({
+      title: 'Chili',
+      ingredients: [{ name: 'beans', quantity: '1', unit: 'can', aisle: 'Pantry' }],
+    });
+    const cornbread = repos.recipes.create({
+      title: 'Cornbread',
+      ingredients: [{ name: 'beans', quantity: '1', unit: 'can', aisle: 'Pantry' }],
+    });
+    const week = '2026-10-26';
+    const plan = repos.mealPlans.getOrCreateForWeek(week);
+    for (const [planDate, slot] of [
+      ['2026-10-26', 'dinner'],
+      ['2026-10-28', 'dinner'],
+      ['2026-11-01', 'lunch'],
+    ] as const) {
+      repos.mealPlans.addEntry({ mealPlanId: plan.id, recipeId: chili.id, planDate, slot });
+    }
+    repos.mealPlans.addEntry({
+      mealPlanId: plan.id,
+      recipeId: cornbread.id,
+      planDate: '2026-10-30',
+      slot: 'dinner',
+    });
+
+    const preview = buildGroceryPreviewFromPlan(repos, { weekStart: week });
+    const beans = preview?.drafts.find((draft) => draft.name === 'beans');
+
+    expect(preview?.recipeCount).toBe(2);
+    expect(preview?.rawLineCount).toBe(4);
+    expect(beans?.quantity).toBe('4');
+    expect(beans?.recipeTitle).toBe('Chili · Cornbread');
+  });
+
   it('builds one list with merged items and recipe provenance', () => {
     const db = createTestDbClient();
     const repos = createRepositories(db);
@@ -222,6 +258,36 @@ describe('aisle grouping + undo + unmerge', () => {
 });
 
 describe('replace generate + destructive undo', () => {
+  it('replaces only the generated list for the same planned week', () => {
+    const db = createTestDbClient();
+    const repos = createRepositories(db);
+    const recipe = repos.recipes.create({
+      title: 'Soup',
+      ingredients: [{ name: 'onion', quantity: '1', aisle: 'Produce' }],
+    });
+    const firstPlan = repos.mealPlans.getOrCreateForWeek('2026-10-26');
+    const secondPlan = repos.mealPlans.getOrCreateForWeek('2026-11-02');
+    for (const plan of [firstPlan, secondPlan]) {
+      repos.mealPlans.addEntry({
+        mealPlanId: plan.id,
+        recipeId: recipe.id,
+        planDate: plan.weekStart,
+        slot: 'dinner',
+      });
+    }
+    const first = generateGroceryListFromPlan(repos, { weekStart: firstPlan.weekStart })!;
+    const second = generateGroceryListFromPlan(repos, { weekStart: secondPlan.weekStart })!;
+    const preview = buildGroceryPreviewFromPlan(repos, { weekStart: secondPlan.weekStart })!;
+    const priorForWeek = repos.grocery
+      .list()
+      .find((item) => item.mealPlanId === preview.mealPlanId);
+
+    replaceGroceryListFromPreview(repos.grocery, preview, repos.grocery.getById(priorForWeek!.id));
+
+    expect(repos.grocery.getById(first.id)).not.toBeNull();
+    expect(repos.grocery.getById(second.id)).toBeNull();
+  });
+
   it('creates the new list before retiring the old one; undo restores prior list', () => {
     const db = createTestDbClient();
     const repos = createRepositories(db);

@@ -1,3 +1,5 @@
+import { startOfWeekMonday } from '@/lib/dates';
+
 /**
  * Free-tier limits and plain-language monetization copy (W7).
  * Limits are shown before limited actions — never mid-cook or mid-import.
@@ -64,13 +66,9 @@ export function hasUnlimitedAccess(entitlement: Entitlement): boolean {
   return entitlement === 'unlocked' || entitlement === 'admin';
 }
 
-/** Start of the current UTC week (Monday) as YYYY-MM-DD. */
+/** Start of the current local week (Monday) as YYYY-MM-DD. */
 export function currentWeekStartIso(now = new Date()): string {
-  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  const day = d.getUTCDay(); // 0 Sun … 6 Sat
-  const diff = day === 0 ? -6 : 1 - day;
-  d.setUTCDate(d.getUTCDate() + diff);
-  return d.toISOString().slice(0, 10);
+  return startOfWeekMonday(now);
 }
 
 export function importsRemaining(usage: FreeTierUsage): number {
@@ -103,11 +101,6 @@ export function describeUnlockOffer(pricing: UnlockPricing = defaultUnlockPricin
     return `One-time unlock for ${pricing.priceLabel} (influencer code ${pricing.influencerCode}; usually ${PAYMENT.oneTimePriceLabel}). Pay once — no subscription. ${PAYMENT.managePathLabel}.`;
   }
   return `One-time unlock for ${PAYMENT.oneTimePriceLabel}. Pay once — no subscription. Influencer codes can lower the price to ${PAYMENT.discountedPriceLabel}. ${PAYMENT.managePathLabel}.`;
-}
-
-/** @deprecated Use describeUnlockOffer — kept name for call-site clarity during migration. */
-export function describeTrialOffer(pricing?: UnlockPricing): string {
-  return describeUnlockOffer(pricing ?? defaultUnlockPricing());
 }
 
 /**
