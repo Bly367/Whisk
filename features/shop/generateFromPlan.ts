@@ -1,4 +1,5 @@
 import type { GroceryListWithItems, Ingredient, MealPlanWithEntries, Repositories } from '@/data';
+import { formatQuantityForUnit, parseQuantity } from '@/features/recipes/scale';
 import { resolveAisle } from '@/features/shop/aisle';
 import {
   mergeGroceryLines,
@@ -21,10 +22,20 @@ function ingredientToSource(
   ingredient: Ingredient,
   recipeId: string,
   recipeTitle: string,
+  occurrences: number,
 ): GrocerySourceLine {
+  const originalQuantity = ingredient.quantity?.trim() || null;
+  const numericQuantity = parseQuantity(originalQuantity);
+  const quantity =
+    numericQuantity == null
+      ? originalQuantity && occurrences > 1
+        ? `${occurrences}x ${originalQuantity}`
+        : originalQuantity
+      : formatQuantityForUnit(numericQuantity * occurrences, ingredient.unit);
+
   return {
     name: ingredient.name,
-    quantity: ingredient.quantity ?? null,
+    quantity,
     unit: ingredient.unit ?? null,
     aisle: resolveAisle(ingredient.name, ingredient.aisle),
     recipeId,
@@ -59,10 +70,7 @@ export function buildGroceryPreviewFromPlan(
     if (!recipe) continue;
     const occurrences = occurrenceCounts.get(recipeId) ?? 1;
     for (const ingredient of recipe.ingredients) {
-      const line = ingredientToSource(ingredient, recipe.id, recipe.title);
-      for (let index = 0; index < occurrences; index += 1) {
-        lines.push(line);
-      }
+      lines.push(ingredientToSource(ingredient, recipe.id, recipe.title, occurrences));
     }
   }
 

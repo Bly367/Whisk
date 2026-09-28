@@ -64,10 +64,9 @@ describe('grocery merge', () => {
     ])[0];
 
     expect(merged.quantity).toBe('6');
-    expect(splitMergedDraft(merged).map((line) => `${line.quantity} ${line.unit}`)).toEqual([
-      '3 pack',
-      '3 pack',
-    ]);
+    const sources = splitMergedDraft(merged);
+    expect(sources).not.toBeNull();
+    expect(sources!.map((line) => `${line.quantity} ${line.unit}`)).toEqual(['3 pack', '3 pack']);
   });
 
   it('keeps metric grocery quantities as decimals', () => {
@@ -133,7 +132,7 @@ describe('grocery merge', () => {
     const chicken = drafts.find((d) => d.name.toLowerCase() === 'chicken');
     expect(chicken).toBeTruthy();
     expect(chicken!.wasMerged).toBe(true);
-    expect(chicken!.quantity).toBe('1 1/2');
+    expect(chicken!.quantity).toBe('1.5');
     expect(chicken!.recipeTitle).toBe('Tacos · Soup');
     expect(parseMergeKey(chicken!.mergeKey).sources).toHaveLength(2);
 
@@ -271,7 +270,7 @@ describe('generate grocery from plan', () => {
     const beans = preview?.drafts.find((draft) => draft.name === 'beans');
 
     expect(preview?.recipeCount).toBe(2);
-    expect(preview?.rawLineCount).toBe(4);
+    expect(preview?.rawLineCount).toBe(2);
     expect(beans?.quantity).toBe('4');
     expect(beans?.recipeTitle).toBe('Chili · Cornbread');
   });

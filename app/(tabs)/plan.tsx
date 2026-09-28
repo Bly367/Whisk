@@ -46,7 +46,7 @@ import {
   type TemplateApplyPreview,
 } from '@/features/plan-templates';
 import { buildGroceryPreviewFromPlan } from '@/features/shop/generateFromPlan';
-import { replaceGroceryListFromPreview } from '@/features/shop/replaceList';
+import { replaceGroceryListFromPreview, undoReplaceGroceryList } from '@/features/shop/replaceList';
 import { ensureMinTouchTarget, hitSlop } from '@/theme/a11y';
 import { useTheme } from '@/theme/ThemeProvider';
 
@@ -284,9 +284,12 @@ export default function PlanScreen() {
         message: 'Leftovers added',
         actionLabel: 'Undo',
         onAction: () => {
-          persist(() => {
-            undoScheduleLeftovers(getRepositories(), result);
-          }, { message: 'Leftovers removed' });
+          persist(
+            () => {
+              undoScheduleLeftovers(getRepositories(), result);
+            },
+            { message: 'Leftovers removed' },
+          );
         },
       });
       setLeftoversSource(null);
@@ -352,9 +355,12 @@ export default function PlanScreen() {
         message: `Applied “${preview.templateName}”`,
         actionLabel: 'Undo',
         onAction: () => {
-          persist(() => {
-            undoApplyTemplate(getRepositories(), applied);
-          }, { message: 'Template apply undone' });
+          persist(
+            () => {
+              undoApplyTemplate(getRepositories(), applied);
+            },
+            { message: 'Template apply undone' },
+          );
         },
       });
       setApplyTemplateOpen(false);
@@ -372,14 +378,6 @@ export default function PlanScreen() {
     return buildGroceryPreviewFromPlan(getRepositories(), { weekStart });
   }, [plan, weekStart]);
 
-  const groceryLines = groceryPreview?.drafts.map((draft, index) => ({
-    recipeId: `${draft.mergeKey}-${index}`,
-    recipeTitle: draft.recipeTitle ?? draft.name,
-    mealCount: draft.sources.length,
-    ingredientCount: 1,
-  })) ?? [];
-  const totalIngredients = groceryPreview?.drafts.length ?? 0;
-
   const confirmGrocery = () => {
     if (!groceryPreview) return;
     setGroceryBusy(true);
@@ -387,11 +385,37 @@ export default function PlanScreen() {
       const { grocery } = getRepositories();
       const current = grocery.list().find((item) => item.mealPlanId === groceryPreview.mealPlanId);
       const previous = current ? grocery.getById(current.id) : null;
-      replaceGroceryListFromPreview(grocery, groceryPreview, previous);
+      const { created, replacedListId, replacedListName } = replaceGroceryListFromPreview(
+        grocery,
+        groceryPreview,
+        previous,
+      );
       reportLocalPersistSuccess();
       setGroceryOpen(false);
       showSnack({
-        message: `${totalIngredients} item${totalIngredients === 1 ? '' : 's'} ready on the Shop tab.`,
+        message: `${groceryPreview.drafts.length} item${groceryPreview.drafts.length === 1 ? '' : 's'} ready on the Shop tab.`,
+        actionLabel: replacedListId && replacedListName ? 'Undo' : undefined,
+        onAction:
+          replacedListId && replacedListName
+            ? () => {
+                try {
+                  undoReplaceGroceryList(grocery, {
+                    newListId: created.id,
+                    previousListId: replacedListId,
+                  });
+                  reportLocalPersistSuccess();
+                  reload();
+                  showSnack({ message: `Restored ${replacedListName}.` });
+                } catch (undoError) {
+                  reportLocalPersistFailure(
+                    undoError instanceof Error
+                      ? undoError.message
+                      : 'Could not undo grocery list replacement',
+                  );
+                  showSnack({ message: 'Could not undo grocery list replacement.' });
+                }
+              }
+            : undefined,
       });
     } catch (error) {
       reportLocalPersistFailure(
@@ -698,8 +722,7 @@ export default function PlanScreen() {
 
       <GrocerySummaryModal
         visible={groceryOpen}
-        lines={groceryLines}
-        totalIngredients={totalIngredients}
+        preview={groceryPreview}
         confirming={groceryBusy}
         onClose={() => setGroceryOpen(false)}
         onConfirm={confirmGrocery}

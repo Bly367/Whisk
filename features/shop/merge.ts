@@ -1,4 +1,4 @@
-import { formatQuantity, parseQuantity } from '@/features/recipes/scale';
+import { formatQuantityForUnit, parseQuantity } from '@/features/recipes/scale';
 
 /**
  * Careful grocery merge/dedupe with recoverable provenance for unmerge.
@@ -91,17 +91,30 @@ export function parseMergeKey(mergeKey: string | null): {
 function canMergeQuantities(
   a: string | null,
   b: string | null,
+  unit: string | null,
 ): { ok: true; sum: string } | { ok: false } {
+  const aIsBlank = !a?.trim();
+  const bIsBlank = !b?.trim();
   const na = parseQuantity(a);
   const nb = parseQuantity(b);
-  if (na == null && nb == null) {
+
+  if (aIsBlank && bIsBlank) {
     return { ok: true, sum: '' };
   }
+  if (na != null && nb != null) {
+    return { ok: true, sum: formatQuantityForUnit(na + nb, unit) };
+  }
+  if (na != null && bIsBlank) {
+    return { ok: true, sum: formatQuantityForUnit(na, unit) };
+  }
+  if (nb != null && aIsBlank) {
+    return { ok: true, sum: formatQuantityForUnit(nb, unit) };
+  }
   if (na == null || nb == null) {
-    // One side has no quantity — keep separate to avoid hiding amounts
     return { ok: false };
   }
-  return { ok: true, sum: formatQuantity(na + nb) };
+
+  return { ok: false };
 }
 
 function provenanceTitle(sources: GrocerySourceLine[]): string | null {
@@ -113,8 +126,8 @@ function provenanceTitle(sources: GrocerySourceLine[]): string | null {
 }
 
 /**
- * Merge compatible lines (same normalized name + unit, numeric quantities).
- * Incompatible pairs stay separate. Multi-recipe provenance is preserved for unmerge.
+ * Merge compatible lines (same normalized name + unit). Blank quantities merge with numeric
+ * quantities without erasing the amount; written non-numeric quantities remain separate.
  */
 export function mergeGroceryLines(lines: GrocerySourceLine[]): MergedGroceryDraft[] {
   const buckets = new Map<string, GrocerySourceLine[]>();
@@ -149,7 +162,7 @@ export function mergeGroceryLines(lines: GrocerySourceLine[]): MergedGroceryDraf
     let quantity: string | null = group[0].quantity;
     let mergeOk = true;
     for (let i = 1; i < group.length; i++) {
-      const result = canMergeQuantities(quantity, group[i].quantity);
+      const result = canMergeQuantities(quantity, group[i].quantity, group[i].unit);
       if (!result.ok) {
         mergeOk = false;
         break;

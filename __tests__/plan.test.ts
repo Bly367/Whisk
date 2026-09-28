@@ -113,6 +113,5 @@ describe('planHelpers + mealPlans persistence', () => {
 
     const after = mealPlans.getById(plan.id);
     expect(after?.entries).toHaveLength(2);
-
   });
 });

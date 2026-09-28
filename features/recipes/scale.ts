@@ -77,6 +77,17 @@ export function formatQuantity(value: number): string {
   return `${sign}${Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2).replace(/\.?0+$/, '')}`;
 }
 
+/** Format grocery quantities: fractions are reserved for common cooking-volume units. */
+export function formatQuantityForUnit(value: number, unit: string | null | undefined): string {
+  const normalizedUnit = unit?.trim().toLowerCase().replace(/\./g, '').replace(/s$/, '') ?? '';
+  if (normalizedUnit === 'cup' || normalizedUnit === 'tbsp' || normalizedUnit === 'tsp') {
+    return formatQuantity(value);
+  }
+
+  const rounded = Math.round(value * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : String(rounded);
+}
+
 export function scaleFactor(baseServings: number, targetServings: number): number {
   if (!Number.isFinite(baseServings) || baseServings <= 0) return 1;
   if (!Number.isFinite(targetServings) || targetServings <= 0) return 1;

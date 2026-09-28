@@ -3,19 +3,22 @@ import { Modal, ScrollView, StyleSheet, View } from 'react-native';
 import { Button } from '@/components/ui/Button';
 import { Text } from '@/components/ui/Text';
 import { radius, spacing } from '@/constants/tokens';
+import type { GroceryGeneratePreview } from '@/features/shop/generateFromPlan';
 import { useTheme } from '@/theme/ThemeProvider';
 
-export type GrocerySummaryLine = {
-  recipeId: string;
-  recipeTitle: string;
-  mealCount: number;
-  ingredientCount: number;
-};
+export function grocerySummaryPreviewLines(preview: GroceryGeneratePreview): string[] {
+  return preview.drafts.map((draft) =>
+    [draft.quantity, draft.unit, draft.name].filter(Boolean).join(' '),
+  );
+}
+
+export function grocerySummaryReplaceMessage(preview: GroceryGeneratePreview): string {
+  return `This replaces this week's list with ${preview.drafts.length} ingredient item${preview.drafts.length === 1 ? '' : 's'} from ${preview.recipeCount} recipe${preview.recipeCount === 1 ? '' : 's'}.`;
+}
 
 export type GrocerySummaryModalProps = {
   visible: boolean;
-  lines: GrocerySummaryLine[];
-  totalIngredients: number;
+  preview: GroceryGeneratePreview | null;
   onClose: () => void;
   onConfirm: () => void;
   confirming?: boolean;
@@ -24,14 +27,14 @@ export type GrocerySummaryModalProps = {
 
 export function GrocerySummaryModal({
   visible,
-  lines,
-  totalIngredients,
+  preview,
   onClose,
   onConfirm,
   confirming = false,
   testID = 'grocery-summary',
 }: GrocerySummaryModalProps) {
   const { colors } = useTheme();
+  const summaryLines = preview ? grocerySummaryPreviewLines(preview) : [];
 
   return (
     <Modal
@@ -48,34 +51,31 @@ export function GrocerySummaryModal({
         >
           <Text variant="title2">Create grocery list</Text>
           <Text variant="body" tone="secondary">
-            {lines.length === 0
+            {!preview
               ? 'Add meals to this week first — then we can summarize what to shop for.'
-              : `About to add ${totalIngredients} ingredient line${totalIngredients === 1 ? '' : 's'} from ${lines.length} recipe${lines.length === 1 ? '' : 's'}. Quantities are scaled by how many times each recipe appears this week.`}
+              : grocerySummaryReplaceMessage(preview)}
           </Text>
 
           <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
-            {lines.map((line) => (
+            {preview?.drafts.map((draft, index) => (
               <View
-                key={line.recipeId}
+                key={`${draft.mergeKey}-${index}`}
                 style={[styles.row, { backgroundColor: colors.sunken, borderColor: colors.border }]}
-                testID={`${testID}-line-${line.recipeId}`}
+                testID={`${testID}-line-${index}`}
               >
                 <Text variant="headline" numberOfLines={2}>
-                  {line.recipeTitle}
+                  {summaryLines[index]}
                 </Text>
                 <Text variant="caption" tone="secondary">
-                  {line.mealCount} meal{line.mealCount === 1 ? '' : 's'} this week ·{' '}
-                  {line.ingredientCount} ingredient
-                  {line.ingredientCount === 1 ? '' : 's'}
-                  {line.mealCount > 1 ? ' (quantities × meals)' : ''}
+                  {draft.recipeTitle ? `From ${draft.recipeTitle}` : 'From this week’s plan'}
                 </Text>
               </View>
             ))}
           </ScrollView>
 
           <Button
-            label={lines.length === 0 ? 'Nothing to add yet' : `Add ${totalIngredients} items`}
-            disabled={lines.length === 0 || confirming}
+            label={!preview ? 'Nothing to add yet' : `Replace with ${preview.drafts.length} items`}
+            disabled={!preview || confirming}
             loading={confirming}
             onPress={onConfirm}
             testID={`${testID}-confirm`}

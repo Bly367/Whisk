@@ -1,12 +1,9 @@
-import type {
-  MealPlanTemplate,
-  MealPlanTemplateWithEntries,
-  MealSlot,
-} from '@/data/contracts';
+import type { MealPlanTemplate, MealPlanTemplateWithEntries, MealSlot } from '@/data/contracts';
 import type { DbClient } from '@/data/client';
 import { mapMealPlanTemplate, mapMealPlanTemplateEntry } from '@/data/mappers';
 import { withLocalPersist } from '@/data/sync/statusStore';
 import { createId, nowIso } from '@/data/util';
+import { daysBetween } from '@/lib/dates';
 
 type TemplateRow = Parameters<typeof mapMealPlanTemplate>[0];
 type EntryRow = Parameters<typeof mapMealPlanTemplateEntry>[0];
@@ -20,12 +17,7 @@ type PlanEntrySource = {
 };
 
 function dayOffsetFromWeekStart(weekStart: string, planDate: string): number {
-  const start = Date.parse(`${weekStart}T00:00:00.000Z`);
-  const day = Date.parse(`${planDate}T00:00:00.000Z`);
-  if (Number.isNaN(start) || Number.isNaN(day)) {
-    return 0;
-  }
-  return Math.round((day - start) / (24 * 60 * 60 * 1000));
+  return daysBetween(weekStart, planDate);
 }
 
 function hydrate(db: DbClient, template: MealPlanTemplate): MealPlanTemplateWithEntries {
