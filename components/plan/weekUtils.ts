@@ -1,33 +1,12 @@
 /** Monday-based week helpers for meal plans (`YYYY-MM-DD`). */
 
-const DAY_MS = 24 * 60 * 60 * 1000;
+import { addDays, parseDateOnly, startOfWeekMonday, toDateOnly } from '@/lib/dates';
 
-export function toDateOnly(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
-
-/** Parse `YYYY-MM-DD` as a local calendar date (not UTC midnight). */
-export function parseDateOnly(isoDate: string): Date {
-  const [y, m, d] = isoDate.split('-').map(Number);
-  return new Date(y, (m ?? 1) - 1, d ?? 1);
-}
+export { addDays, parseDateOnly, toDateOnly } from '@/lib/dates';
 
 /** Week starts on Monday (ISO-style). */
 export function startOfWeek(date: Date = new Date()): string {
-  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const day = d.getDay(); // 0 Sun … 6 Sat
-  const offset = day === 0 ? -6 : 1 - day;
-  d.setDate(d.getDate() + offset);
-  return toDateOnly(d);
-}
-
-export function addDays(isoDate: string, days: number): string {
-  const d = parseDateOnly(isoDate);
-  d.setTime(d.getTime() + days * DAY_MS);
-  return toDateOnly(d);
+  return startOfWeekMonday(date);
 }
 
 export function shiftWeek(weekStart: string, weeks: number): string {

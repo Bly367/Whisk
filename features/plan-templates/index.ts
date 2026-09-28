@@ -10,7 +10,6 @@ export {
 export {
   saveSelectionAsTemplate,
   saveWeekAsTemplate,
-  planDateForOffset,
   type SaveSelectionAsTemplateInput,
   type SaveWeekAsTemplateInput,
 } from '@/features/plan-templates/saveTemplate';

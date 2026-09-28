@@ -1,5 +1,5 @@
 import type { MealPlanTemplateWithEntries, MealSlot, Repositories } from '@/data';
-import { addDays } from '@/components/plan/weekUtils';
+import { daysBetween } from '@/lib/dates';
 
 export type SaveWeekAsTemplateInput = {
   name: string;
@@ -71,12 +71,7 @@ export function saveSelectionAsTemplate(
       if (!sourceMealPlanId) {
         sourceMealPlanId = plan.id;
       }
-      const start = Date.parse(`${input.weekStart}T00:00:00.000Z`);
-      const day = Date.parse(`${entry.planDate}T00:00:00.000Z`);
-      const dayOffset =
-        Number.isNaN(start) || Number.isNaN(day)
-          ? 0
-          : Math.round((day - start) / (24 * 60 * 60 * 1000));
+      const dayOffset = dayOffsetFromWeekStart(input.weekStart, entry.planDate);
       selected.push({
         recipeId: entry.recipeId,
         dayOffset,
@@ -102,7 +97,7 @@ export function saveSelectionAsTemplate(
   });
 }
 
-/** Helper exported for UI previews that need absolute dates from offsets. */
-export function planDateForOffset(weekStart: string, dayOffset: number): string {
-  return addDays(weekStart, dayOffset);
+function dayOffsetFromWeekStart(weekStart: string, planDate: string): number {
+  const days = daysBetween(weekStart, planDate);
+  return days >= 0 ? days : 0;
 }

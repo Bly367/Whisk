@@ -6,7 +6,7 @@ Membership UX and **real-time grocery syncing** for shared households. Builds on
 
 ```ts
 import { createHouseholdCollaboration, getRepositories } from '@/data';
-// or: import { createHouseholdCollaboration } from '@/features/household';
+// or: import { createHouseholdCollaboration } from '@/features/household/collaboration';
 
 const collab = createHouseholdCollaboration(getRepositories());
 const home = collab.createHousehold({

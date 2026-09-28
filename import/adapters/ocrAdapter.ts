@@ -168,7 +168,3 @@ export const ocrAdapter: ImportAdapter = {
     }
   },
 };
-
-export async function ocrStubWithoutImage(): Promise<ImportAdapterResult> {
-  return ocrAdapter.import({});
-}

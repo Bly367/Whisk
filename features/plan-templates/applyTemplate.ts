@@ -4,7 +4,7 @@ import type {
   MealSlot,
   Repositories,
 } from '@/data';
-import { addDays } from '@/components/plan/weekUtils';
+import { addDays } from '@/lib/dates';
 
 export type TemplateApplyPreviewEntry = {
   dayOffset: number;

@@ -139,16 +139,3 @@ export const shareSheetAdapter: ImportAdapter = {
     };
   },
 };
-
-/** Empty draft for the share-sheet UI stub when nothing was shared yet. */
-export function emptyShareSheetPlaceholder(): ImportAdapterResult {
-  return {
-    ok: false,
-    error: {
-      code: 'stub',
-      message:
-        "Share recipes from Instagram Reels, TikTok, YouTube Shorts, or cooking websites into Whisk. For social posts, you'll need to paste the caption text — Whisk imports recipe text, not video content. Until device sharing is fully connected, paste the link and caption here.",
-      fallbacks: DEFAULT_FALLBACKS,
-    },
-  };
-}

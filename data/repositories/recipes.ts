@@ -364,10 +364,6 @@ export function createRecipeRepository(db: DbClient) {
         tagNames: row.tag_names ? row.tag_names.split('\u001f') : [],
       }));
     },
-
-    hardDelete(id: string): void {
-      db.run('DELETE FROM recipes WHERE id = ?', [id]);
-    },
   };
 }
 

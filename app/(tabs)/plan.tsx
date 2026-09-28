@@ -9,7 +9,6 @@ import { LeftoversTargetModal } from '@/components/plan/LeftoversTargetModal';
 import { SaveTemplateModal } from '@/components/plan/SaveTemplateModal';
 import {
   MEAL_SLOTS,
-  buildGroceryPreview,
   entriesForDaySlot,
   recipeTitleMap,
   slotLabel,
@@ -46,6 +45,8 @@ import {
   undoScheduleLeftovers,
   type TemplateApplyPreview,
 } from '@/features/plan-templates';
+import { buildGroceryPreviewFromPlan } from '@/features/shop/generateFromPlan';
+import { replaceGroceryListFromPreview, undoReplaceGroceryList } from '@/features/shop/replaceList';
 import { ensureMinTouchTarget, hitSlop } from '@/theme/a11y';
 import { useTheme } from '@/theme/ThemeProvider';
 
@@ -68,6 +69,7 @@ export default function PlanScreen() {
   const [picker, setPicker] = useState<PickerTarget | null>(null);
   const [entryAction, setEntryAction] = useState<EntryActionTarget | null>(null);
   const [groceryOpen, setGroceryOpen] = useState(false);
+  const [groceryHasExistingList, setGroceryHasExistingList] = useState(false);
   const [groceryBusy, setGroceryBusy] = useState(false);
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
   const [saveSelectionIds, setSaveSelectionIds] = useState<string[] | null>(null);
@@ -283,9 +285,12 @@ export default function PlanScreen() {
         message: 'Leftovers added',
         actionLabel: 'Undo',
         onAction: () => {
-          persist(() => {
-            undoScheduleLeftovers(getRepositories(), result);
-          }, { message: 'Leftovers removed' });
+          persist(
+            () => {
+              undoScheduleLeftovers(getRepositories(), result);
+            },
+            { message: 'Leftovers removed' },
+          );
         },
       });
       setLeftoversSource(null);
@@ -351,9 +356,12 @@ export default function PlanScreen() {
         message: `Applied “${preview.templateName}”`,
         actionLabel: 'Undo',
         onAction: () => {
-          persist(() => {
-            undoApplyTemplate(getRepositories(), applied);
-          }, { message: 'Template apply undone' });
+          persist(
+            () => {
+              undoApplyTemplate(getRepositories(), applied);
+            },
+            { message: 'Template apply undone' },
+          );
         },
       });
       setApplyTemplateOpen(false);
@@ -367,48 +375,48 @@ export default function PlanScreen() {
   };
 
   const groceryPreview = useMemo(() => {
-    if (!plan) return [];
-    const { recipes: recipeRepo } = getRepositories();
-    return buildGroceryPreview(plan.entries, recipesById, (recipeId) => {
-      const full = recipeRepo.getById(recipeId);
-      return (full?.ingredients ?? []).map((ing) => ({
-        name: ing.name,
-        quantity: ing.quantity ?? null,
-        unit: ing.unit ?? null,
-        aisle: ing.aisle ?? null,
-      }));
-    });
-  }, [plan, recipesById]);
-
-  const totalIngredients = groceryPreview.reduce((sum, line) => sum + line.ingredientCount, 0);
+    if (!plan) return null;
+    return buildGroceryPreviewFromPlan(getRepositories(), { weekStart });
+  }, [plan, weekStart]);
 
   const confirmGrocery = () => {
-    if (!plan || groceryPreview.length === 0) return;
+    if (!groceryPreview) return;
     setGroceryBusy(true);
     try {
       const { grocery } = getRepositories();
-      const items = groceryPreview.flatMap((line) =>
-        line.ingredients.map((ing, index) => ({
-          name: ing.name,
-          quantity: ing.quantity,
-          unit: ing.unit,
-          aisle: ing.aisle,
-          recipeId: line.recipeId,
-          recipeTitle: line.recipeTitle,
-          mergeKey: `${line.recipeId}:${ing.name.toLowerCase()}`,
-          position: index,
-        })),
+      const current = grocery.list().find((item) => item.mealPlanId === groceryPreview.mealPlanId);
+      const previous = current ? grocery.getById(current.id) : null;
+      const { created, replacedListId, replacedListName } = replaceGroceryListFromPreview(
+        grocery,
+        groceryPreview,
+        previous,
       );
-      grocery.create({
-        name: `Week of ${formatWeekRange(weekStart)}`,
-        mealPlanId: plan.id,
-        items,
-      });
       reportLocalPersistSuccess();
       setGroceryOpen(false);
-      // Stay on Plan — Shop list UI lands with W6; avoid false-success navigation.
       showSnack({
-        message: `${totalIngredients} item${totalIngredients === 1 ? '' : 's'} saved to Groceries. Find them on the Shop tab once list view ships.`,
+        message: `${groceryPreview.drafts.length} item${groceryPreview.drafts.length === 1 ? '' : 's'} ready on the Shop tab.`,
+        actionLabel: replacedListId && replacedListName ? 'Undo' : undefined,
+        onAction:
+          replacedListId && replacedListName
+            ? () => {
+                try {
+                  undoReplaceGroceryList(grocery, {
+                    newListId: created.id,
+                    previousListId: replacedListId,
+                  });
+                  reportLocalPersistSuccess();
+                  reload();
+                  showSnack({ message: `Restored ${replacedListName}.` });
+                } catch (undoError) {
+                  reportLocalPersistFailure(
+                    undoError instanceof Error
+                      ? undoError.message
+                      : 'Could not undo grocery list replacement',
+                  );
+                  showSnack({ message: 'Could not undo grocery list replacement.' });
+                }
+              }
+            : undefined,
       });
     } catch (error) {
       reportLocalPersistFailure(
@@ -418,6 +426,18 @@ export default function PlanScreen() {
     } finally {
       setGroceryBusy(false);
     }
+  };
+
+  const openGrocerySummary = () => {
+    if (groceryPreview) {
+      const { grocery } = getRepositories();
+      setGroceryHasExistingList(
+        grocery.list().some((item) => item.mealPlanId === groceryPreview.mealPlanId),
+      );
+    } else {
+      setGroceryHasExistingList(false);
+    }
+    setGroceryOpen(true);
   };
 
   const isEmpty = (plan?.entries.length ?? 0) === 0;
@@ -633,7 +653,7 @@ export default function PlanScreen() {
         />
         <Button
           label="Create grocery list"
-          onPress={() => setGroceryOpen(true)}
+          onPress={openGrocerySummary}
           testID="plan-create-grocery"
         />
       </View>
@@ -715,8 +735,8 @@ export default function PlanScreen() {
 
       <GrocerySummaryModal
         visible={groceryOpen}
-        lines={groceryPreview}
-        totalIngredients={totalIngredients}
+        preview={groceryPreview}
+        hasExistingList={groceryHasExistingList}
         confirming={groceryBusy}
         onClose={() => setGroceryOpen(false)}
         onConfirm={confirmGrocery}

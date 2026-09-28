@@ -1,5 +1,6 @@
 import { createRepositories } from '@/data/repositories';
 import { createTestDbClient } from '@/data/testing/createTestDb';
+import { parseQuantity } from '@/features/recipes/scale';
 import {
   buildGroceryPreviewFromPlan,
   commitGroceryPreview,
@@ -18,6 +19,103 @@ import { unmergeGroceryItem } from '@/features/shop/unmerge';
 import { startOfWeekMonday } from '@/features/shop/week';
 
 describe('grocery merge', () => {
+  it('merges unrounded fractional quantities with non-volume units', () => {
+    const drafts = mergeGroceryLines([
+      {
+        name: 'flour',
+        quantity: '1/4',
+        unit: 'lb',
+        aisle: 'Pantry',
+        recipeId: 'a',
+        recipeTitle: 'A',
+      },
+      {
+        name: 'flour',
+        quantity: '1/4',
+        unit: 'lb',
+        aisle: 'Pantry',
+        recipeId: 'b',
+        recipeTitle: 'B',
+      },
+    ]);
+
+    expect(drafts[0].quantity).toBe('0.5');
+  });
+
+  it('keeps a numeric quantity when the matching ingredient has a blank quantity', () => {
+    const drafts = mergeGroceryLines([
+      {
+        name: 'onion',
+        quantity: '3',
+        unit: null,
+        aisle: 'Produce',
+        recipeId: 'chili',
+        recipeTitle: 'Chili',
+      },
+      {
+        name: 'onion',
+        quantity: null,
+        unit: null,
+        aisle: 'Produce',
+        recipeId: 'salad',
+        recipeTitle: 'Salad',
+      },
+    ]);
+
+    expect(drafts).toHaveLength(1);
+    expect(drafts[0].quantity).toBe('3');
+    expect(drafts[0].recipeTitle).toBe('Chili · Salad');
+  });
+
+  it('restores pack quantities exactly when a merged item is unmerged', () => {
+    const merged = mergeGroceryLines([
+      {
+        name: 'tortillas',
+        quantity: '3',
+        unit: 'pack',
+        aisle: 'Bakery',
+        recipeId: 'tacos',
+        recipeTitle: 'Tacos',
+      },
+      {
+        name: 'tortillas',
+        quantity: '3',
+        unit: 'pack',
+        aisle: 'Bakery',
+        recipeId: 'party',
+        recipeTitle: 'Party tacos',
+      },
+    ])[0];
+
+    expect(merged.quantity).toBe('6');
+    const sources = splitMergedDraft(merged);
+    expect(sources).not.toBeNull();
+    expect(sources!.map((line) => `${line.quantity} ${line.unit}`)).toEqual(['3 pack', '3 pack']);
+  });
+
+  it('keeps metric grocery quantities as decimals', () => {
+    const drafts = mergeGroceryLines([
+      {
+        name: 'flour',
+        quantity: '1.2',
+        unit: 'kg',
+        aisle: 'Pantry',
+        recipeId: 'a',
+        recipeTitle: 'A',
+      },
+      {
+        name: 'flour',
+        quantity: '1.2',
+        unit: 'kg',
+        aisle: 'Pantry',
+        recipeId: 'b',
+        recipeTitle: 'B',
+      },
+    ]);
+
+    expect(drafts[0].quantity).toBe('2.4');
+  });
+
   it('merges compatible quantities and keeps provenance for unmerge', () => {
     const lines: GrocerySourceLine[] = [
       {
@@ -94,6 +192,183 @@ describe('grocery merge', () => {
 });
 
 describe('generate grocery from plan', () => {
+  it('keeps quantities exactly as written for a recipe planned once', () => {
+    const db = createTestDbClient();
+    const repos = createRepositories(db);
+    const recipe = repos.recipes.create({
+      title: 'Exact quantities',
+      ingredients: [
+        { name: 'flour', quantity: '1/4', unit: 'lb', aisle: 'Pantry' },
+        { name: 'salt', quantity: '1/8', unit: 'teaspoons', aisle: 'Spices' },
+        { name: 'rice', quantity: '0.25', unit: 'kg', aisle: 'Pantry' },
+      ],
+    });
+    const week = '2026-10-26';
+    const plan = repos.mealPlans.getOrCreateForWeek(week);
+    repos.mealPlans.addEntry({
+      mealPlanId: plan.id,
+      recipeId: recipe.id,
+      planDate: week,
+      slot: 'dinner',
+    });
+
+    const preview = buildGroceryPreviewFromPlan(repos, { weekStart: week });
+
+    expect(preview?.drafts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'flour', quantity: '1/4', unit: 'lb' }),
+        expect.objectContaining({ name: 'salt', quantity: '1/8', unit: 'teaspoons' }),
+        expect.objectContaining({ name: 'rice', quantity: '0.25', unit: 'kg' }),
+      ]),
+    );
+  });
+
+  it('scales parsed fractions only after a recipe is planned more than once', () => {
+    const db = createTestDbClient();
+    const repos = createRepositories(db);
+    const recipe = repos.recipes.create({
+      title: 'Fraction test',
+      ingredients: [
+        { name: 'onion', quantity: '1/3', aisle: 'Produce' },
+        { name: 'butter', quantity: '½', unit: 'cup', aisle: 'Dairy & Eggs' },
+        { name: 'flour', quantity: '1.2', unit: 'kg', aisle: 'Pantry' },
+      ],
+    });
+    const week = '2026-10-26';
+    const plan = repos.mealPlans.getOrCreateForWeek(week);
+    for (const planDate of [week, '2026-10-27']) {
+      repos.mealPlans.addEntry({
+        mealPlanId: plan.id,
+        recipeId: recipe.id,
+        planDate,
+        slot: 'dinner',
+      });
+    }
+
+    const preview = buildGroceryPreviewFromPlan(repos, { weekStart: week });
+
+    expect(preview?.drafts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'onion', quantity: '2/3' }),
+        expect.objectContaining({ name: 'butter', quantity: '1', unit: 'cup' }),
+        expect.objectContaining({ name: 'flour', quantity: '2.4', unit: 'kg' }),
+      ]),
+    );
+  });
+
+  it('parses Unicode fractions and mixed Unicode fractions', () => {
+    expect(parseQuantity('½')).toBe(0.5);
+    expect(parseQuantity('⅓')).toBeCloseTo(1 / 3);
+    expect(parseQuantity('1½')).toBe(1.5);
+  });
+
+  it('emits one scaled line per ingredient for repeated recipes without losing written quantities', () => {
+    const db = createTestDbClient();
+    const repos = createRepositories(db);
+    const recipe = repos.recipes.create({
+      title: 'Garlic butter',
+      ingredients: [
+        { name: 'garlic', quantity: '2-3 cloves', aisle: 'Produce' },
+        { name: 'basil', quantity: 'a handful', aisle: 'Produce' },
+        { name: 'butter', quantity: '½', unit: 'cup', aisle: 'Dairy & Eggs' },
+      ],
+    });
+    const week = '2026-10-26';
+    const plan = repos.mealPlans.getOrCreateForWeek(week);
+    for (const planDate of ['2026-10-26', '2026-10-28']) {
+      repos.mealPlans.addEntry({
+        mealPlanId: plan.id,
+        recipeId: recipe.id,
+        planDate,
+        slot: 'dinner',
+      });
+    }
+
+    const preview = buildGroceryPreviewFromPlan(repos, { weekStart: week });
+
+    expect(preview?.rawLineCount).toBe(3);
+    expect(preview?.drafts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'garlic', quantity: '2x 2-3 cloves' }),
+        expect.objectContaining({ name: 'basil', quantity: '2x a handful' }),
+        expect.objectContaining({ name: 'butter', quantity: '1', unit: 'cup' }),
+      ]),
+    );
+  });
+
+  it('merges a repeated recipe quantity with a blank matching ingredient', () => {
+    const db = createTestDbClient();
+    const repos = createRepositories(db);
+    const chili = repos.recipes.create({
+      title: 'Chili',
+      ingredients: [{ name: 'onion', quantity: '1', aisle: 'Produce' }],
+    });
+    const salad = repos.recipes.create({
+      title: 'Salad',
+      ingredients: [{ name: 'onion', quantity: null, aisle: 'Produce' }],
+    });
+    const week = '2026-10-26';
+    const plan = repos.mealPlans.getOrCreateForWeek(week);
+    for (const planDate of ['2026-10-26', '2026-10-27', '2026-10-28']) {
+      repos.mealPlans.addEntry({
+        mealPlanId: plan.id,
+        recipeId: chili.id,
+        planDate,
+        slot: 'dinner',
+      });
+    }
+    repos.mealPlans.addEntry({
+      mealPlanId: plan.id,
+      recipeId: salad.id,
+      planDate: '2026-10-29',
+      slot: 'lunch',
+    });
+
+    const onion = buildGroceryPreviewFromPlan(repos, { weekStart: week })?.drafts.find(
+      (draft) => draft.name === 'onion',
+    );
+
+    expect(onion).toEqual(
+      expect.objectContaining({ quantity: '3', recipeTitle: 'Chili · Salad', wasMerged: true }),
+    );
+  });
+
+  it('scales repeated recipes before merging their ingredients', () => {
+    const db = createTestDbClient();
+    const repos = createRepositories(db);
+    const chili = repos.recipes.create({
+      title: 'Chili',
+      ingredients: [{ name: 'beans', quantity: '1', unit: 'can', aisle: 'Pantry' }],
+    });
+    const cornbread = repos.recipes.create({
+      title: 'Cornbread',
+      ingredients: [{ name: 'beans', quantity: '1', unit: 'can', aisle: 'Pantry' }],
+    });
+    const week = '2026-10-26';
+    const plan = repos.mealPlans.getOrCreateForWeek(week);
+    for (const [planDate, slot] of [
+      ['2026-10-26', 'dinner'],
+      ['2026-10-28', 'dinner'],
+      ['2026-11-01', 'lunch'],
+    ] as const) {
+      repos.mealPlans.addEntry({ mealPlanId: plan.id, recipeId: chili.id, planDate, slot });
+    }
+    repos.mealPlans.addEntry({
+      mealPlanId: plan.id,
+      recipeId: cornbread.id,
+      planDate: '2026-10-30',
+      slot: 'dinner',
+    });
+
+    const preview = buildGroceryPreviewFromPlan(repos, { weekStart: week });
+    const beans = preview?.drafts.find((draft) => draft.name === 'beans');
+
+    expect(preview?.recipeCount).toBe(2);
+    expect(preview?.rawLineCount).toBe(2);
+    expect(beans?.quantity).toBe('4');
+    expect(beans?.recipeTitle).toBe('Chili · Cornbread');
+  });
+
   it('builds one list with merged items and recipe provenance', () => {
     const db = createTestDbClient();
     const repos = createRepositories(db);
@@ -222,6 +497,36 @@ describe('aisle grouping + undo + unmerge', () => {
 });
 
 describe('replace generate + destructive undo', () => {
+  it('replaces only the generated list for the same planned week', () => {
+    const db = createTestDbClient();
+    const repos = createRepositories(db);
+    const recipe = repos.recipes.create({
+      title: 'Soup',
+      ingredients: [{ name: 'onion', quantity: '1', aisle: 'Produce' }],
+    });
+    const firstPlan = repos.mealPlans.getOrCreateForWeek('2026-10-26');
+    const secondPlan = repos.mealPlans.getOrCreateForWeek('2026-11-02');
+    for (const plan of [firstPlan, secondPlan]) {
+      repos.mealPlans.addEntry({
+        mealPlanId: plan.id,
+        recipeId: recipe.id,
+        planDate: plan.weekStart,
+        slot: 'dinner',
+      });
+    }
+    const first = generateGroceryListFromPlan(repos, { weekStart: firstPlan.weekStart })!;
+    const second = generateGroceryListFromPlan(repos, { weekStart: secondPlan.weekStart })!;
+    const preview = buildGroceryPreviewFromPlan(repos, { weekStart: secondPlan.weekStart })!;
+    const priorForWeek = repos.grocery
+      .list()
+      .find((item) => item.mealPlanId === preview.mealPlanId);
+
+    replaceGroceryListFromPreview(repos.grocery, preview, repos.grocery.getById(priorForWeek!.id));
+
+    expect(repos.grocery.getById(first.id)).not.toBeNull();
+    expect(repos.grocery.getById(second.id)).toBeNull();
+  });
+
   it('creates the new list before retiring the old one; undo restores prior list', () => {
     const db = createTestDbClient();
     const repos = createRepositories(db);

@@ -9,7 +9,7 @@ import { PlaceholderHero } from '@/components/ui/PlaceholderHero';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { radius, spacing } from '@/constants/tokens';
-import { ocrAdapter, runImport, useImportSessionStore } from '@/import';
+import { ocrAdapter, useImportSessionStore } from '@/import';
 import { useTheme } from '@/theme/ThemeProvider';
 
 /**
@@ -38,7 +38,7 @@ export default function ImportOcrScreen() {
       if (status !== 'granted') {
         setFailed({
           code: 'needs_input',
-          message: `Camera ${useCamera ? 'camera' : 'photo library'} permission is required to scan recipes.`,
+          message: `${useCamera ? 'Camera' : 'Photo library'} permission is required to scan recipes.`,
           fallbacks: ['try_again', 'paste_text', 'manual'],
         });
         setIsProcessing(false);

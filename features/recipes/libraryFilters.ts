@@ -1,4 +1,4 @@
-import type { Collection, RecipeListItem, RecipeSort, Tag } from '@/data/contracts';
+import type { RecipeListItem, RecipeSort } from '@/data/contracts';
 import type { PantrySearchMode } from '@/features/pantry';
 
 export type CookTimeFilter = 'any' | 'le15' | 'le30' | 'le60';
@@ -103,17 +103,4 @@ export function activeFilterCount(filters: LibraryFilterState): number {
   if (filters.dateAdded !== 'any') count += 1;
   if (filters.pantryMode !== 'off') count += 1;
   return count;
-}
-
-export function collectionLabel(
-  collections: Collection[],
-  collectionId: string | null,
-): string | null {
-  if (!collectionId) return null;
-  return collections.find((c) => c.id === collectionId)?.name ?? null;
-}
-
-export function tagLabels(tags: Tag[], tagIds: string[]): string[] {
-  const byId = new Map(tags.map((t) => [t.id, t.name]));
-  return tagIds.map((id) => byId.get(id) ?? id);
 }

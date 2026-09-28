@@ -1,7 +1,9 @@
 import type { GroceryListWithItems, Ingredient, MealPlanWithEntries, Repositories } from '@/data';
+import { formatQuantityForUnit, parseQuantity } from '@/features/recipes/scale';
 import { resolveAisle } from '@/features/shop/aisle';
 import {
   mergeGroceryLines,
+  normalizeUnit,
   type GrocerySourceLine,
   type MergedGroceryDraft,
 } from '@/features/shop/merge';
@@ -21,10 +23,22 @@ function ingredientToSource(
   ingredient: Ingredient,
   recipeId: string,
   recipeTitle: string,
+  occurrences: number,
 ): GrocerySourceLine {
+  const originalQuantity = ingredient.quantity?.trim() || null;
+  const numericQuantity = parseQuantity(originalQuantity);
+  const quantity =
+    occurrences === 1
+      ? originalQuantity
+      : numericQuantity == null
+        ? originalQuantity
+          ? `${occurrences}x ${originalQuantity}`
+          : null
+        : formatQuantityForUnit(numericQuantity * occurrences, normalizeUnit(ingredient.unit));
+
   return {
     name: ingredient.name,
-    quantity: ingredient.quantity ?? null,
+    quantity,
     unit: ingredient.unit ?? null,
     aisle: resolveAisle(ingredient.name, ingredient.aisle),
     recipeId,
@@ -41,13 +55,13 @@ export function buildGroceryPreviewFromPlan(
 ): GroceryGeneratePreview | null {
   const weekStart = options?.weekStart ?? startOfWeekMonday(options?.now ?? new Date());
   const plan: MealPlanWithEntries = repos.mealPlans.getOrCreateForWeek(weekStart);
-  const recipeIds = [
-    ...new Set(
-      plan.entries
-        .map((e) => e.recipeId)
-        .filter((id): id is string => typeof id === 'string' && id.length > 0),
-    ),
-  ];
+  const occurrenceCounts = new Map<string, number>();
+  for (const entry of plan.entries) {
+    if (entry.recipeId) {
+      occurrenceCounts.set(entry.recipeId, (occurrenceCounts.get(entry.recipeId) ?? 0) + 1);
+    }
+  }
+  const recipeIds = [...occurrenceCounts.keys()];
 
   if (recipeIds.length === 0) {
     return null;
@@ -57,8 +71,9 @@ export function buildGroceryPreviewFromPlan(
   for (const recipeId of recipeIds) {
     const recipe = repos.recipes.getById(recipeId);
     if (!recipe) continue;
+    const occurrences = occurrenceCounts.get(recipeId) ?? 1;
     for (const ingredient of recipe.ingredients) {
-      lines.push(ingredientToSource(ingredient, recipe.id, recipe.title));
+      lines.push(ingredientToSource(ingredient, recipe.id, recipe.title, occurrences));
     }
   }
 

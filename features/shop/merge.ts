@@ -1,3 +1,5 @@
+import { formatQuantityForUnit, parseQuantity } from '@/features/recipes/scale';
+
 /**
  * Careful grocery merge/dedupe with recoverable provenance for unmerge.
  */
@@ -86,42 +88,19 @@ export function parseMergeKey(mergeKey: string | null): {
   }
 }
 
-function parseQuantity(raw: string | null | undefined): number | null {
-  if (raw == null || raw.trim() === '') return null;
-  const cleaned = raw.trim().replace(/,/g, '');
-  // Support simple fractions like 1/2 or 1 1/2
-  const mixed = cleaned.match(/^(\d+)\s+(\d+)\/(\d+)$/);
-  if (mixed) {
-    return Number(mixed[1]) + Number(mixed[2]) / Number(mixed[3]);
-  }
-  const frac = cleaned.match(/^(\d+)\/(\d+)$/);
-  if (frac) {
-    return Number(frac[1]) / Number(frac[2]);
-  }
-  const n = Number(cleaned);
-  return Number.isFinite(n) ? n : null;
-}
+function mergedQuantity(group: GrocerySourceLine[]): string | null | undefined {
+  let total = 0;
+  let hasNumericQuantity = false;
 
-function formatQuantity(n: number): string {
-  if (Number.isInteger(n)) return String(n);
-  const rounded = Math.round(n * 100) / 100;
-  return String(rounded);
-}
+  for (const line of group) {
+    if (!line.quantity?.trim()) continue;
+    const numericQuantity = parseQuantity(line.quantity);
+    if (numericQuantity == null) return undefined;
+    total += numericQuantity;
+    hasNumericQuantity = true;
+  }
 
-function canMergeQuantities(
-  a: string | null,
-  b: string | null,
-): { ok: true; sum: string } | { ok: false } {
-  const na = parseQuantity(a);
-  const nb = parseQuantity(b);
-  if (na == null && nb == null) {
-    return { ok: true, sum: '' };
-  }
-  if (na == null || nb == null) {
-    // One side has no quantity — keep separate to avoid hiding amounts
-    return { ok: false };
-  }
-  return { ok: true, sum: formatQuantity(na + nb) };
+  return hasNumericQuantity ? formatQuantityForUnit(total, normalizeUnit(group[0].unit)) : null;
 }
 
 function provenanceTitle(sources: GrocerySourceLine[]): string | null {
@@ -133,8 +112,8 @@ function provenanceTitle(sources: GrocerySourceLine[]): string | null {
 }
 
 /**
- * Merge compatible lines (same normalized name + unit, numeric quantities).
- * Incompatible pairs stay separate. Multi-recipe provenance is preserved for unmerge.
+ * Merge compatible lines (same normalized name + unit). Blank quantities merge with numeric
+ * quantities without erasing the amount; written non-numeric quantities remain separate.
  */
 export function mergeGroceryLines(lines: GrocerySourceLine[]): MergedGroceryDraft[] {
   const buckets = new Map<string, GrocerySourceLine[]>();
@@ -165,19 +144,8 @@ export function mergeGroceryLines(lines: GrocerySourceLine[]): MergedGroceryDraf
       continue;
     }
 
-    // Try to fold the whole group; if any pair is incompatible, emit unmerged lines
-    let quantity: string | null = group[0].quantity;
-    let mergeOk = true;
-    for (let i = 1; i < group.length; i++) {
-      const result = canMergeQuantities(quantity, group[i].quantity);
-      if (!result.ok) {
-        mergeOk = false;
-        break;
-      }
-      quantity = result.sum === '' ? null : result.sum;
-    }
-
-    if (!mergeOk) {
+    const quantity = mergedQuantity(group);
+    if (quantity === undefined) {
       for (const line of group) {
         drafts.push({
           name: line.name,
