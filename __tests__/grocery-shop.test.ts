@@ -1,5 +1,6 @@
 import { createRepositories } from '@/data/repositories';
 import { createTestDbClient } from '@/data/testing/createTestDb';
+import { parseQuantity } from '@/features/recipes/scale';
 import {
   buildGroceryPreviewFromPlan,
   commitGroceryPreview,
@@ -18,6 +19,29 @@ import { unmergeGroceryItem } from '@/features/shop/unmerge';
 import { startOfWeekMonday } from '@/features/shop/week';
 
 describe('grocery merge', () => {
+  it('merges unrounded fractional quantities with non-volume units', () => {
+    const drafts = mergeGroceryLines([
+      {
+        name: 'flour',
+        quantity: '1/4',
+        unit: 'lb',
+        aisle: 'Pantry',
+        recipeId: 'a',
+        recipeTitle: 'A',
+      },
+      {
+        name: 'flour',
+        quantity: '1/4',
+        unit: 'lb',
+        aisle: 'Pantry',
+        recipeId: 'b',
+        recipeTitle: 'B',
+      },
+    ]);
+
+    expect(drafts[0].quantity).toBe('0.5');
+  });
+
   it('keeps a numeric quantity when the matching ingredient has a blank quantity', () => {
     const drafts = mergeGroceryLines([
       {
@@ -168,6 +192,76 @@ describe('grocery merge', () => {
 });
 
 describe('generate grocery from plan', () => {
+  it('keeps quantities exactly as written for a recipe planned once', () => {
+    const db = createTestDbClient();
+    const repos = createRepositories(db);
+    const recipe = repos.recipes.create({
+      title: 'Exact quantities',
+      ingredients: [
+        { name: 'flour', quantity: '1/4', unit: 'lb', aisle: 'Pantry' },
+        { name: 'salt', quantity: '1/8', unit: 'teaspoons', aisle: 'Spices' },
+        { name: 'rice', quantity: '0.25', unit: 'kg', aisle: 'Pantry' },
+      ],
+    });
+    const week = '2026-10-26';
+    const plan = repos.mealPlans.getOrCreateForWeek(week);
+    repos.mealPlans.addEntry({
+      mealPlanId: plan.id,
+      recipeId: recipe.id,
+      planDate: week,
+      slot: 'dinner',
+    });
+
+    const preview = buildGroceryPreviewFromPlan(repos, { weekStart: week });
+
+    expect(preview?.drafts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'flour', quantity: '1/4', unit: 'lb' }),
+        expect.objectContaining({ name: 'salt', quantity: '1/8', unit: 'teaspoons' }),
+        expect.objectContaining({ name: 'rice', quantity: '0.25', unit: 'kg' }),
+      ]),
+    );
+  });
+
+  it('scales parsed fractions only after a recipe is planned more than once', () => {
+    const db = createTestDbClient();
+    const repos = createRepositories(db);
+    const recipe = repos.recipes.create({
+      title: 'Fraction test',
+      ingredients: [
+        { name: 'onion', quantity: '1/3', aisle: 'Produce' },
+        { name: 'butter', quantity: '½', unit: 'cup', aisle: 'Dairy & Eggs' },
+        { name: 'flour', quantity: '1.2', unit: 'kg', aisle: 'Pantry' },
+      ],
+    });
+    const week = '2026-10-26';
+    const plan = repos.mealPlans.getOrCreateForWeek(week);
+    for (const planDate of [week, '2026-10-27']) {
+      repos.mealPlans.addEntry({
+        mealPlanId: plan.id,
+        recipeId: recipe.id,
+        planDate,
+        slot: 'dinner',
+      });
+    }
+
+    const preview = buildGroceryPreviewFromPlan(repos, { weekStart: week });
+
+    expect(preview?.drafts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'onion', quantity: '2/3' }),
+        expect.objectContaining({ name: 'butter', quantity: '1', unit: 'cup' }),
+        expect.objectContaining({ name: 'flour', quantity: '2.4', unit: 'kg' }),
+      ]),
+    );
+  });
+
+  it('parses Unicode fractions and mixed Unicode fractions', () => {
+    expect(parseQuantity('½')).toBe(0.5);
+    expect(parseQuantity('⅓')).toBeCloseTo(1 / 3);
+    expect(parseQuantity('1½')).toBe(1.5);
+  });
+
   it('emits one scaled line per ingredient for repeated recipes without losing written quantities', () => {
     const db = createTestDbClient();
     const repos = createRepositories(db);

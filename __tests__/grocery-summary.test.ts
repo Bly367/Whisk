@@ -42,8 +42,9 @@ describe('grocery summary preview', () => {
     expect(grocerySummaryPreviewLines(preview)).toEqual(['3 onion', '1/2 cup butter']);
   });
 
-  it('explains that generation replaces the selected week list', () => {
-    expect(grocerySummaryReplaceMessage(preview)).toContain("replaces this week's list");
-    expect(grocerySummaryReplaceMessage(preview)).toContain('2 recipes');
+  it('explains replacement only when the week already has a grocery list', () => {
+    expect(grocerySummaryReplaceMessage(preview, true)).toContain("replaces this week's list");
+    expect(grocerySummaryReplaceMessage(preview, true)).toContain('2 recipes');
+    expect(grocerySummaryReplaceMessage(preview, false)).toBe('Create list with 2 items.');
   });
 });
