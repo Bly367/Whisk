@@ -26,8 +26,8 @@ it('returns null for filler-only speech', () => {
 it('understands going-to speech and discourse before imperatives', () => {
   const text = "I'm going to add my onions. Then we're going to add in our ground beef. Now I am going to stir it. Finally, I will serve it over rice.";
   const draft = draftFromTranscript({ text });
-  expect(draft?.instructions.map((step) => step.text)).toEqual(
-    expect.arrayContaining(['add my onions.', 'add in our ground beef.', 'stir it.', 'serve it over rice.']),
+    expect(draft?.instructions.map((step) => step.text)).toEqual(
+    expect.arrayContaining(['Add my onions.', 'Add in our ground beef.', 'Stir it.', 'Serve it over rice.']),
   );
 });
 
