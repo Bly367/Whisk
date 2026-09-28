@@ -1,6 +1,6 @@
 /**
  * Audio extraction from video files for transcription.
- * Extracts audio track as 16kHz mono WAV/M4A for Whisper input.
+ * Extracts audio track as 16kHz mono WAV for Whisper input.
  */
 
 import * as FileSystem from 'expo-file-system/legacy';
@@ -20,7 +20,7 @@ export type AudioExtractError = {
 /**
  * Extract audio from video file for transcription.
  * Returns path to extracted audio file (16kHz mono WAV for optimal Whisper performance).
- * 
+ *
  * @param videoPath - Local file path to video file
  * @returns Audio file path and duration, or error
  */
@@ -45,16 +45,15 @@ export async function extractAudioFromVideo(
   } catch (error) {
     const nativeError = error as { code?: unknown; message?: unknown };
     const code = typeof nativeError.code === 'string' ? nativeError.code : undefined;
-    const message = typeof nativeError.message === 'string'
-      ? nativeError.message
-      : 'Audio extraction failed';
+    const nativeMessage =
+      typeof nativeError.message === 'string' ? nativeError.message : 'Audio extraction failed';
 
-    if (message.includes('Native module not linked')) {
+    if (nativeMessage.includes('Native module not linked')) {
       return {
         ok: false,
         error: {
           code: 'extraction_failed',
-          message: 'Audio extraction requires native module. Rebuild app with EAS to enable.',
+          message: 'Audio extraction requires an iOS EAS development build to enable.',
           originalError: error,
         },
       };
@@ -65,7 +64,7 @@ export async function extractAudioFromVideo(
         ok: false,
         error: {
           code: 'unsupported_format',
-          message,
+          message: 'This video has no audio to transcribe.',
           originalError: error,
         },
       };
@@ -76,7 +75,7 @@ export async function extractAudioFromVideo(
         ok: false,
         error: {
           code: 'file_not_found',
-          message,
+          message: "Couldn't find the shared video. Try sharing it again.",
           originalError: error,
         },
       };
@@ -86,7 +85,7 @@ export async function extractAudioFromVideo(
       ok: false,
       error: {
         code: 'extraction_failed',
-        message,
+        message: "Couldn't read this video's audio.",
         originalError: error,
       },
     };

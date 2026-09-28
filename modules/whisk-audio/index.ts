@@ -12,10 +12,7 @@ type WhiskAudioNativeModule = {
   extractPcmWav(inputUri: string, outputUri: string): Promise<PcmWavResult>;
 };
 
-export async function extractPcmWav(
-  inputUri: string,
-  outputUri: string,
-): Promise<PcmWavResult> {
+export async function extractPcmWav(inputUri: string, outputUri: string): Promise<PcmWavResult> {
   const nativeModule = requireOptionalNativeModule<WhiskAudioNativeModule>('WhiskAudio');
   if (!nativeModule) {
     throw new Error('Native module not linked: WhiskAudio');

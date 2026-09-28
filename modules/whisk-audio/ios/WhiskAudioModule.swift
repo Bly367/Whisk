@@ -1,13 +1,22 @@
 import AVFoundation
 import ExpoModulesCore
 
-private struct WhiskAudioError: CodedError {
-  let code: String
-  let description: String
+private final class WhiskAudioError: Exception {
+  private let errorCode: String
+  private let errorReason: String
 
-  init(_ code: String, _ description: String) {
-    self.code = code
-    self.description = description
+  init(code: String, reason: String) {
+    self.errorCode = code
+    self.errorReason = reason
+    super.init()
+  }
+
+  override var code: String {
+    errorCode
+  }
+
+  override var reason: String {
+    errorReason
   }
 }
 
@@ -15,21 +24,31 @@ public class WhiskAudioModule: Module {
   public func definition() -> ModuleDefinition {
     Name("WhiskAudio")
 
-    AsyncFunction("extractPcmWav") { (inputUri: String, outputUri: String) -> [String: Any] in
+    AsyncFunction("extractPcmWav") { (inputUri: String, outputUri: String) async throws -> [String: Any] in
       let inputURL = fileURL(from: inputUri)
       let outputURL = fileURL(from: outputUri)
+      var reader: AVAssetReader?
 
       do {
         guard FileManager.default.fileExists(atPath: inputURL.path) else {
-          throw WhiskAudioError("ERR_FILE_NOT_FOUND", "Input file not found: \(inputURL.path)")
+          throw WhiskAudioError(
+            code: "ERR_FILE_NOT_FOUND",
+            reason: "Input file not found: \(inputURL.path)"
+          )
         }
 
         let asset = AVURLAsset(url: inputURL)
-        guard let audioTrack = asset.tracks(withMediaType: .audio).first else {
-          throw WhiskAudioError("ERR_NO_AUDIO_TRACK", "The input video has no audio track")
+        guard let audioTrack = try await asset.loadTracks(withMediaType: .audio).first else {
+          throw WhiskAudioError(
+            code: "ERR_NO_AUDIO_TRACK",
+            reason: "The input video has no audio track"
+          )
         }
 
-        let reader = try AVAssetReader(asset: asset)
+        reader = try AVAssetReader(asset: asset)
+        guard let reader else {
+          throw WhiskAudioError(code: "ERR_DECODE_FAILED", reason: "Unable to create audio reader")
+        }
         let output = AVAssetReaderTrackOutput(
           track: audioTrack,
           outputSettings: [
@@ -43,13 +62,16 @@ public class WhiskAudioModule: Module {
           ]
         )
         guard reader.canAdd(output) else {
-          throw WhiskAudioError("ERR_DECODE_FAILED", "Unable to configure audio reader")
+          throw WhiskAudioError(
+            code: "ERR_DECODE_FAILED",
+            reason: "Unable to configure audio reader"
+          )
         }
         reader.add(output)
         guard reader.startReading() else {
           throw WhiskAudioError(
-            "ERR_DECODE_FAILED",
-            reader.error?.localizedDescription ?? "Unable to start audio reader"
+            code: "ERR_DECODE_FAILED",
+            reason: reader.error?.localizedDescription ?? "Unable to start audio reader"
           )
         }
 
@@ -59,30 +81,44 @@ public class WhiskAudioModule: Module {
         try file.write(contentsOf: wavHeader(dataBytes: 0))
 
         var dataBytes: UInt32 = 0
-        while let sampleBuffer = output.copyNextSampleBuffer() {
-          guard let dataBuffer = CMSampleBufferGetDataBuffer(sampleBuffer) else { continue }
-          let length = CMBlockBufferGetDataLength(dataBuffer)
-          if length == 0 { continue }
-          var pcm = Data(count: length)
-          let status = pcm.withUnsafeMutableBytes { buffer in
-            CMBlockBufferCopyDataBytes(
-              dataBuffer,
-              atOffset: 0,
-              dataLength: length,
-              destination: buffer.baseAddress!
-            )
+        while true {
+          let hasSample = try autoreleasepool {
+            guard let sampleBuffer = output.copyNextSampleBuffer() else { return false }
+            guard let dataBuffer = CMSampleBufferGetDataBuffer(sampleBuffer) else { return true }
+            let length = CMBlockBufferGetDataLength(dataBuffer)
+            if length == 0 { return true }
+            var pcm = Data(count: length)
+            let status = pcm.withUnsafeMutableBytes { buffer in
+              CMBlockBufferCopyDataBytes(
+                dataBuffer,
+                atOffset: 0,
+                dataLength: length,
+                destination: buffer.baseAddress!
+              )
+            }
+            guard status == kCMBlockBufferNoErr else {
+              throw WhiskAudioError(
+                code: "ERR_DECODE_FAILED",
+                reason: "Unable to read decoded audio"
+              )
+            }
+            try file.write(contentsOf: pcm)
+            dataBytes += UInt32(length)
+            return true
           }
-          guard status == kCMBlockBufferNoErr else {
-            throw WhiskAudioError("ERR_DECODE_FAILED", "Unable to read decoded audio")
-          }
-          try file.write(contentsOf: pcm)
-          dataBytes += UInt32(length)
+          if !hasSample { break }
         }
 
         if reader.status == .failed {
           throw WhiskAudioError(
-            "ERR_DECODE_FAILED",
-            reader.error?.localizedDescription ?? "Audio decoding failed"
+            code: "ERR_DECODE_FAILED",
+            reason: reader.error?.localizedDescription ?? "Audio decoding failed"
+          )
+        }
+        guard dataBytes > 0 else {
+          throw WhiskAudioError(
+            code: "ERR_NO_AUDIO_TRACK",
+            reason: "The input video contains no decodable audio"
           )
         }
 
@@ -97,18 +133,20 @@ public class WhiskAudioModule: Module {
           "bytes": Int(dataBytes)
         ]
       } catch let error as WhiskAudioError {
+        reader?.cancelReading()
         try? FileManager.default.removeItem(at: outputURL)
         throw error
       } catch {
+        reader?.cancelReading()
         try? FileManager.default.removeItem(at: outputURL)
-        throw WhiskAudioError("ERR_DECODE_FAILED", error.localizedDescription)
+        throw WhiskAudioError(code: "ERR_DECODE_FAILED", reason: error.localizedDescription)
       }
     }
   }
 }
 
 private func fileURL(from value: String) -> URL {
-  if let url = URL(string: value), url.isFileURL {
+  if value.contains("://"), let url = URL(string: value) {
     return url
   }
   return URL(fileURLWithPath: value)
