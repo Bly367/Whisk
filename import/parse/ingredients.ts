@@ -6,7 +6,7 @@ const UNIT_PATTERN =
 export function parseIngredientLine(line: string, position = 0): IngredientInput {
   // Strip emoji bullets and common list markers
   const cleaned = line
-    .replace(/^[🔸🔹▪️•\-\*]\s*/, '')
+    .replace(/^(?:🔸|🔹|▪️|•|-|\*)\s*/u, '')
     .replace(/\s+/g, ' ')
     .trim();
   if (!cleaned) {

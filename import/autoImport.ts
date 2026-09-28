@@ -92,7 +92,7 @@ async function runAutoImportUnsafe(
   let audioReason = 'no_video_url';
 
   if (!isLocal && payload.url && detectSource(payload.url) === 'website') {
-    const website = await safeWebsiteImport(payload.url, deps);
+    const website = await safeWebsiteImport(payload.url, deps, onStage);
     if (website?.ok) {
       if (scoreDraft(website.draft).passes)
         return save(website.draft, 'web', 'website', onStage, deps);
@@ -352,7 +352,7 @@ async function save(
   const tagged = {
     ...draft,
     sourceName,
-    notes: [source === 'audio' ? `Transcript: ${(draft.sourceEvidence ?? '').slice(0, 4000)}` : null, draft.notes, `Imported automatically from ${source}.`].filter(Boolean).join(' '),
+    notes: [source === 'audio' ? `Transcript: ${(draft.sourceEvidence ?? '').slice(0, 4000)}` : null, draft.notes, `Imported automatically from ${source}.`].filter(Boolean).join('\n'),
   };
   onStage('saving');
   let recipe: { id: string };
