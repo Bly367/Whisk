@@ -10,6 +10,22 @@ export function parseQuantity(raw: string | null | undefined): number | null {
   const text = raw.trim().toLowerCase().replace(/,/g, '');
   if (!text) return null;
 
+  const unicodeFractions: Record<string, number> = {
+    '⅛': 1 / 8,
+    '¼': 1 / 4,
+    '⅓': 1 / 3,
+    '⅜': 3 / 8,
+    '½': 1 / 2,
+    '⅝': 5 / 8,
+    '⅔': 2 / 3,
+    '¾': 3 / 4,
+    '⅞': 7 / 8,
+  };
+  const unicode = text.match(/^(\d+)?\s*([⅛¼⅓⅜½⅝⅔¾⅞])$/);
+  if (unicode) {
+    return Number(unicode[1] ?? 0) + unicodeFractions[unicode[2]];
+  }
+
   // Mixed number: "1 1/2"
   const mixed = text.match(/^(\d+)\s+(\d+)\s*\/\s*(\d+)$/);
   if (mixed) {
@@ -77,15 +93,19 @@ export function formatQuantity(value: number): string {
   return `${sign}${Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2).replace(/\.?0+$/, '')}`;
 }
 
-/** Format grocery quantities: fractions are reserved for common cooking-volume units. */
-export function formatQuantityForUnit(value: number, unit: string | null | undefined): string {
-  const normalizedUnit = unit?.trim().toLowerCase().replace(/\./g, '').replace(/s$/, '') ?? '';
-  if (normalizedUnit === 'cup' || normalizedUnit === 'tbsp' || normalizedUnit === 'tsp') {
+/** Format grocery quantities after callers normalize units with `normalizeUnit`. */
+export function formatQuantityForUnit(value: number, normalizedUnit: string): string {
+  if (
+    normalizedUnit === '' ||
+    normalizedUnit === 'cup' ||
+    normalizedUnit === 'tbsp' ||
+    normalizedUnit === 'tsp'
+  ) {
     return formatQuantity(value);
   }
 
-  const rounded = Math.round(value * 10) / 10;
-  return Number.isInteger(rounded) ? String(rounded) : String(rounded);
+  const rounded = Math.round(value * 100) / 100;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2).replace(/\.?0+$/, '');
 }
 
 export function scaleFactor(baseServings: number, targetServings: number): number {

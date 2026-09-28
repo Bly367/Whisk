@@ -88,33 +88,19 @@ export function parseMergeKey(mergeKey: string | null): {
   }
 }
 
-function canMergeQuantities(
-  a: string | null,
-  b: string | null,
-  unit: string | null,
-): { ok: true; sum: string } | { ok: false } {
-  const aIsBlank = !a?.trim();
-  const bIsBlank = !b?.trim();
-  const na = parseQuantity(a);
-  const nb = parseQuantity(b);
+function mergedQuantity(group: GrocerySourceLine[]): string | null | undefined {
+  let total = 0;
+  let hasNumericQuantity = false;
 
-  if (aIsBlank && bIsBlank) {
-    return { ok: true, sum: '' };
-  }
-  if (na != null && nb != null) {
-    return { ok: true, sum: formatQuantityForUnit(na + nb, unit) };
-  }
-  if (na != null && bIsBlank) {
-    return { ok: true, sum: formatQuantityForUnit(na, unit) };
-  }
-  if (nb != null && aIsBlank) {
-    return { ok: true, sum: formatQuantityForUnit(nb, unit) };
-  }
-  if (na == null || nb == null) {
-    return { ok: false };
+  for (const line of group) {
+    if (!line.quantity?.trim()) continue;
+    const numericQuantity = parseQuantity(line.quantity);
+    if (numericQuantity == null) return undefined;
+    total += numericQuantity;
+    hasNumericQuantity = true;
   }
 
-  return { ok: false };
+  return hasNumericQuantity ? formatQuantityForUnit(total, normalizeUnit(group[0].unit)) : null;
 }
 
 function provenanceTitle(sources: GrocerySourceLine[]): string | null {
@@ -158,19 +144,8 @@ export function mergeGroceryLines(lines: GrocerySourceLine[]): MergedGroceryDraf
       continue;
     }
 
-    // Try to fold the whole group; if any pair is incompatible, emit unmerged lines
-    let quantity: string | null = group[0].quantity;
-    let mergeOk = true;
-    for (let i = 1; i < group.length; i++) {
-      const result = canMergeQuantities(quantity, group[i].quantity, group[i].unit);
-      if (!result.ok) {
-        mergeOk = false;
-        break;
-      }
-      quantity = result.sum === '' ? null : result.sum;
-    }
-
-    if (!mergeOk) {
+    const quantity = mergedQuantity(group);
+    if (quantity === undefined) {
       for (const line of group) {
         drafts.push({
           name: line.name,

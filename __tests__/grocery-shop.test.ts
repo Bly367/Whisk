@@ -291,7 +291,7 @@ describe('generate grocery from plan', () => {
       expect.arrayContaining([
         expect.objectContaining({ name: 'garlic', quantity: '2x 2-3 cloves' }),
         expect.objectContaining({ name: 'basil', quantity: '2x a handful' }),
-        expect.objectContaining({ name: 'butter', quantity: '2x ½', unit: 'cup' }),
+        expect.objectContaining({ name: 'butter', quantity: '1', unit: 'cup' }),
       ]),
     );
   });

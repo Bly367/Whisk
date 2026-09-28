@@ -69,6 +69,7 @@ export default function PlanScreen() {
   const [picker, setPicker] = useState<PickerTarget | null>(null);
   const [entryAction, setEntryAction] = useState<EntryActionTarget | null>(null);
   const [groceryOpen, setGroceryOpen] = useState(false);
+  const [groceryHasExistingList, setGroceryHasExistingList] = useState(false);
   const [groceryBusy, setGroceryBusy] = useState(false);
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
   const [saveSelectionIds, setSaveSelectionIds] = useState<string[] | null>(null);
@@ -427,6 +428,18 @@ export default function PlanScreen() {
     }
   };
 
+  const openGrocerySummary = () => {
+    if (groceryPreview) {
+      const { grocery } = getRepositories();
+      setGroceryHasExistingList(
+        grocery.list().some((item) => item.mealPlanId === groceryPreview.mealPlanId),
+      );
+    } else {
+      setGroceryHasExistingList(false);
+    }
+    setGroceryOpen(true);
+  };
+
   const isEmpty = (plan?.entries.length ?? 0) === 0;
 
   return (
@@ -640,7 +653,7 @@ export default function PlanScreen() {
         />
         <Button
           label="Create grocery list"
-          onPress={() => setGroceryOpen(true)}
+          onPress={openGrocerySummary}
           testID="plan-create-grocery"
         />
       </View>
@@ -723,6 +736,7 @@ export default function PlanScreen() {
       <GrocerySummaryModal
         visible={groceryOpen}
         preview={groceryPreview}
+        hasExistingList={groceryHasExistingList}
         confirming={groceryBusy}
         onClose={() => setGroceryOpen(false)}
         onConfirm={confirmGrocery}

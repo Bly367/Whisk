@@ -78,7 +78,7 @@ export function ShopScreen() {
 
   useFocusEffect(
     useCallback(() => {
-    refresh();
+      refresh();
     }, [refresh]),
   );
 
@@ -124,9 +124,7 @@ export function ShopScreen() {
     setConfirming(true);
     try {
       const { grocery } = getRepositories();
-      const current = grocery
-        .list()
-        .find((item) => item.mealPlanId === preview.mealPlanId);
+      const current = grocery.list().find((item) => item.mealPlanId === preview.mealPlanId);
       // Create first, then retire prior list — never soft-delete before create.
       const { created, replacedListId, replacedListName } = replaceGroceryListFromPreview(
         grocery,

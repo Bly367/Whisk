@@ -160,7 +160,6 @@ export function createRecipeAutosave(db: DbClient, options: AutosaveOptions = {}
     getSessionDraftId(): string | null {
       return sessionAnonymousDraftId;
     },
-
   };
 }
 

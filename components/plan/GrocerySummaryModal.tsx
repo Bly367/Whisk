@@ -12,13 +12,20 @@ export function grocerySummaryPreviewLines(preview: GroceryGeneratePreview): str
   );
 }
 
-export function grocerySummaryReplaceMessage(preview: GroceryGeneratePreview): string {
+export function grocerySummaryReplaceMessage(
+  preview: GroceryGeneratePreview,
+  hasExistingList: boolean,
+): string {
+  if (!hasExistingList) {
+    return `Create list with ${preview.drafts.length} items.`;
+  }
   return `This replaces this week's list with ${preview.drafts.length} ingredient item${preview.drafts.length === 1 ? '' : 's'} from ${preview.recipeCount} recipe${preview.recipeCount === 1 ? '' : 's'}.`;
 }
 
 export type GrocerySummaryModalProps = {
   visible: boolean;
   preview: GroceryGeneratePreview | null;
+  hasExistingList: boolean;
   onClose: () => void;
   onConfirm: () => void;
   confirming?: boolean;
@@ -28,6 +35,7 @@ export type GrocerySummaryModalProps = {
 export function GrocerySummaryModal({
   visible,
   preview,
+  hasExistingList,
   onClose,
   onConfirm,
   confirming = false,
@@ -53,7 +61,7 @@ export function GrocerySummaryModal({
           <Text variant="body" tone="secondary">
             {!preview
               ? 'Add meals to this week first — then we can summarize what to shop for.'
-              : grocerySummaryReplaceMessage(preview)}
+              : grocerySummaryReplaceMessage(preview, hasExistingList)}
           </Text>
 
           <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
@@ -74,7 +82,13 @@ export function GrocerySummaryModal({
           </ScrollView>
 
           <Button
-            label={!preview ? 'Nothing to add yet' : `Replace with ${preview.drafts.length} items`}
+            label={
+              !preview
+                ? 'Nothing to add yet'
+                : hasExistingList
+                  ? `Replace with ${preview.drafts.length} items`
+                  : `Create list with ${preview.drafts.length} items`
+            }
             disabled={!preview || confirming}
             loading={confirming}
             onPress={onConfirm}

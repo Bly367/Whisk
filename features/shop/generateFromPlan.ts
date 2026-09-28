@@ -3,6 +3,7 @@ import { formatQuantityForUnit, parseQuantity } from '@/features/recipes/scale';
 import { resolveAisle } from '@/features/shop/aisle';
 import {
   mergeGroceryLines,
+  normalizeUnit,
   type GrocerySourceLine,
   type MergedGroceryDraft,
 } from '@/features/shop/merge';
@@ -27,11 +28,13 @@ function ingredientToSource(
   const originalQuantity = ingredient.quantity?.trim() || null;
   const numericQuantity = parseQuantity(originalQuantity);
   const quantity =
-    numericQuantity == null
-      ? originalQuantity && occurrences > 1
-        ? `${occurrences}x ${originalQuantity}`
-        : originalQuantity
-      : formatQuantityForUnit(numericQuantity * occurrences, ingredient.unit);
+    occurrences === 1
+      ? originalQuantity
+      : numericQuantity == null
+        ? originalQuantity
+          ? `${occurrences}x ${originalQuantity}`
+          : null
+        : formatQuantityForUnit(numericQuantity * occurrences, normalizeUnit(ingredient.unit));
 
   return {
     name: ingredient.name,

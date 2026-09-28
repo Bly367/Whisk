@@ -364,7 +364,6 @@ export function createRecipeRepository(db: DbClient) {
         tagNames: row.tag_names ? row.tag_names.split('\u001f') : [],
       }));
     },
-
   };
 }
 
