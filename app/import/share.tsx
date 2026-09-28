@@ -29,7 +29,7 @@ export default function ImportShareScreen() {
   const [error, setError] = useState<string | null>(null);
   const [hint, setHint] = useState(false);
   const running = useRef(false);
-  const run = useCallback(async (next: AutoImportPayload) => {
+  const run = useCallback(async function runImport(next: AutoImportPayload) {
     if (running.current) return;
     running.current = true;
     try {
@@ -46,8 +46,19 @@ export default function ImportShareScreen() {
       setHint(false);
     } finally {
       running.current = false;
+      const pending = takePayload();
+      if (pending) {
+        const queued = {
+          url: pending.url,
+          sharedText: pending.sharedText ?? pending.caption,
+          videoPath: pending.videoPath,
+          sourceName: pending.url,
+        };
+        setActivePayload(queued);
+        void runImport(queued);
+      }
     }
-  }, []);
+  }, [takePayload]);
   useEffect(() => {
     if (!payload || running.current) return;
     const pending = takePayload();

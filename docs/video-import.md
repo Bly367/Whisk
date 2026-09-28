@@ -27,19 +27,17 @@ Automatic caption → linked recipe (if any) → audio → remaining-links fallb
 
 ## User Flow
 
-### Happy Path: Save → Share → Transcribe → Import
+### Happy Path: Save → Share → Automatic Import
 
 1. User sees an Instagram Reel or TikTok recipe video.
 2. User taps **Save** (Instagram: "Save to Collection" or Photos; TikTok: "Save Video").
 3. From Photos app (or Files), user taps **Share** → **Whisk**.
-4. Whisk receives the video file, shows "Video ready — transcribe to recipe".
-5. User taps **Transcribe Video** button.
-6. Whisk:
+4. Whisk receives the video file and starts automatically.
+5. Whisk:
    - Extracts audio from video as 16kHz mono 16-bit PCM WAV
    - Transcribes audio with Whisper (offline, on-device)
-   - Fills the caption field with transcript
-7. User reviews/edits transcript, taps **Continue**.
-8. Recipe parses and goes to preview screen as usual.
+   - Parses the transcript and saves a review-marked recipe
+6. User reviews the saved recipe and can undo the automatic save.
 
 ### Fallback: URL-Only Share (No Video File)
 
@@ -47,6 +45,15 @@ When user shares from inside Instagram/TikTok app (not from Photos):
 
 - IG/TikTok sends **URL only** (no video file).
 - Whisk tries the public caption, linked recipe pages, and audio when available; if those fail it offers retry, choose video, or manual creation.
+
+### Reachability by share input
+
+| Shared input | Automatic path | Fallback |
+| --- | --- | --- |
+| Website URL | Website extraction → save | Retry or manual |
+| Social URL + caption | Caption → linked recipe → save | Audio when available |
+| Social URL only | Public caption → linked recipe → audio | Save the video or create manually |
+| Local video file | Audio → transcript → save | Choose another video or create manually |
 
 This is **UX honesty** — we tell users why we need the caption or video file.
 
@@ -81,20 +88,6 @@ export type ParsedShareIntent = {
   videoPath?: string; // Local file path to video
   imagePath?: string; // Local file path to image (OCR path)
   mimeType?: string; // MIME type of file
-};
-```
-
-### Pending Share Payload
-
-**`import/pendingSharePayload.ts`** — Ephemeral storage for video/image paths (too large for URL params):
-
-```typescript
-export type SharePayload = {
-  url?: string;
-  caption?: string;
-  videoPath?: string;
-  imagePath?: string;
-  mimeType?: string;
 };
 ```
 

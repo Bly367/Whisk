@@ -147,9 +147,11 @@ export async function transcribeAudio(
     });
 
     // Transcribe audio
+    options?.onProgress?.('transcribing', 0);
     const { promise } = context.transcribe(audioPath, {
       language: options?.language === 'auto' ? undefined : 'en',
-    });
+      onProgress: (progress: number) => options?.onProgress?.('transcribing', progress / 100),
+    } as never);
 
     const transcription = (await promise) as {
       result: string;

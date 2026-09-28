@@ -12,9 +12,9 @@ This feature allows users to tap "Share" in other apps and have Whisk automatica
 
 1. **expo-share-intent** (v8.0+ for Expo SDK 57) — Native module that receives share intents from iOS and Android
 2. **Share intent parser** (`import/shareIntent.ts`) — Parses incoming share data and preserves shared text
-3. **Share payload store** (`import/sharePayloadStore.ts`) — Zustand store for passing share data without query param truncation
+3. **Share payload store** (`import/sharePayloadStore.ts`) — Zustand store for passing share data safely between the handoff and importer
 4. **Share intent handler** (`import/shareIntentHandler.ts`) — React hook that listens for shares and navigates to import screen
-5. **Import/share screen** (`app/import/share.tsx`) — UI that receives shared data from store (or query params as fallback) or manual paste
+5. **Import/share screen** (`app/import/share.tsx`) — UI that receives shared data from the store and starts the automatic import
 
 ### Files Changed
 
@@ -54,11 +54,10 @@ This feature allows users to tap "Share" in other apps and have Whisk automatica
 2. User selects "Whisk" from share sheet
 3. `expo-share-intent` receives the share data (URL, text)
 4. `useShareIntentHandler` hook parses the data and extracts URL + caption (preserving newlines)
-5. Parsed payload is stored in the one-shot share payload store (prevents long caption truncation in query params)
-6. App navigates to `/import/share` (no query params)
-7. Import screen consumes pending payload on mount and pre-fills fields
-8. User taps "Continue" to proceed with existing import flow
-9. Automatic import tries caption, linked recipes, audio, and remaining links, then marks saved recipes for review with undo
+5. Parsed payload is stored in the one-shot share payload store
+6. App navigates to `/import/share`
+7. The import screen consumes the payload and starts automatically
+8. Automatic import tries caption, linked recipes, audio, and remaining links, then marks saved recipes for review with undo
 
 ## Testing
 
@@ -119,7 +118,7 @@ npx expo run:android --device
    - Open YouTube app
    - Tap Share on a recipe video
    - Select "Whisk"
-   - Verify URL pre-filled
+   - Verify the recipe is imported automatically
 
 4. **Safari/Chrome URL:**
    - Open recipe website in browser
@@ -127,11 +126,6 @@ npx expo run:android --device
    - Select "Whisk"
    - Verify URL pre-filled
 
-5. **Paste fallback:**
-   - Open Whisk directly
-   - Navigate to Add > Share
-   - Manually paste URL and caption
-   - Verify fields work as before
 
 ## Rebuild Requirements
 

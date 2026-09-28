@@ -16,6 +16,14 @@ function isPrivateIpv4(hostname: string): boolean {
 
 function isPrivateIpv6(hostname: string): boolean {
   const value = hostname.toLowerCase();
+  const mappedIpv4 = value.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/)?.[1];
+  if (mappedIpv4) return isPrivateIpv4(mappedIpv4);
+  const mappedHex = value.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i);
+  if (mappedHex) {
+    const high = Number.parseInt(mappedHex[1], 16);
+    const low = Number.parseInt(mappedHex[2], 16);
+    return isPrivateIpv4(`${high >> 8}.${high & 255}.${low >> 8}.${low & 255}`);
+  }
   return (
     value === '::1' ||
     value.startsWith('fc') ||
@@ -39,7 +47,7 @@ export function isPublicHttpsUrl(value: string): boolean {
       hostname.endsWith('.internal')
     )
       return false;
-    return !isPrivateIpv4(hostname) && !isPrivateIpv6(hostname);
+    return !isPrivateIpv4(hostname) && (!hostname.includes(':') || !isPrivateIpv6(hostname));
   } catch {
     return false;
   }

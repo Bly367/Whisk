@@ -16,7 +16,7 @@ export type VideoDownload = {
   size?: number;
   bytes?: Uint8Array;
   delete?: () => void | Promise<void>;
-  open?: () => { readBytes: (length: number) => Uint8Array };
+  open?: () => { readBytes: (length: number) => Uint8Array; close?: () => void | Promise<void> };
 };
 export type VideoDeps = {
   createDirectory?: () => Promise<void>;
@@ -81,6 +81,7 @@ export async function videoFromUrl(
     `${Date.now()}-${Math.random().toString(36).slice(2)}.mp4`,
   );
   let file: VideoDownload | undefined;
+  let timedOut = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     const download = deps.downloadFile
@@ -89,8 +90,14 @@ export async function videoFromUrl(
           headers: meta.videoHeaders,
           idempotent: true,
         }) as unknown as Promise<VideoDownload>);
+    const downloadPromise = Promise.resolve(download);
+    void downloadPromise.then(async (lateFile) => {
+      if (timedOut) {
+        try { await (deps.removeFile?.(lateFile.uri) ?? lateFile.delete?.()); } catch { /* best effort */ }
+      }
+    }).catch(() => {});
     const timeout = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => reject(new Error('timeout')), deps.timeoutMs ?? 12_000);
+      timer = setTimeout(() => { timedOut = true; reject(new Error('timeout')); }, deps.timeoutMs ?? 90_000);
     });
     file = await Promise.race([download, timeout]);
   } catch (error) {
@@ -121,11 +128,12 @@ export async function videoFromUrl(
       return { ok: false, reason: 'too_large' };
     }
     const opened = file.open?.();
-    const header = deps.readHeader
-      ? deps.readHeader(file)
-      : opened
-        ? opened.readBytes(12)
-        : file.bytes;
+    let header: Uint8Array | undefined;
+    try {
+      header = deps.readHeader ? deps.readHeader(file) : opened ? opened.readBytes(12) : file.bytes;
+    } finally {
+      await opened?.close?.();
+    }
     if (!header || header.length < 8 || String.fromCharCode(...header.slice(4, 8)) !== 'ftyp') {
       await remove();
       return { ok: false, reason: 'not_video' };

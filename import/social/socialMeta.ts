@@ -97,7 +97,7 @@ export async function fetchSocialMeta(
     caption = caption
       .replace(/^[\d.,KkMm]+ likes?, [\d.,KkMm]+ comments? - \S+ on [^:]+: \"/i, '')
       .trim()
-      .replace(/\"\.?$/, '')
+      .replace(/\"(?=\.?$)/, '')
       .trim();
   let videoUrl =
     directHttps(meta(html, 'og:video')) ?? directHttps(meta(html, 'og:video:secure_url'));

@@ -71,7 +71,7 @@ export function createWebsiteAdapter(
           error: {
             code: 'unsupported',
             message:
-              'Social links need the share-sheet path or pasted caption text. Whisk will not invent a recipe from the URL alone.',
+              'Share Instagram/TikTok posts to Whisk to import them automatically. Whisk will not invent a recipe from the URL alone.',
             fallbacks: ['paste_text', 'scan', 'manual', 'try_again'],
           },
         };

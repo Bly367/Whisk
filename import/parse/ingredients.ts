@@ -1,7 +1,7 @@
 import type { IngredientInput } from '@/data/contracts';
 
 const UNIT_PATTERN =
-  /^(fl\s+oz|tsp|teaspoons?|tbsp|tablespoons?|cups?|oz|ounces?|lb|lbs|pounds?|g|kg|ml|l|cloves?|cans?|packages?|pinch|pinches)\b\s*(.*)$/i;
+  /^(fl\s+oz|tsp|teaspoons?|tbsp|tablespoons?|cups?|oz|ounces?|lb|lbs|pounds?|grams?|g|kg|ml|l|cloves?|cans?|packages?|pinch|pinches|sticks?|bunch(?:es)?|sprigs?|slices?|fillets?)\b\s*(.*)$/i;
 
 export function parseIngredientLine(line: string, position = 0): IngredientInput {
   // Strip emoji bullets and common list markers

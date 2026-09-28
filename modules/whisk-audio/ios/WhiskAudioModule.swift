@@ -141,12 +141,12 @@ public class WhiskAudioModule: Module {
         try? FileManager.default.removeItem(at: outputURL)
         throw WhiskAudioError(code: "ERR_DECODE_FAILED", reason: error.localizedDescription)
       }
-    }.runOnQueue(DispatchQueue.global(qos: .userInitiated))
+    }
   }
 }
 
 private func fileURL(from value: String) -> URL {
-  if let url = URL(string: value), url.scheme != nil {
+  if value.contains("://"), let url = URL(string: value) {
     return url
   }
   return URL(fileURLWithPath: value)
