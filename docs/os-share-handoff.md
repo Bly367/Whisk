@@ -4,15 +4,15 @@ Native share intent integration for iOS and Android, enabling users to share rec
 
 ## Overview
 
-This feature allows users to tap "Share" in other apps (Instagram, TikTok, YouTube, Safari, Chrome, etc.) and see Whisk as a share destination. The shared URL and text/caption are passed to Whisk and pre-filled in the import screen.
+This feature allows users to tap "Share" in other apps and have Whisk automatically try caption → linked recipe → audio → remaining links. There is no caption or paste box in the share flow.
 
 ## Implementation
 
 ### Architecture
 
 1. **expo-share-intent** (v8.0+ for Expo SDK 57) — Native module that receives share intents from iOS and Android
-2. **Share intent parser** (`import/shareIntent.ts`) — Parses incoming share data (URL + caption extraction, preserves newlines)
-3. **Pending payload store** (`import/pendingSharePayload.ts`) — In-memory store for passing share data without query param truncation
+2. **Share intent parser** (`import/shareIntent.ts`) — Parses incoming share data and preserves shared text
+3. **Share payload store** (`import/sharePayload.ts`) — In-memory store for passing share data without query param truncation
 4. **Share intent handler** (`import/shareIntentHandler.ts`) — React hook that listens for shares and navigates to import screen
 5. **Import/share screen** (`app/import/share.tsx`) — UI that receives shared data from store (or query params as fallback) or manual paste
 
@@ -24,7 +24,7 @@ This feature allows users to tap "Share" in other apps (Instagram, TikTok, YouTu
 - `app/import/share.tsx` — Updated to consume pending payload from store (query params as fallback)
 - `import/shareIntent.ts` — Share intent parsing logic (preserves newlines in captions)
 - `import/shareIntentHandler.ts` — React hook for handling incoming shares (stores payload, navigates without query params)
-- `import/pendingSharePayload.ts` — In-memory store for passing share data without query param truncation
+- `import/sharePayload.ts` — In-memory store for passing share data without query param truncation
 - `import/index.ts` — Exported share intent utilities
 - `__tests__/shareIntent.test.ts` — Unit tests for share parsing (multiline caption preservation)
 

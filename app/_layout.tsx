@@ -6,12 +6,18 @@ import { DarkTheme, DefaultTheme, Stack, ThemeProvider as NavThemeProvider } fro
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { useFonts, Nunito_700Bold, Nunito_600SemiBold, Nunito_400Regular } from '@expo-google-fonts/nunito';
+import {
+  useFonts,
+  Nunito_700Bold,
+  Nunito_600SemiBold,
+  Nunito_400Regular,
+} from '@expo-google-fonts/nunito';
 import 'react-native-reanimated';
 
 import { DatabaseProvider } from '@/data/DatabaseProvider';
 import { AppThemeProvider, useTheme } from '@/theme/ThemeProvider';
 import { useShareIntentHandler } from '@/import/shareIntentHandler';
+import { ShareIntentProvider } from 'expo-share-intent';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -39,11 +45,13 @@ export default function RootLayout() {
   }
 
   return (
-    <AppThemeProvider>
-      <DatabaseProvider>
-        <RootNavigator />
-      </DatabaseProvider>
-    </AppThemeProvider>
+    <ShareIntentProvider options={{ debug: __DEV__, resetOnBackground: true }}>
+      <AppThemeProvider>
+        <DatabaseProvider>
+          <RootNavigator />
+        </DatabaseProvider>
+      </AppThemeProvider>
+    </ShareIntentProvider>
   );
 }
 

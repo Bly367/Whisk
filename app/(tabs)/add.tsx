@@ -26,13 +26,6 @@ const SOURCES = [
     limited: true,
   },
   {
-    id: 'social',
-    label: 'Import from social',
-    hint: 'Share sheet or saved post',
-    href: '/import/share' as const,
-    limited: true,
-  },
-  {
     id: 'scan',
     label: 'Scan a photo',
     hint: 'Cookbook page or screenshot',
@@ -137,7 +130,9 @@ export default function AddScreen() {
             ]}
           >
             <View style={[styles.numberBadge, { backgroundColor: colors.brand.yolk }]}>
-              <Text variant="headline" style={{ color: colors.textOnYolk }}>{index + 1}</Text>
+              <Text variant="headline" style={{ color: colors.textOnYolk }}>
+                {index + 1}
+              </Text>
             </View>
             <View style={styles.sourceContent}>
               <Text variant="title2">{source.label}</Text>

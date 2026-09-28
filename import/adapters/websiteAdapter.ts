@@ -7,25 +7,14 @@ import { draftFromPastedText } from '@/import/parse/pasteText';
 import { canonicalizeUrl, detectSource, isSocialSource } from '@/import/parse/url';
 import type { ImportAdapter, ImportAdapterInput, ImportAdapterResult } from '@/import/types';
 import { DEFAULT_FALLBACKS } from '@/import/types';
+import { fetchText } from '@/import/net/fetchText';
 
 export const WEBSITE_ADAPTER_ID = 'website-jsonld';
 
 async function fetchHtml(url: string): Promise<string> {
-  const response = await fetch(url, {
-    headers: { Accept: 'text/html,application/xhtml+xml' },
-  });
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
-  }
-  const contentType = response.headers.get('content-type') ?? '';
-  if (
-    !contentType.includes('text/html') &&
-    !contentType.includes('application/xhtml+xml') &&
-    contentType.length > 0
-  ) {
-    throw Object.assign(new Error('not-html'), { code: 'unsupported' as const });
-  }
-  return response.text();
+  const response = await fetchText(url);
+  if (response.status < 200 || response.status >= 300) throw new Error(`HTTP ${response.status}`);
+  return response.text;
 }
 
 /**

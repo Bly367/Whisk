@@ -12,9 +12,10 @@ This solves the iOS friction where copying captions from Instagram/TikTok is dif
 
 ## Key Design Decisions
 
-### What We Do NOT Do
+### Brian chose (2026-09-28)
 
-- **❌ Do not download videos from URLs** — IG/TikTok in-app Share usually sends URL only. Downloading from CDN URLs violates ToS, is fragile (auth tokens, rate limits), and is not local-first.
+Automatic caption → linked recipe (if any) → audio → remaining-links fallback. Public videos are downloaded only to cache for local transcription and then deleted. IG/TikTok terms and page structure may change without notice; Whisk never spoofs crawler UAs.
+
 - **❌ Do not use cloud transcription APIs** — Privacy, cost, and offline-first principles require on-device processing.
 
 ### What We DO
@@ -43,6 +44,7 @@ This solves the iOS friction where copying captions from Instagram/TikTok is dif
 ### Fallback: URL-Only Share (No Video File)
 
 When user shares from inside Instagram/TikTok app (not from Photos):
+
 - IG/TikTok sends **URL only** (no video file).
 - Whisk shows: _"This [social source] link needs the post caption to create a recipe. Paste the full caption text below, or save the Reel to Photos and share the video file for automatic transcription."_
 
@@ -63,11 +65,7 @@ This is **UX honesty** — we tell users why we need the caption or video file.
     "NSExtensionActivationSupportsMovieWithMaxCount": 1,
     "NSExtensionActivationSupportsImageWithMaxCount": 1
   },
-  "androidIntentFilters": [
-    "text/*",
-    "video/*",
-    "image/*"
-  ]
+  "androidIntentFilters": ["text/*", "video/*", "image/*"]
 }
 ```
 
@@ -80,9 +78,9 @@ export type ParsedShareIntent = {
   url?: string;
   text?: string;
   caption?: string;
-  videoPath?: string;   // Local file path to video
-  imagePath?: string;   // Local file path to image (OCR path)
-  mimeType?: string;    // MIME type of file
+  videoPath?: string; // Local file path to video
+  imagePath?: string; // Local file path to image (OCR path)
+  mimeType?: string; // MIME type of file
 };
 ```
 
@@ -113,7 +111,7 @@ export async function transcribeVideo(
     onProgress?: (stage: 'extracting' | 'transcribing', progress: number) => void;
   },
 ): Promise<
-  { ok: true; transcript: string; metadata: WhisperTranscriptResult } 
+  | { ok: true; transcript: string; metadata: WhisperTranscriptResult }
   | { ok: false; error: TranscribeVideoError }
 >;
 ```
@@ -194,6 +192,7 @@ The app already has EAS build profiles configured in `eas.json`. The relevant pr
 ### First-Time Setup (After Rebuild)
 
 On first video transcribe:
+
 1. Whisper model downloads (~40MB for `ggml-tiny.en.bin`, ~140MB for `ggml-base.en.bin`)
 2. Progress shown to user ("Downloading speech model...")
 3. Model cached in app documents directory (`FileSystem.documentDirectory`)
@@ -202,6 +201,7 @@ On first video transcribe:
 ### Model Files
 
 Models are downloaded from HuggingFace on first use:
+
 - **tiny.en** (default): `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin`
 - **base.en**: `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin`
 
@@ -226,6 +226,7 @@ The app defaults to `tiny.en` for faster transcription and smaller download size
 ### Unit Tests
 
 **`__tests__/shareIntent.test.ts`**:
+
 - ✅ Parse video file share with URL
 - ✅ Parse video file share without URL
 - ✅ Parse image file share
@@ -233,6 +234,7 @@ The app defaults to `tiny.en` for faster transcription and smaller download size
 - ✅ Ignore non-video/image files
 
 **`__tests__/transcribe.test.ts`**:
+
 - ✅ Transcribe video and return text
 - ✅ Report progress during transcription
 - ✅ Parse recipe from video transcript fixture

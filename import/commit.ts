@@ -2,6 +2,7 @@ import type { RecipeCreateInput, RecipeWithIngredients } from '@/data/contracts'
 import { getRepositories } from '@/data/repositories';
 
 import type { ImportDraft } from '@/import/types';
+import { scoreDraft } from '@/import/score';
 
 export class ImportCommitError extends Error {
   constructor(
@@ -97,4 +98,18 @@ export function commitImportDraft(
       'persist_failed',
     );
   }
+}
+
+/** Auto-save gate for share imports; manual imports still use the reviewed gate above. */
+export function commitAutoImportDraft(
+  draft: ImportDraft,
+  options: CommitImportOptions = {},
+): RecipeWithIngredients {
+  if (!scoreDraft(draft).saveable) {
+    throw new ImportCommitError(
+      'This import did not contain enough recipe content to save.',
+      'empty_recipe',
+    );
+  }
+  return commitImportDraft(draft, options);
 }
