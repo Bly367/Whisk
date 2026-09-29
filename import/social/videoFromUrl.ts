@@ -10,7 +10,8 @@ export type VideoFailure =
   | 'not_video'
   | 'too_large'
   | 'timeout'
-  | 'network';
+  | 'network'
+  | 'host_blocked';
 export type VideoDownload = {
   uri: string;
   size?: number;
@@ -19,6 +20,7 @@ export type VideoDownload = {
   open?: () => { readBytes: (length: number) => Uint8Array; close?: () => void | Promise<void> };
 };
 export type VideoDeps = {
+  includeDetail?: boolean;
   createDirectory?: () => Promise<void>;
   downloadFile?: (
     url: string,
@@ -27,6 +29,10 @@ export type VideoDeps = {
   removeFile?: (uri: string) => Promise<void>;
   readHeader?: (file: VideoDownload) => Uint8Array;
   timeoutMs?: number;
+};
+const safeDetail = (error: unknown) => {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.replace(/https?:\/\/[^\s)]+/gi, '').replace(/\?[^\s)]+/g, '').trim() || undefined;
 };
 const ALLOWED = [
   'cdninstagram.com',
@@ -61,13 +67,13 @@ export async function videoFromUrl(
   meta: Partial<SocialMeta>,
   deps: VideoDeps = {},
 ): Promise<
-  { ok: true; uri: string; cleanup: () => Promise<void> } | { ok: false; reason: VideoFailure }
+  { ok: true; uri: string; cleanup: () => Promise<void> } | { ok: false; reason: VideoFailure; detail?: string }
 > {
   if (!meta.videoUrl || !isPublicHttpsUrl(meta.videoUrl))
     return { ok: false, reason: meta.videoUrl ? 'network' : 'no_video_url' };
   const parsed = new URL(meta.videoUrl);
   if (!ALLOWED.some((host) => parsed.hostname === host || parsed.hostname.endsWith(`.${host}`)))
-    return { ok: false, reason: 'network' };
+    return { ok: false, reason: 'host_blocked' };
   const directory = cacheDir();
   try {
     await (deps.createDirectory
@@ -110,7 +116,8 @@ export async function videoFromUrl(
     }
     if (error instanceof Error && error.message === 'timeout')
       return { ok: false, reason: 'timeout' };
-    return { ok: false, reason: failureFrom(error) };
+    const detail = deps.includeDetail ? safeDetail(error) : undefined;
+    return { ok: false, reason: failureFrom(error), ...(detail ? { detail } : {}) };
   } finally {
     if (timer) clearTimeout(timer);
   }

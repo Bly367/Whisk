@@ -9,6 +9,9 @@ export type SocialMeta = {
   author?: string;
   videoUrl?: string;
   transcriptUrl?: string;
+  transcriptSource?: string;
+  subtitleSummary?: string;
+  setCookieSeen?: boolean;
   videoHeaders?: Record<string, string>;
   linkedUrls: string[];
   blocked?: 'login_wall' | 'http_error';
@@ -103,6 +106,8 @@ export async function fetchSocialMeta(
   let videoUrl =
     directHttps(meta(html, 'og:video')) ?? directHttps(meta(html, 'og:video:secure_url'));
   let transcriptUrl: string | undefined;
+  let transcriptSource: string | undefined;
+  let subtitleSummary: string | undefined;
   let author: string | undefined;
   let videoHeaders: Record<string, string> | undefined;
   if (
@@ -129,11 +134,15 @@ export async function fetchSocialMeta(
         ? contents.map((entry: { desc?: string }) => entry.desc ?? '').join('\n')
         : typeof item.desc === 'string' ? item.desc : caption;
       videoUrl = item.video?.playAddr || item.video?.downloadAddr || videoUrl;
-      const subtitle = Array.isArray(item.video?.subtitleInfos)
-        ? item.video.subtitleInfos.find((entry: { Source?: string; Format?: string; LanguageCodeName?: string; Url?: string }) =>
-            entry.Source === 'ASR' && entry.Format === 'webvtt' && entry.LanguageCodeName?.toLowerCase().startsWith('eng') && typeof entry.Url === 'string')
-        : undefined;
+      const subtitles = Array.isArray(item.video?.subtitleInfos) ? item.video.subtitleInfos : [];
+      subtitleSummary = subtitles.length
+        ? subtitles.map((entry: { Source?: string; LanguageCodeName?: string; Format?: string }) => `${entry.Source ?? ''}:${entry.LanguageCodeName ?? ''}:${entry.Format ?? ''}`).join(', ')
+        : 'none';
+      const english = subtitles.filter((entry: { Format?: string; LanguageCodeName?: string; Url?: string }) =>
+        entry.Format === 'webvtt' && entry.LanguageCodeName?.toLowerCase().startsWith('eng') && typeof entry.Url === 'string');
+      const subtitle = english.find((entry: { Source?: string }) => entry.Source === 'ASR') ?? english[0];
       transcriptUrl = subtitle?.Url;
+      transcriptSource = subtitle?.Source;
       author = item.author?.bioLink?.link;
     }
     if (!item) {
@@ -161,6 +170,9 @@ export async function fetchSocialMeta(
     author,
     videoUrl,
     transcriptUrl,
+    transcriptSource,
+    subtitleSummary,
+    ...(source === 'tiktok' ? { setCookieSeen: Boolean(page.setCookie) } : {}),
     videoHeaders,
     linkedUrls: links(caption ?? '', author),
   };

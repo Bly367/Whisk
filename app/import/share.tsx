@@ -5,7 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { Button } from '@/components/ui/Button';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
-import { runAutoImport, type AutoStage, type AutoImportPayload } from '@/import/autoImport';
+import { diagnosticsText, runAutoImport, type AutoStage, type AutoImportPayload } from '@/import/autoImport';
 import { useSharePayloadStore } from '@/import/sharePayloadStore';
 
 const stageCopy: Record<AutoStage, string> = {
@@ -29,6 +29,7 @@ export default function ImportShareScreen() {
   const [stage, setStage] = useState<AutoStage>('receiving');
   const [error, setError] = useState<string | null>(null);
   const [hint, setHint] = useState(false);
+  const [diagnostics, setDiagnostics] = useState<string | null>(null);
   const running = useRef(false);
   const run = useCallback(async function runImport(next: AutoImportPayload) {
     if (running.current) return;
@@ -36,15 +37,18 @@ export default function ImportShareScreen() {
     try {
       setError(null);
       const result = await runAutoImport(next, {}, (nextStage) => setStage(nextStage));
+      if (__DEV__) console.warn('[share-import]', JSON.stringify(result.diagnostics));
       if (result.ok) router.replace(`/recipe/${result.recipe.id}`);
       else {
         setError(result.reason);
         setHint(result.hints?.includes('ig_save_reel') ?? false);
+        setDiagnostics(diagnosticsText(result.diagnostics));
       }
     } catch (error) {
       setStage('failed');
       setError(error instanceof Error ? error.message : "Couldn't find a recipe in this post");
       setHint(false);
+      setDiagnostics(null);
     } finally {
       running.current = false;
       const pending = takePayload();
@@ -94,6 +98,7 @@ export default function ImportShareScreen() {
             <Text variant="body" tone="secondary">
               {error}
             </Text>
+            {diagnostics ? <Text testID="share-import-diagnostics" variant="body" tone="secondary">{diagnostics}</Text> : null}
             {hint ? (
               <Text variant="body" tone="secondary">
                 Save the reel, then share it from Photos to import from its audio

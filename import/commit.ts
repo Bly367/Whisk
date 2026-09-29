@@ -67,7 +67,8 @@ export function assertDraftReadyToSave(draft: ImportDraft): RecipeCreateInput {
 export type CommitImportOptions = {
   /** Prevent double-save of the same preview session. */
   alreadySavedDraftIds?: Set<string>;
-  create?: (input: RecipeCreateInput) => RecipeWithIngredients;
+  create?: (input: RecipeCreateInput) => RecipeWithIngredients | { id: string };
+  allowIngredientsOnly?: boolean;
 };
 
 /**
@@ -91,7 +92,7 @@ export function commitImportDraft(
   try {
     const recipe = create(input);
     options.alreadySavedDraftIds?.add(draft.id);
-    return recipe;
+    return recipe as RecipeWithIngredients;
   } catch (error) {
     if (error instanceof ImportCommitError) throw error;
     throw new ImportCommitError(
@@ -104,9 +105,13 @@ export function commitImportDraft(
 /** Auto-save gate for share imports; manual imports still use the reviewed gate above. */
 export function commitAutoImportDraft(
   draft: ImportDraft,
-  options: CommitImportOptions = {},
+  options: CommitImportOptions & { allowIngredientsOnly?: boolean } = {},
 ): RecipeWithIngredients {
-  if (!scoreDraft(draft).saveable) {
+  const qualifiedIngredientsOnly = options.allowIngredientsOnly &&
+    draft.ingredients.filter((item) => item.name.trim() && (item.quantity || item.unit)).length >= 5 &&
+    !draft.title.trim().startsWith('Recipe from ') &&
+    draft.instructions.filter((item) => item.text.trim()).length === 0;
+  if (!scoreDraft(draft).saveable && !qualifiedIngredientsOnly) {
     throw new ImportCommitError(
       'This import did not contain enough recipe content to save.',
       'empty_recipe',
