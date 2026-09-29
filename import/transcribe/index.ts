@@ -20,7 +20,7 @@ export type TranscribeVideoError = {
 /**
  * Full pipeline: Video → Audio → Transcript.
  * Handles cleanup automatically.
- * 
+ *
  * @param videoPath - Local file path to video file
  * @param options - Transcription options
  * @returns Transcript text ready for recipe parser
@@ -30,16 +30,17 @@ export async function transcribeVideo(
   options?: {
     language?: 'en' | 'auto';
     modelSize?: 'tiny' | 'base';
-    onProgress?: (stage: 'extracting' | 'transcribing', progress: number) => void;
+    onProgress?: (
+      stage: 'downloading_model' | 'extracting' | 'transcribing',
+      progress: number,
+    ) => void;
   },
 ): Promise<
-  { ok: true; transcript: string; metadata: WhisperTranscriptResult } 
+  | { ok: true; transcript: string; metadata: WhisperTranscriptResult }
   | { ok: false; error: TranscribeVideoError }
 > {
   // Step 1: Extract audio from video
-  if (options?.onProgress) {
-    options.onProgress('extracting', 0);
-  }
+  options?.onProgress?.('extracting', 0);
 
   const audioResult = await extractAudioFromVideo(videoPath);
   if (!audioResult.ok) {
@@ -53,24 +54,18 @@ export async function transcribeVideo(
     };
   }
 
-  if (options?.onProgress) {
-    options.onProgress('extracting', 1.0);
-  }
+  options?.onProgress?.('extracting', 1.0);
 
   const { audioPath } = audioResult.result;
 
   try {
     // Step 2: Transcribe audio with Whisper
-    if (options?.onProgress) {
-      options.onProgress('transcribing', 0);
-    }
-
     const transcriptResult = await transcribeAudio(audioPath, {
       language: options?.language,
       modelSize: options?.modelSize,
-      onProgress: (progress) => {
+      onProgress: (stage, progress) => {
         if (options?.onProgress) {
-          options.onProgress('transcribing', progress);
+          options.onProgress(stage, progress);
         }
       },
     });

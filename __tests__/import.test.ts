@@ -12,7 +12,6 @@ import { extractRecipeJsonLd } from '@/import/parse/jsonLd';
 import { canonicalizeUrl, detectSource, isSocialSource } from '@/import/parse/url';
 import { createWebsiteAdapter } from '@/import/adapters/websiteAdapter';
 import { ocrAdapter } from '@/import/adapters/ocrAdapter';
-import { shareSheetAdapter } from '@/import/adapters/shareSheetAdapter';
 import { listImportAdapters, runImport } from '@/import/adapters/registry';
 import type { ImportDraft } from '@/import/types';
 
@@ -84,9 +83,9 @@ function sampleDraft(overrides: Partial<ImportDraft> = {}): ImportDraft {
 }
 
 describe('import adapters registry', () => {
-  it('exposes replaceable website, share-sheet, and OCR adapters', () => {
+  it('exposes replaceable website and OCR adapters', () => {
     const ids = listImportAdapters().map((a) => a.id);
-    expect(ids).toEqual(expect.arrayContaining(['website-jsonld', 'share-sheet', 'ocr-photo']));
+    expect(ids).toEqual(expect.arrayContaining(['website-jsonld', 'ocr-photo']));
   });
 });
 
@@ -163,16 +162,7 @@ describe('website adapter', () => {
   });
 });
 
-describe('share sheet + OCR', () => {
-  it('share sheet needs caption for social links', async () => {
-    const result = await shareSheetAdapter.import({
-      sharedContent: 'https://tiktok.com/@chef/video/1',
-    });
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.error.code).toBe('needs_input');
-  });
-
+describe('OCR', () => {
   it('OCR adapter loads without throwing when native module is missing', async () => {
     expect(() => ocrAdapter).not.toThrow();
     expect(ocrAdapter.id).toBe('ocr-photo');
@@ -340,239 +330,5 @@ describe('url helpers', () => {
   it('detects Facebook reel URLs', () => {
     expect(detectSource('https://www.facebook.com/reel/123456')).toBe('facebook');
     expect(detectSource('https://facebook.com/reel/xyz')).toBe('facebook');
-  });
-});
-
-describe('multi-source import fixtures', () => {
-  const fixtures = {
-    'website-allrecipes.json': require('./fixtures/import/website-allrecipes.json'),
-    'website-bbc-good-food.json': require('./fixtures/import/website-bbc-good-food.json'),
-    'instagram-reel.json': require('./fixtures/import/instagram-reel.json'),
-    'tiktok-video.json': require('./fixtures/import/tiktok-video.json'),
-    'youtube-short.json': require('./fixtures/import/youtube-short.json'),
-    'facebook-reel.json': require('./fixtures/import/facebook-reel.json'),
-    'pinterest-pin.json': require('./fixtures/import/pinterest-pin.json'),
-  };
-
-  Object.entries(fixtures).forEach(([filename, fixture]) => {
-    it(`imports ${filename} through appropriate adapter`, async () => {
-      let result;
-      if (fixture.source === 'website') {
-        const adapter = createWebsiteAdapter(async () => fixture.htmlSnippet || '');
-        result = await adapter.import({ url: fixture.url });
-      } else {
-        result = await shareSheetAdapter.import({
-          url: fixture.url,
-          text: fixture.caption,
-          sharedContent: `${fixture.url}\n\n${fixture.caption}`,
-        });
-      }
-
-      expect(result.ok).toBe(fixture.expect.ok);
-
-      if (result.ok && fixture.expect.ok) {
-        if (fixture.expect.titleFragment) {
-          expect(result.draft.title.toLowerCase()).toContain(
-            fixture.expect.titleFragment.toLowerCase(),
-          );
-        }
-        if (fixture.expect.minIngredients !== undefined) {
-          expect(result.draft.ingredients.length).toBeGreaterThanOrEqual(
-            fixture.expect.minIngredients,
-          );
-        }
-        if (fixture.expect.minInstructions !== undefined) {
-          expect(result.draft.instructions.length).toBeGreaterThanOrEqual(
-            fixture.expect.minInstructions,
-          );
-        }
-        if (fixture.expect.adapterId) {
-          expect(result.draft.adapterId).toBe(fixture.expect.adapterId);
-        }
-      }
-    });
-  });
-
-  it('rejects social URLs without caption (honest stub)', async () => {
-    const result = await shareSheetAdapter.import({
-      url: 'https://www.instagram.com/reel/abc123/',
-    });
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error.code).toBe('needs_input');
-      expect(result.error.message).toContain('caption');
-    }
-  });
-
-  it('does not invent recipe from video bytes', async () => {
-    const result = await shareSheetAdapter.import({
-      url: 'https://www.tiktok.com/@user/video/123',
-    });
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error.fallbacks).toEqual(
-        expect.arrayContaining(['paste_text', 'scan', 'manual']),
-      );
-    }
-  });
-
-  it('rejects hostile URL schemes (javascript:, file:, data:)', async () => {
-    const hostileUrls = [
-      'javascript:alert("xss")',
-      'file:///etc/passwd',
-      'data:text/html,<script>alert("xss")</script>',
-      'vbscript:msgbox("xss")',
-    ];
-
-    for (const url of hostileUrls) {
-      const result = await shareSheetAdapter.import({
-        url,
-        sharedContent: url,
-      });
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
-        expect(result.error.code).toBe('invalid_url');
-        expect(result.error.message).toContain('public URL');
-      }
-    }
-  });
-
-  it('creates low-confidence draft for social URL with messy caption (no headers, emoji bullets)', async () => {
-    const result = await shareSheetAdapter.import({
-      url: 'https://www.instagram.com/reel/test123/',
-      text: `Quick Pasta 🍝
-      
-🔸 1 lb pasta
-🔸 2 tbsp olive oil
-🔸 3 cloves garlic
-🔸 salt and pepper
-
-Just boil pasta
-Sauté garlic in oil
-Mix together and enjoy`,
-      sharedContent: 'https://www.instagram.com/reel/test123/',
-    });
-
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.draft.title).toContain('Pasta');
-    expect(result.draft.ingredients.length).toBeGreaterThan(0);
-    expect(result.draft.instructions.length).toBeGreaterThan(0);
-    expect(result.draft.confidence.ingredients).toBe('low');
-    expect(result.draft.warnings.some((w) => w.code === 'low_confidence')).toBe(true);
-  });
-
-  it('creates low-confidence draft for social caption with mixed title + ingredients (no section headers)', async () => {
-    const result = await shareSheetAdapter.import({
-      url: 'https://www.tiktok.com/@user/video/123',
-      text: `The best chocolate chip cookies ever! 🍪
-
-2 cups flour
-1 cup butter softened
-1 cup brown sugar
-2 eggs
-2 tsp vanilla
-1 tsp baking soda
-2 cups chocolate chips
-
-Mix wet ingredients first
-Then add dry ingredients
-Fold in chocolate chips
-Bake 350F for 12 minutes`,
-      sharedContent: 'https://www.tiktok.com/@user/video/123',
-    });
-
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.draft.ingredients.length).toBeGreaterThanOrEqual(5);
-    expect(result.draft.instructions.length).toBeGreaterThanOrEqual(3);
-    expect(result.draft.confidence.ingredients).toBe('low');
-    expect(result.draft.confidence.instructions).toBe('low');
-  });
-
-  it('returns needs_input for social URL with empty caption', async () => {
-    const result = await shareSheetAdapter.import({
-      url: 'https://www.instagram.com/reel/abc/',
-      text: '',
-      sharedContent: 'https://www.instagram.com/reel/abc/',
-    });
-
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.error.code).toBe('needs_input');
-    expect(result.error.message).toContain('caption');
-  });
-
-  it('returns distinct error for social URL with unparseable caption (one word)', async () => {
-    const result = await shareSheetAdapter.import({
-      url: 'https://www.instagram.com/reel/xyz/',
-      text: 'Delicious',
-      sharedContent: 'https://www.instagram.com/reel/xyz/',
-    });
-
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.error.code).toBe('parse_failed');
-    expect(result.error.message).not.toContain('needs the post caption');
-    expect(result.error.message).toContain('Could not find');
-  });
-
-  it('returns distinct error for social URL with short unparseable caption', async () => {
-    const result = await shareSheetAdapter.import({
-      url: 'https://www.tiktok.com/@user/video/456',
-      text: 'Yum! So good!',
-      sharedContent: 'https://www.tiktok.com/@user/video/456',
-    });
-
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.error.code).toBe('parse_failed');
-    expect(result.error.message).toContain('ingredients');
-    expect(result.error.message).toContain('steps');
-  });
-
-  it('never uses ingredient/instruction headers as title', async () => {
-    // Simulate caption starting with "Ingredients" or corrupted header like "ngredients"
-    const result = await shareSheetAdapter.import({
-      url: 'https://instagram.com/p/abc123/',
-      text: `Ingredients
-* 2 salmon fillets
-* 200g protein pasta
-* 100g cream cheese`,
-    });
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.draft.title).not.toMatch(/^(ingredients|ngredients|instructions|directions)/i);
-    expect(result.draft.title.toLowerCase()).toContain('instagram');
-  });
-
-  it('produces honest warning for ingredients-only caption', async () => {
-    const result = await shareSheetAdapter.import({
-      url: 'https://instagram.com/p/abc123/',
-      text: `Ingredients
-* 2 salmon fillets
-* 200g protein pasta
-* 100g cream cheese`,
-    });
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.draft.ingredients.length).toBeGreaterThan(0);
-    expect(result.draft.instructions.length).toBe(0);
-    expect(result.draft.warnings.some((w) => w.code === 'missing_instructions')).toBe(true);
-  });
-
-  it('uses correct article grammar in warning message', async () => {
-    const result = await shareSheetAdapter.import({
-      url: 'https://instagram.com/p/abc123/',
-      text: `Salmon pasta
-* 2 salmon fillets
-* cream cheese`,
-    });
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    const lowConfWarning = result.draft.warnings.find((w) => w.code === 'low_confidence');
-    expect(lowConfWarning).toBeDefined();
-    // Should not contain "a instagram" or "a Instagram"
-    expect(lowConfWarning?.message).not.toMatch(/\ba [iI]nstagram/);
   });
 });

@@ -6,6 +6,7 @@ export type ParsedShareIntent = {
   url?: string;
   text?: string;
   caption?: string;
+  sharedText?: string;
   videoPath?: string;
   imagePath?: string;
   mimeType?: string;
@@ -85,10 +86,10 @@ export function parseShareIntent(shareIntent: ShareIntent | null): ParsedShareIn
     return {
       url: webUrl,
       text: rawText,
-      caption: caption || undefined,
-      videoPath,
-      imagePath,
-      mimeType,
+      ...(caption ? { caption } : {}),
+      ...(videoPath ? { videoPath } : {}),
+      ...(imagePath ? { imagePath } : {}),
+      ...(mimeType ? { mimeType } : {}),
     };
   }
 
@@ -104,19 +105,19 @@ export function parseShareIntent(shareIntent: ShareIntent | null): ParsedShareIn
     return {
       url: extractedUrl,
       text: rawText,
-      caption,
-      videoPath,
-      imagePath,
-      mimeType,
+      ...(caption ? { caption } : {}),
+      ...(videoPath ? { videoPath } : {}),
+      ...(imagePath ? { imagePath } : {}),
+      ...(mimeType ? { mimeType } : {}),
     };
   }
 
   // Media file without URL or text
   if (videoPath || imagePath) {
     return {
-      videoPath,
-      imagePath,
-      mimeType,
+      ...(videoPath ? { videoPath } : {}),
+      ...(imagePath ? { imagePath } : {}),
+      ...(mimeType ? { mimeType } : {}),
     };
   }
 
