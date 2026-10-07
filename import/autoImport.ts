@@ -148,7 +148,7 @@ async function runAutoImportUnsafe(
     onStage('reading_transcript');
     const transcript = await readSubtitle(meta, deps, diagnostics);
     if (transcript) {
-      const subtitleDraft = await safeTranscriptDraft(transcript, meta, undefined, parseBudget);
+      const subtitleDraft = await safeTranscriptDraft(transcript, meta, undefined, parseBudget, payload.sharedText);
       const cap = candidates.find((item) => item.source === 'caption');
       if (cap && subtitleDraft && scoreDraft(cap.draft).ingredients >= 3 && scoreDraft(cap.draft).steps < 2 && scoreDraft(subtitleDraft).steps >= 2)
         return save({ ...cap.draft, instructions: subtitleDraft.instructions, adapterId: 'share-auto-merge' }, 'caption+audio', meta.source, onStage, deps, diagnostics, false, hintsFor(meta, audioReason));
@@ -193,7 +193,7 @@ async function runAutoImportUnsafe(
             ),
         });
         if (result.ok) {
-          audioDraft = await safeTranscriptDraft(result.transcript, meta, result.metadata.segments, parseBudget);
+          audioDraft = await safeTranscriptDraft(result.transcript, meta, result.metadata.segments, parseBudget, payload.sharedText);
           if (!audioDraft) diagnostics.push({ stage: 'transcribing', code: 'transcribe:no_draft' });
         } else {
           audioFailed = true;
@@ -360,6 +360,7 @@ async function safeTranscriptDraft(
   meta: SocialMeta | null,
   segments?: { start: number; end: number; text: string }[],
   budget?: ParseRecipeBudget,
+  payloadSharedText?: string,
 ): Promise<ImportDraft | null> {
   try {
     return await parseRecipeText(text, {
@@ -368,7 +369,7 @@ async function safeTranscriptDraft(
       sourceUrl: meta?.canonicalUrl ?? null,
       sourceName: meta?.source ?? 'Photos',
       adapterId: 'transcript',
-      sharedText: meta?.caption ?? null,
+      sharedText: meta?.caption ?? payloadSharedText?.replace(/https?:\/\/\S+/gi, '').trim() ?? null,
       heuristicKind: 'transcript',
       budget,
     });

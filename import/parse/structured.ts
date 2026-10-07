@@ -84,11 +84,13 @@ export function parsedRecipeToDraft(
     sourceName?: string | null;
     sourceKind?: ImportSourceKind;
     titleHint?: string | null;
+    preferTitleHint?: boolean;
     adapterId?: string;
   },
 ): ImportDraft {
-  const title = options.titleHint?.trim() && isJunkTitle(recipe.title)
-    ? options.titleHint.trim()
+  const hintUsed = Boolean(options.titleHint?.trim()) && (options.preferTitleHint || isJunkTitle(recipe.title));
+  const title = hintUsed
+    ? options.titleHint?.trim() ?? ''
     : recipe.title.trim() || options.titleHint?.trim() || 'Recipe from import';
   const ingredients: IngredientInput[] = recipe.ingredients.map((ingredient, position) => ({
     name: ingredient.name,
@@ -118,13 +120,13 @@ export function parsedRecipeToDraft(
     ingredients,
     instructions,
     confidence: {
-    title: options.titleHint?.trim() && isJunkTitle(recipe.title) ? 'high' : recipe.title ? 'medium' : 'low',
+      title: hintUsed ? 'high' : !title || /^recipe from\b/i.test(title) ? 'low' : 'medium',
       ingredients: ingredients.length ? 'medium' : 'unknown',
       instructions: instructions.length ? 'medium' : 'unknown',
     },
     warnings,
     sourceEvidence: options.sourceText.slice(0, 4000),
-    adapterId: options.adapterId ?? recipe.parser,
+    adapterId: options.adapterId ? `${options.adapterId}:${recipe.parser}` : recipe.parser,
     createdAt: nowIso(),
   };
 }

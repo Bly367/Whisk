@@ -87,6 +87,7 @@ function toDraft(recipe: ParsedRecipe | null, sourceText: string, options: Parse
     sourceName: options.sourceName,
     sourceKind: options.sourceKind,
     adapterId: options.adapterId,
+    preferTitleHint: options.heuristicKind === 'transcript' && grounded.parser === 'heuristic',
   });
 }
 
