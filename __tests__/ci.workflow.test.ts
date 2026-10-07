@@ -9,6 +9,15 @@ describe('CI workflow contract', () => {
   const workflowPath = path.join(__dirname, '..', '.github', 'workflows', 'ci.yml');
   const workflow = fs.readFileSync(workflowPath, 'utf8');
 
+  it('keeps push checks limited to main', () => {
+    expect(workflow).toMatch(/  push:\n    branches: \[main\]/);
+  });
+
+  it('runs checks for pull requests regardless of base branch', () => {
+    expect(workflow).toContain('  pull_request:\n');
+    expect(workflow).not.toMatch(/  pull_request:\n    branches: \[main\]/);
+  });
+
   it('requires lint, typecheck, and test scripts when package.json is present', () => {
     expect(workflow).toContain('Require lint, typecheck, and test scripts');
     expect(workflow).toContain("required = ['lint', 'typecheck', 'test']");
