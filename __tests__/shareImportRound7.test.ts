@@ -5,6 +5,7 @@ import { commitAutoImportDraft, ImportCommitError } from '@/import/commit';
 import { diagnosticsText, runAutoImport, subtitleText } from '@/import/autoImport';
 import { fetchSocialMeta } from '@/import/social/socialMeta';
 import { videoFromUrl } from '@/import/social/videoFromUrl';
+import type { TranscribeVideoError } from '@/import/transcribe';
 
 const fixture = (name: string) => fs.readFileSync(path.join(__dirname, 'fixtures/social', name), 'utf8');
 const tortellini = fixture('tiktok-tortellini-contents.txt');
@@ -53,9 +54,13 @@ it('records 403 download diagnostics without leaking the TikTok cookie and keeps
 });
 
 it('records failed native transcription error codes', async () => {
-  for (const error of [{ code: 'audio_extraction_failed', message: 'x', details: { code: 'file_not_found', message: 'x' } }, { code: 'transcription_failed', message: 'x', details: { code: 'model_not_downloaded', message: 'x' } }]) {
+  const errors: TranscribeVideoError[] = [
+    { code: 'audio_extraction_failed', message: 'x', details: { code: 'file_not_found', message: 'x' } },
+    { code: 'transcription_failed', message: 'x', details: { code: 'model_not_downloaded', message: 'x' } },
+  ];
+  for (const error of errors) {
     const result = await runAutoImport({ url: 'https://instagram.com/reel/1' }, { fetchSocialMeta: async () => ({ source: 'instagram', canonicalUrl: 'https://instagram.com/reel/1', linkedUrls: [], videoUrl: 'https://cdninstagram.com/a.mp4' }), videoFromUrl: async () => ({ ok: true as const, uri: '/a', cleanup: async () => {} }), transcribeVideo: async () => ({ ok: false as const, error }) });
-    expect(result.diagnostics).toEqual(expect.arrayContaining([expect.objectContaining({ code: `transcribe:${error.code}:${error.details.code}` })]));
+    expect(result.diagnostics).toEqual(expect.arrayContaining([expect.objectContaining({ code: `transcribe:${error.code}:${error.details?.code ?? ''}` })]));
   }
 });
 
