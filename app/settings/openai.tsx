@@ -14,7 +14,7 @@ export default function OpenAISettingsScreen() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    void readOpenAIKey().then((key) => setHasSavedKey(Boolean(key)));
+    void readOpenAIKey().then((key) => setHasSavedKey(Boolean(key))).catch(() => setHasSavedKey(false));
   }, []);
 
   async function save() {
@@ -52,7 +52,7 @@ export default function OpenAISettingsScreen() {
       <Text variant="title2">Recipe parsing</Text>
       <Text variant="body" tone="secondary">
         Foundation Models is tried first. This optional key is used only when that on-device
-        parser is unavailable, and it stays in the device keychain. Whisk never logs or stores
+        parser is unavailable, recipe text is sent to OpenAI to structure it, and the key stays in the device keychain. Whisk never logs or stores
         the key in recipe data.
       </Text>
       <Field

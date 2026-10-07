@@ -39,6 +39,9 @@ function isRecipe(value: unknown): value is Omit<ParsedRecipe, 'parser'> {
     && Array.isArray(candidate.steps)
     && candidate.steps.every((step) => typeof step === 'string');
 }
+function stringOrNull(value: unknown): string | null {
+  return typeof value === 'string' ? value : typeof value === 'number' ? String(value) : null;
+}
 
 export async function parseRecipeWithOpenAI(
   sourceText: string,
@@ -75,13 +78,15 @@ export async function parseRecipeWithOpenAI(
       signal: controller?.signal,
     });
     if (!response.ok) return { ok: false, reason: 'http' };
-    const body = await response.json() as { choices?: { message?: { content?: string | { text?: string }[] } }[] };
+    let body: { choices?: { message?: { content?: string | { text?: string }[] } }[] };
+    try { body = await response.json() as typeof body; } catch { return { ok: false, reason: 'parse_failed' }; }
     const content = body.choices?.[0]?.message?.content;
     const json = typeof content === 'string' ? content : content?.map((part) => part.text ?? '').join('');
     if (!json) return { ok: false, reason: 'parse_failed' };
-    const parsed: unknown = JSON.parse(json);
+    let parsed: unknown;
+    try { parsed = JSON.parse(json); } catch { return { ok: false, reason: 'parse_failed' }; }
     if (!isRecipe(parsed)) return { ok: false, reason: 'parse_failed' };
-    return { ok: true, recipe: { ...parsed, parser: 'openai' } };
+    return { ok: true, recipe: { ...parsed, ingredients: parsed.ingredients.map((ingredient) => ({ ...ingredient, quantity: stringOrNull(ingredient.quantity), unit: stringOrNull(ingredient.unit), note: stringOrNull(ingredient.note) })), parser: 'openai' } };
   } catch {
     return { ok: false, reason: 'network' };
   } finally {

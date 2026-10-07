@@ -3,8 +3,12 @@ import * as SecureStore from 'expo-secure-store';
 export const OPENAI_API_KEY_STORAGE_KEY = 'whisk.openai.apiKey.v1';
 
 export async function readOpenAIKey(): Promise<string | null> {
-  const value = await SecureStore.getItemAsync(OPENAI_API_KEY_STORAGE_KEY);
-  return value?.trim() || null;
+  try {
+    const value = await SecureStore.getItemAsync(OPENAI_API_KEY_STORAGE_KEY);
+    return value?.trim() || null;
+  } catch {
+    return null;
+  }
 }
 
 export async function writeOpenAIKey(value: string): Promise<void> {

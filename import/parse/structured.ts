@@ -24,19 +24,21 @@ const normalizeForGrounding = (value: string): string => value
   .trim()
   .replace(/\s+/g, ' ');
 
-function ingredientVariants(name: string): string[] {
-  const normalized = normalizeForGrounding(name);
-  if (!normalized) return [];
-  const variants = new Set([normalized]);
-  if (normalized.endsWith('ies')) variants.add(`${normalized.slice(0, -3)}y`);
-  if (normalized.endsWith('es')) variants.add(normalized.slice(0, -2));
-  if (normalized.endsWith('s')) variants.add(normalized.slice(0, -1));
-  else variants.add(`${normalized}s`);
-  return [...variants].filter(Boolean);
+function singular(token: string): string {
+  if (token.endsWith('ies')) return `${token.slice(0, -3)}y`;
+  if (/(ch|sh|ss|x)es$/.test(token)) return token.slice(0, -2);
+  if (token.endsWith('oes')) return token.slice(0, -2);
+  if (token.endsWith('s') && !token.endsWith('ss')) return token.slice(0, -1);
+  return token;
 }
 
 function isGrounded(name: string, source: string): boolean {
-  return ingredientVariants(name).some((variant) => source.includes(variant));
+  const sourceTokens = new Set(normalizeForGrounding(source).split(' ').filter(Boolean).map(singular));
+  const descriptors = new Set(['large', 'small', 'medium', 'fresh', 'extra', 'virgin', 'all', 'purpose', 'chopped', 'minced', 'diced', 'sliced', 'ground', 'clove', 'cloves', 'leaf', 'leaves', 'sprig', 'sprigs']);
+  const tokens = normalizeForGrounding(name).split(' ').filter(Boolean).map(singular).filter((token) => !descriptors.has(token));
+  if (!tokens.length) return false;
+  const hits = tokens.filter((token) => sourceTokens.has(token));
+  return hits.length === tokens.length || (sourceTokens.has(tokens[tokens.length - 1]) && hits.length >= Math.ceil(tokens.length / 2));
 }
 
 /** Keep model output tied to words present in the source supplied by the user. */
@@ -47,9 +49,9 @@ export function groundParsedRecipe(recipe: ParsedRecipe, sourceText: string): Pa
     .map((ingredient) => ({
       ...ingredient,
       name: ingredient.name.trim(),
-      quantity: ingredient.quantity?.trim() || null,
-      unit: ingredient.unit?.trim() || null,
-      note: ingredient.note?.trim() || null,
+      quantity: typeof ingredient.quantity === 'string' ? ingredient.quantity.trim() || null : null,
+      unit: typeof ingredient.unit === 'string' ? ingredient.unit.trim() || null : null,
+      note: typeof ingredient.note === 'string' ? ingredient.note.trim() || null : null,
     }));
   const steps = recipe.steps.map((step) => step.trim()).filter(Boolean);
   if (!ingredients.length && !steps.length) return null;
@@ -57,7 +59,7 @@ export function groundParsedRecipe(recipe: ParsedRecipe, sourceText: string): Pa
 }
 
 function looksLikeIngredient(line: string): boolean {
-  return /^(?:[-*•]\s*)?(?:\d|[¼½¾⅓⅔⅛⅜⅝⅞]|one\b|two\b|three\b|a\b|an\b)/i.test(line)
+  return /^(?:[-*•]\s*)?(?:\d|[¼½¾⅓⅔⅛⅜⅝⅞]|one\b|two\b|three\b)/i.test(line)
     || /\b(?:cup|tbsp|tsp|oz|lb|gram|kg|ml|liter|pinch|dash|clove|can|stick|bunch|sprig|slice)\b/i.test(line);
 }
 
@@ -71,7 +73,7 @@ export function suitableTitleFromText(text: string): string | null {
 }
 
 function isJunkTitle(title: string): boolean {
-  return !title.trim() || /^recipe from\b/i.test(title) || /^[A-Za-z-]+$/.test(title.trim()) && title.trim().length < 12;
+  return !title.trim() || /^recipe from\b/i.test(title) || /^qualities?$/i.test(title.trim());
 }
 
 export function parsedRecipeToDraft(
@@ -116,7 +118,7 @@ export function parsedRecipeToDraft(
     ingredients,
     instructions,
     confidence: {
-      title: options.titleHint?.trim() ? 'high' : recipe.title ? 'medium' : 'low',
+    title: options.titleHint?.trim() && isJunkTitle(recipe.title) ? 'high' : recipe.title ? 'medium' : 'low',
       ingredients: ingredients.length ? 'medium' : 'unknown',
       instructions: instructions.length ? 'medium' : 'unknown',
     },

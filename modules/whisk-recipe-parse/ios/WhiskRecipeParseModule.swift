@@ -10,7 +10,7 @@ private final class WhiskRecipeParseError: Exception {
 
   init(code: String, reason: String) {
     self.errorCode = code
-    self.errorReason = errorReason
+    self.errorReason = reason
     super.init()
   }
 
@@ -59,7 +59,7 @@ public class WhiskRecipeParseModule: Module {
         }
         return [
           "title": recipe.title,
-          "ingredients": recipe.ingredients.map { ingredient in
+          "ingredients": recipe.ingredients.map { ingredient -> [String: Any] in
             [
               "quantity": ingredient.quantity ?? NSNull(),
               "unit": ingredient.unit ?? NSNull(),

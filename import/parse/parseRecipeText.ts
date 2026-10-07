@@ -26,7 +26,20 @@ export type ParseRecipeTextOptions = {
   openAI?: (sourceText: string, options: { apiKey: string }) => Promise<OpenAIParseResult>;
   readApiKey?: typeof readOpenAIKey;
   heuristic?: (sourceText: string) => ParsedRecipe | null;
+  foundationTimeoutMs?: number;
 };
+
+export const FOUNDATION_TIMEOUT_MS = 12_000;
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T | null> {
+  // The native Foundation request cannot be cancelled; this only stops waiting for it.
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([promise, new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), timeoutMs); })]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 
 function heuristicRecipe(sourceText: string, options: ParseRecipeTextOptions): ParsedRecipe | null {
   if (options.heuristic) return options.heuristic(sourceText);
@@ -58,9 +71,12 @@ function heuristicRecipe(sourceText: string, options: ParseRecipeTextOptions): P
 }
 
 function toDraft(recipe: ParsedRecipe | null, sourceText: string, options: ParseRecipeTextOptions): ImportDraft | null {
-  const grounded = recipe && groundParsedRecipe(recipe, sourceText);
+  const groundingText = options.heuristicKind === 'transcript' && options.sharedText
+    ? `${sourceText}\n${options.sharedText}` : sourceText;
+  const grounded = recipe && groundParsedRecipe(recipe, groundingText);
   if (!grounded) return null;
-  const titleHint = options.titleHint?.trim() || suitableTitleFromText(options.sharedText ?? '');
+  const sharedTitle = suitableTitleFromText(options.sharedText ?? '');
+  const titleHint = options.titleHint?.trim() || sharedTitle;
   return parsedRecipeToDraft(grounded, {
     sourceText,
     titleHint,
@@ -79,20 +95,28 @@ export async function parseRecipeText(
   if (!text) return null;
 
   const foundation = options.foundation ?? parseRecipeWithFoundationModels;
-  const foundationResult = await foundation(text);
-  if (foundationResult.ok) {
-    const draft = toDraft(foundationResult.recipe, text, options);
-    if (draft) return draft;
-  }
+  let fallbackSteps: ParsedRecipe | null = null;
+  try {
+    const foundationResult = await withTimeout(foundation(text), options.foundationTimeoutMs ?? FOUNDATION_TIMEOUT_MS);
+    if (foundationResult?.ok) {
+      const grounded = groundParsedRecipe(foundationResult.recipe, options.heuristicKind === 'transcript' && options.sharedText ? `${text}\n${options.sharedText}` : text);
+      if (grounded?.ingredients.length) return toDraft(grounded, text, options);
+      if (grounded) fallbackSteps = grounded;
+    }
+  } catch { /* fall through to the next parser */ }
 
-  const apiKey = await (options.readApiKey ?? readOpenAIKey)();
+  let apiKey: string | null = null;
+  try { apiKey = await (options.readApiKey ?? readOpenAIKey)(); } catch { /* heuristic remains available */ }
   if (apiKey) {
     const openAI = options.openAI ?? parseRecipeWithOpenAI;
-    const result = await openAI(text, { apiKey });
-    if (result.ok) {
-      const draft = toDraft(result.recipe, text, options);
-      if (draft) return draft;
-    }
+    try {
+      const result = await openAI(text, { apiKey });
+      if (result.ok) {
+        const grounded = groundParsedRecipe(result.recipe, options.heuristicKind === 'transcript' && options.sharedText ? `${text}\n${options.sharedText}` : text);
+        if (grounded?.ingredients.length) return toDraft(grounded, text, options);
+        if (grounded) fallbackSteps = grounded;
+      }
+    } catch { /* heuristic remains available */ }
   }
 
   const draft = toDraft(heuristicRecipe(text, options), text, options);
@@ -101,5 +125,5 @@ export async function parseRecipeText(
     draft.notes = cleaned.notes || null;
     draft.sourceEvidence = cleaned.text.slice(0, 4000);
   }
-  return draft;
+  return draft ?? (fallbackSteps ? toDraft(fallbackSteps, text, options) : null);
 }

@@ -179,7 +179,7 @@ it('fails safely through unavailable LLM tiers and only accepts grounded model i
   await expect(parseRecipeText(text, {
     sourceName: 'TikTok', heuristicKind: 'social', foundation: unavailableFoundation,
     readApiKey: async () => { throw new Error('keychain'); },
-  })).resolves.toEqual(expect.objectContaining({ ingredients: expect.arrayContaining([expect.objectContaining({ name: 'tortellini' })]) }));
+  })).resolves.toEqual(expect.objectContaining({ ingredients: expect.arrayContaining([expect.objectContaining({ name: 'cheese tortellini' })]) }));
   const grounded = await parseRecipeText('1 cup flour\n2 eggs\nMix and bake.', {
     foundation: async () => ({ ok: true as const, recipe: { title: 'Bad', ingredients: [{ name: 'butter' }], steps: ['Mix'], parser: 'foundation' as const } }),
     readApiKey: noKey,
