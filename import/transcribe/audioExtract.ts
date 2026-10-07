@@ -1,10 +1,10 @@
 /**
  * Audio extraction from video files for transcription.
- * Extracts audio track as 16kHz mono WAV/M4A for Whisper input.
+ * Extracts audio track as 16kHz mono WAV for Whisper input.
  */
 
-import { extractAudio } from 'expo-video-audio-extractor';
 import * as FileSystem from 'expo-file-system/legacy';
+import { extractPcmWav } from '@/modules/whisk-audio';
 
 export type AudioExtractResult = {
   audioPath: string;
@@ -20,7 +20,7 @@ export type AudioExtractError = {
 /**
  * Extract audio from video file for transcription.
  * Returns path to extracted audio file (16kHz mono WAV for optimal Whisper performance).
- * 
+ *
  * @param videoPath - Local file path to video file
  * @returns Audio file path and duration, or error
  */
@@ -32,38 +32,50 @@ export async function extractAudioFromVideo(
     const timestamp = Date.now();
     const outputPath = `${FileSystem.cacheDirectory}whisper-audio-${timestamp}.wav`;
 
-    // Extract audio as 16kHz mono WAV (optimal for Whisper)
-    await extractAudio({
-      video: videoPath,
-      output: outputPath,
-      format: 'wav',
-      channels: 1, // mono
-      sampleRate: 16000, // 16kHz for Whisper
-    });
-
-    // Get file info to extract duration (rough estimate from file size)
-    const fileInfo = await FileSystem.getInfoAsync(outputPath);
-    if (!fileInfo.exists) {
-      throw new Error('Extraction succeeded but output file not found');
-    }
-
-    // Rough duration estimate: 16-bit mono @ 16kHz = 32KB/sec
-    const estimatedDuration = fileInfo.size / (16000 * 2);
+    const nativeResult = await extractPcmWav(videoPath, outputPath);
+    const audioPath = stripFileScheme(nativeResult.uri);
 
     return {
       ok: true,
       result: {
-        audioPath: outputPath,
-        durationSeconds: estimatedDuration,
+        audioPath,
+        durationSeconds: nativeResult.durationSeconds,
       },
     };
   } catch (error) {
-    if (error instanceof Error && error.message.includes('Native module not linked')) {
+    const nativeError = error as { code?: unknown; message?: unknown };
+    const code = typeof nativeError.code === 'string' ? nativeError.code : undefined;
+    const nativeMessage =
+      typeof nativeError.message === 'string' ? nativeError.message : 'Audio extraction failed';
+
+    if (nativeMessage.includes('Native module not linked')) {
       return {
         ok: false,
         error: {
           code: 'extraction_failed',
-          message: 'Audio extraction requires native module. Rebuild app with EAS to enable.',
+          message: 'Audio extraction requires an iOS EAS development build to enable.',
+          originalError: error,
+        },
+      };
+    }
+
+    if (code === 'ERR_NO_AUDIO_TRACK') {
+      return {
+        ok: false,
+        error: {
+          code: 'unsupported_format',
+          message: 'This video has no audio to transcribe.',
+          originalError: error,
+        },
+      };
+    }
+
+    if (code === 'ERR_FILE_NOT_FOUND') {
+      return {
+        ok: false,
+        error: {
+          code: 'file_not_found',
+          message: "Couldn't find the shared video. Try sharing it again.",
           originalError: error,
         },
       };
@@ -73,11 +85,15 @@ export async function extractAudioFromVideo(
       ok: false,
       error: {
         code: 'extraction_failed',
-        message: error instanceof Error ? error.message : 'Audio extraction failed',
+        message: "Couldn't read this video's audio.",
         originalError: error,
       },
     };
   }
+}
+
+function stripFileScheme(path: string): string {
+  return path.startsWith('file://') ? path.slice('file://'.length) : path;
 }
 
 /**
