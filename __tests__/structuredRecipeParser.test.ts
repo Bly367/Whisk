@@ -152,6 +152,7 @@ it('stores the OpenAI key only through SecureStore and supports clear', async ()
 
 it('prefers a suitable caption title over a junk transcript title', async () => {
   const options: ParseRecipeTextOptions = {
+    heuristicKind: 'transcript',
     sharedText: 'Smitten Kitchen creamy tomato soup',
     foundation: unavailableFoundation,
     readApiKey: noKey,
