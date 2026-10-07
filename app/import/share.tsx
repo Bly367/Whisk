@@ -98,7 +98,7 @@ export default function ImportShareScreen() {
             <Text variant="body" tone="secondary">
               {error}
             </Text>
-            {diagnostics ? <Text testID="share-import-diagnostics" variant="body" tone="secondary">{diagnostics}</Text> : null}
+                {diagnostics ? <Text testID="share-import-diagnostics" variant="caption" tone="secondary">{diagnostics}</Text> : null}
             {hint ? (
               <Text variant="body" tone="secondary">
                 Save the reel, then share it from Photos to import from its audio

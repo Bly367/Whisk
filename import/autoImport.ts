@@ -35,10 +35,7 @@ export type AutoStage =
 export type AutoImportDeps = {
   fetchSocialMeta?: typeof fetchSocialMeta;
   videoFromUrl?: typeof videoFromUrl;
-  transcribeVideo?: (
-    videoPath: string,
-    options?: Parameters<typeof transcribeVideo>[1],
-  ) => Promise<Awaited<ReturnType<typeof transcribeVideo>> | { ok: false; error: { code: string; message: string; details?: { code?: string; message?: string } } }>;
+  transcribeVideo?: typeof transcribeVideo;
   websiteImport?: (url: string) => Promise<{ ok: true; draft: ImportDraft } | { ok: false }>;
   commitImportDraft?: (draft: ImportDraft, options?: CommitImportOptions & { allowIngredientsOnly?: boolean }) => { id: string };
   fetchText?: typeof fetchText;
@@ -193,9 +190,10 @@ async function runAutoImportUnsafe(
               progress,
             ),
         });
-        if (result.ok)
+        if (result.ok) {
           audioDraft = safeTranscriptDraft(result.transcript, meta, result.metadata.segments);
-        else {
+          if (!audioDraft) diagnostics.push({ stage: 'transcribing', code: 'transcribe:no_draft' });
+        } else {
           audioFailed = true;
           diagnostics.push({ stage: 'transcribing', code: `transcribe:${result.error.code}:${result.error.details?.code ?? ''}` });
         }

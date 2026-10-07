@@ -67,8 +67,7 @@ export function assertDraftReadyToSave(draft: ImportDraft): RecipeCreateInput {
 export type CommitImportOptions = {
   /** Prevent double-save of the same preview session. */
   alreadySavedDraftIds?: Set<string>;
-  create?: (input: RecipeCreateInput) => RecipeWithIngredients | { id: string };
-  allowIngredientsOnly?: boolean;
+  create?: (input: RecipeCreateInput) => RecipeWithIngredients;
 };
 
 /**
@@ -92,7 +91,7 @@ export function commitImportDraft(
   try {
     const recipe = create(input);
     options.alreadySavedDraftIds?.add(draft.id);
-    return recipe as RecipeWithIngredients;
+    return recipe;
   } catch (error) {
     if (error instanceof ImportCommitError) throw error;
     throw new ImportCommitError(
