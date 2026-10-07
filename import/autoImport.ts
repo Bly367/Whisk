@@ -76,7 +76,7 @@ export async function runAutoImport(
 ): Promise<AutoImportResult> {
   const diagnostics: ImportDiagnostic[] = [];
   // LLM-backed parsing across caption/subtitle/whisper gets at most ~30 seconds per import.
-  const parseBudget: ParseRecipeBudget = { remaining: MAX_LLM_PARSES_PER_IMPORT, deadline: Date.now() + LLM_BUDGET_MS };
+  const parseBudget: ParseRecipeBudget = { remaining: MAX_LLM_PARSES_PER_IMPORT, deadline: undefined };
   try {
     return await runAutoImportUnsafe(payload, deps, onStage, diagnostics, parseBudget);
   } catch (error) {

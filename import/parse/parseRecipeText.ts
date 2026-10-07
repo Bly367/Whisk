@@ -30,7 +30,7 @@ export type ParseRecipeTextOptions = {
   budget?: ParseRecipeBudget;
 };
 
-export type ParseRecipeBudget = { remaining: number; deadline: number };
+export type ParseRecipeBudget = { remaining: number; deadline?: number };
 
 export const FOUNDATION_TIMEOUT_MS = 12_000;
 
@@ -44,10 +44,10 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T
   }
 }
 
-function heuristicRecipe(sourceText: string, options: ParseRecipeTextOptions): ParsedRecipe | null {
+function heuristicRecipe(sourceText: string, options: ParseRecipeTextOptions, socialCleaned?: ReturnType<typeof cleanSocialCaption>): ParsedRecipe | null {
   if (options.heuristic) return options.heuristic(sourceText);
   if (options.heuristicKind === 'social') {
-    const cleaned = cleanSocialCaption(sourceText, options.sourceName ?? 'shared post');
+    const cleaned = socialCleaned ?? cleanSocialCaption(sourceText, options.sourceName ?? 'shared post');
     return {
       title: cleaned.title,
       ingredients: cleaned.ingredients.map(({ quantity, unit, name, note }) => ({ quantity, unit, name, note })),
@@ -98,11 +98,12 @@ export async function parseRecipeText(
   const text = sourceText.trim();
   if (!text) return null;
   const budget = options.budget;
-  if (budget && (budget.remaining <= 0 || Date.now() >= budget.deadline))
-    return toDraft(heuristicRecipe(text, options), text, options);
+  const socialCleaned = options.heuristicKind === 'social' ? cleanSocialCaption(text, options.sourceName ?? 'shared post') : undefined;
+  if (budget && budget.deadline !== undefined && (budget.remaining <= 0 || Date.now() >= budget.deadline))
+    return toDraft(heuristicRecipe(text, options, socialCleaned), text, options);
   // This is shared per auto-import: at most two LLM parser attempts and ~30s added latency.
-  if (budget) budget.remaining -= 1;
-  const remainingMs = budget ? Math.max(0, budget.deadline - Date.now()) : Infinity;
+  if (budget) { budget.remaining -= 1; budget.deadline ??= Date.now() + 30_000; }
+  const remainingMs = budget?.deadline ? Math.max(0, budget.deadline - Date.now()) : Infinity;
 
   const foundation = options.foundation ?? parseRecipeWithFoundationModels;
   let fallbackSteps: ParsedRecipe | null = null;
@@ -120,7 +121,9 @@ export async function parseRecipeText(
   if (apiKey) {
     const openAI = options.openAI ?? parseRecipeWithOpenAI;
     try {
-      const result = await openAI(text, { apiKey, timeoutMs: Math.min(15_000, remainingMs) });
+      const openAiRemaining = budget?.deadline ? budget.deadline - Date.now() : 15_000;
+      if (openAiRemaining <= 0) return toDraft(heuristicRecipe(text, options, socialCleaned), text, options);
+      const result = await openAI(text, { apiKey, timeoutMs: Math.min(15_000, openAiRemaining) });
       if (result.ok) {
         const grounded = groundParsedRecipe(result.recipe, options.heuristicKind === 'transcript' && options.sharedText ? `${text}\n${options.sharedText}` : text);
         if (grounded?.ingredients.length) return toDraft(grounded, text, options);
@@ -129,9 +132,9 @@ export async function parseRecipeText(
     } catch { /* heuristic remains available */ }
   }
 
-  const draft = toDraft(heuristicRecipe(text, options), text, options);
+  const draft = toDraft(heuristicRecipe(text, options, socialCleaned), text, options);
   if (draft && options.heuristicKind === 'social') {
-    const cleaned = cleanSocialCaption(text, options.sourceName ?? 'shared post');
+    const cleaned = socialCleaned!;
     draft.notes = cleaned.notes || null;
     draft.sourceEvidence = cleaned.text.slice(0, 4000);
   }
