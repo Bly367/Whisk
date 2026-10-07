@@ -198,3 +198,16 @@ it('uses whole-word grounding, accepts ordinary titles, and does not make Gnocch
   expect(draft.title).toBe('Gnocchi');
   expect(draft.confidence.title).toBe('medium');
 });
+
+it('times out Foundation and exposes one shared import LLM budget', async () => {
+  const slow = await parseRecipeText('1 cup flour. Mix.', {
+    foundationTimeoutMs: 20,
+    foundation: async () => new Promise((resolve) => setTimeout(() => resolve({ ok: true as const, recipe: recipe('foundation') }), 200)),
+    readApiKey: noKey,
+    heuristic: () => recipe(),
+  });
+  expect(slow?.adapterId).toBe('heuristic');
+  const autoImport = fs.readFileSync(path.join(__dirname, '..', 'import', 'autoImport.ts'), 'utf8');
+  expect(autoImport).toMatch(/MAX_LLM_PARSES_PER_IMPORT\s*=\s*2/);
+  expect(autoImport).toMatch(/LLM_BUDGET_MS\s*=\s*30_000/);
+});
