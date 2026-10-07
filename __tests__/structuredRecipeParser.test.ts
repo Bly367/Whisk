@@ -5,6 +5,8 @@ import * as SecureStore from 'expo-secure-store';
 
 import {
   groundParsedRecipe,
+  parsedRecipeToDraft,
+  suitableTitleFromText,
   type ParsedRecipe,
 } from '@/import/parse/structured';
 import {
@@ -170,4 +172,29 @@ it('keeps the tortellini caption useful offline through the heuristic parser', a
   expect(result?.adapterId).toBe('heuristic');
   expect(result?.ingredients.length ?? 0).toBeGreaterThanOrEqual(20);
   expect(result?.title).toBe('Creamy, Spicy Tortellini and Sausage Soup');
+});
+
+it('fails safely through unavailable LLM tiers and only accepts grounded model ingredients', async () => {
+  const text = fixture('tiktok-tortellini-contents.txt');
+  await expect(parseRecipeText(text, {
+    sourceName: 'TikTok', heuristicKind: 'social', foundation: unavailableFoundation,
+    readApiKey: async () => { throw new Error('keychain'); },
+  })).resolves.toEqual(expect.objectContaining({ ingredients: expect.arrayContaining([expect.objectContaining({ name: 'tortellini' })]) }));
+  const grounded = await parseRecipeText('1 cup flour\n2 eggs\nMix and bake.', {
+    foundation: async () => ({ ok: true as const, recipe: { title: 'Bad', ingredients: [{ name: 'butter' }], steps: ['Mix'], parser: 'foundation' as const } }),
+    readApiKey: noKey,
+    heuristic: () => ({ title: 'Good', ingredients: [{ name: 'flour' }], steps: ['Mix'], parser: 'heuristic' }),
+  });
+  expect(grounded?.adapterId).toBe('heuristic');
+  expect(grounded?.ingredients).toEqual(expect.arrayContaining([expect.objectContaining({ name: 'flour' })]));
+});
+
+it('uses whole-word grounding, accepts ordinary titles, and does not make Gnocchi junk', () => {
+  expect(groundParsedRecipe({ title: 'x', ingredients: [{ name: 'egg' }], steps: [], parser: 'foundation' }, 'roast eggplant')).toBeNull();
+  expect(groundParsedRecipe({ title: 'x', ingredients: [{ name: 'garlic cloves' }], steps: [], parser: 'foundation' }, '2 cloves garlic, minced')?.ingredients).toHaveLength(1);
+  expect(groundParsedRecipe({ title: 'x', ingredients: [{ name: 'tomato' }], steps: [], parser: 'foundation' }, '2 tomatoes')?.ingredients).toHaveLength(1);
+  expect(suitableTitleFromText('A Perfect Lemon Cake\n2 cups flour')).toBe('A Perfect Lemon Cake');
+  const draft = parsedRecipeToDraft({ title: 'Gnocchi', ingredients: [], steps: [], parser: 'openai' }, { sourceText: '', titleHint: 'Caption Line Title' });
+  expect(draft.title).toBe('Gnocchi');
+  expect(draft.confidence.title).toBe('medium');
 });
