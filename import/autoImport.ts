@@ -1,16 +1,13 @@
 import { websiteAdapter } from '@/import/adapters/websiteAdapter';
 import { commitAutoImportDraft, ImportCommitError, type CommitImportOptions } from '@/import/commit';
-import { draftFromPastedText } from '@/import/parse/pasteText';
-import { draftFromTranscript } from '@/import/parse/transcript';
+import { parseRecipeText, type ParseRecipeBudget } from '@/import/parse/parseRecipeText';
 import { detectSource } from '@/import/parse/url';
 import { fetchSocialMeta, type SocialMeta } from '@/import/social/socialMeta';
 import { videoFromUrl } from '@/import/social/videoFromUrl';
 import { transcribeVideo } from '@/import/transcribe';
 import { AUTO_SAVE_MIN_INGREDIENTS, scoreDraft } from '@/import/score';
-import { createId, nowIso } from '@/data/util';
 import type { ImportDraft } from '@/import/types';
 import { useAutoImportStore } from '@/import/autoImportStore';
-import { cleanSocialCaption } from '@/import/social/cleanCaption';
 import { fetchText, type FetchTextResult } from '@/import/net/fetchText';
 import { isPublicHttpsUrl } from '@/import/net/publicUrl';
 
@@ -41,6 +38,8 @@ export type AutoImportDeps = {
   fetchText?: typeof fetchText;
 };
 export type ImportDiagnostic = { stage: AutoStage; code: string; detail?: string };
+export const MAX_LLM_PARSES_PER_IMPORT = 2;
+export const LLM_BUDGET_MS = 30_000;
 export type AutoImportResult =
   | {
       ok: true;
@@ -76,8 +75,10 @@ export async function runAutoImport(
   onStage: (stage: AutoStage, progress?: number) => void = () => {},
 ): Promise<AutoImportResult> {
   const diagnostics: ImportDiagnostic[] = [];
+  // LLM-backed parsing across caption/subtitle/whisper gets at most ~30 seconds per import.
+  const parseBudget: ParseRecipeBudget = { remaining: MAX_LLM_PARSES_PER_IMPORT, deadline: undefined };
   try {
-    return await runAutoImportUnsafe(payload, deps, onStage, diagnostics);
+    return await runAutoImportUnsafe(payload, deps, onStage, diagnostics, parseBudget);
   } catch (error) {
     diagnostics.push({ stage: 'failed', code: `internal:${error instanceof Error ? error.name : 'Error'}` });
     onStage('failed');
@@ -90,6 +91,7 @@ async function runAutoImportUnsafe(
   deps: AutoImportDeps,
   onStage: (stage: AutoStage, progress?: number) => void,
   diagnostics: ImportDiagnostic[],
+  parseBudget: ParseRecipeBudget,
 ): Promise<AutoImportResult> {
   onStage('receiving');
   const isLocal = Boolean(payload.videoPath);
@@ -122,7 +124,7 @@ async function runAutoImportUnsafe(
         diagnostics.push({ stage: 'fetching_caption', code: 'subtitle:no_track', detail: meta.subtitleSummary });
       const shared = payload.sharedText?.replace(/https?:\/\/\S+/gi, '').trim();
       const caption = [meta.caption, shared].filter(Boolean).join('\n\n');
-      const parsed = caption ? safePastedDraft(caption, meta) : null;
+      const parsed = caption ? await safePastedDraft(caption, meta, parseBudget) : null;
       if (parsed && captionCandidate(parsed)) candidates.push({ draft: parsed, source: 'caption' });
       const passingCaption = candidates.find(
         (item) => item.source === 'caption' && captionCandidate(item.draft) && scoreDraft(item.draft).passes,
@@ -146,7 +148,7 @@ async function runAutoImportUnsafe(
     onStage('reading_transcript');
     const transcript = await readSubtitle(meta, deps, diagnostics);
     if (transcript) {
-      const subtitleDraft = safeTranscriptDraft(transcript, meta);
+      const subtitleDraft = await safeTranscriptDraft(transcript, meta, undefined, parseBudget, payload.sharedText);
       const cap = candidates.find((item) => item.source === 'caption');
       if (cap && subtitleDraft && scoreDraft(cap.draft).ingredients >= 3 && scoreDraft(cap.draft).steps < 2 && scoreDraft(subtitleDraft).steps >= 2)
         return save({ ...cap.draft, instructions: subtitleDraft.instructions, adapterId: 'share-auto-merge' }, 'caption+audio', meta.source, onStage, deps, diagnostics, false, hintsFor(meta, audioReason));
@@ -191,7 +193,7 @@ async function runAutoImportUnsafe(
             ),
         });
         if (result.ok) {
-          audioDraft = safeTranscriptDraft(result.transcript, meta, result.metadata.segments);
+          audioDraft = await safeTranscriptDraft(result.transcript, meta, result.metadata.segments, parseBudget, payload.sharedText);
           if (!audioDraft) diagnostics.push({ stage: 'transcribing', code: 'transcribe:no_draft' });
         } else {
           audioFailed = true;
@@ -290,42 +292,17 @@ async function safeWebsiteImport(
     return null;
   }
 }
-function safePastedDraft(text: string, meta: SocialMeta): ImportDraft | null {
+async function safePastedDraft(text: string, meta: SocialMeta, budget: ParseRecipeBudget): Promise<ImportDraft | null> {
   try {
     const social = ['instagram', 'tiktok', 'facebook', 'youtube', 'pinterest'].includes(meta.source);
-    const cleaned = social ? cleanSocialCaption(text, meta.source) : null;
-    if (cleaned) {
-      return {
-        id: createId(),
-        sourceKind: 'share_sheet',
-        sourceUrl: meta.canonicalUrl,
-        sourceName: meta.source,
-        imageUri: null,
-        title: cleaned.title,
-        notes: cleaned.notes || null,
-        servings: null,
-        prepMinutes: null,
-        cookMinutes: null,
-        ingredients: cleaned.ingredients.map((ingredient, position) => ({ ...ingredient, position })),
-        instructions: cleaned.steps,
-        confidence: {
-          title: cleaned.title.startsWith('Recipe from ') ? 'low' : 'medium',
-          ingredients: cleaned.ingredients.length ? 'medium' : 'unknown',
-          instructions: cleaned.steps.length ? 'medium' : 'unknown',
-        },
-        warnings: [{ code: 'low_confidence', message: 'Automatically drafted from shared social content. Review before serving.' }],
-        sourceEvidence: cleaned.text.slice(0, 4000),
-        adapterId: 'share-auto',
-        createdAt: nowIso(),
-      };
-    }
-    const draft = draftFromPastedText({
-      text,
+    return await parseRecipeText(text, {
+      sourceKind: 'share_sheet',
       sourceUrl: meta.canonicalUrl,
       sourceName: meta.source,
       adapterId: 'share-auto',
+      heuristicKind: social ? 'social' : 'paste',
+      budget,
     });
-    return draft;
   } catch {
     return null;
   }
@@ -378,17 +355,23 @@ async function readSubtitle(meta: SocialMeta, deps: AutoImportDeps, diagnostics:
     return null;
   }
 }
-function safeTranscriptDraft(
+async function safeTranscriptDraft(
   text: string,
   meta: SocialMeta | null,
   segments?: { start: number; end: number; text: string }[],
-): ImportDraft | null {
+  budget?: ParseRecipeBudget,
+  payloadSharedText?: string,
+): Promise<ImportDraft | null> {
   try {
-    return draftFromTranscript({
-      text,
+    return await parseRecipeText(text, {
+      sourceKind: 'share_sheet',
       segments,
       sourceUrl: meta?.canonicalUrl ?? null,
       sourceName: meta?.source ?? 'Photos',
+      adapterId: 'transcript',
+      sharedText: meta?.caption ?? payloadSharedText?.replace(/https?:\/\/\S+/gi, '').trim() ?? null,
+      heuristicKind: 'transcript',
+      budget,
     });
   } catch {
     return null;
