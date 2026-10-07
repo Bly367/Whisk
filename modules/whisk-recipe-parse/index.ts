@@ -18,7 +18,10 @@ export const FOUNDATION_MAX_INPUT_CHARS = 6000;
 function trimFoundationInput(text: string) {
   if (text.length <= FOUNDATION_MAX_INPUT_CHARS) return text;
   const cut = text.slice(0, FOUNDATION_MAX_INPUT_CHARS);
-  return cut.slice(0, Math.max(cut.lastIndexOf('\n'), cut.lastIndexOf('.'), cut.lastIndexOf('!'), cut.lastIndexOf('?'), 1));
+  const sentence = Math.max(cut.lastIndexOf('\n'), cut.lastIndexOf('.'), cut.lastIndexOf('!'), cut.lastIndexOf('?'));
+  if (sentence >= FOUNDATION_MAX_INPUT_CHARS / 2) return cut.slice(0, sentence + 1);
+  const whitespace = cut.lastIndexOf(' ');
+  return whitespace >= FOUNDATION_MAX_INPUT_CHARS / 2 ? cut.slice(0, whitespace) : cut;
 }
 
 function nativeModule(): WhiskRecipeParseNativeModule | null {

@@ -35,7 +35,7 @@ function singular(token: string): string {
 function isGrounded(name: string, source: string): boolean {
   const sourceTokens = new Set(normalizeForGrounding(source).split(' ').filter(Boolean).map(singular));
   const descriptors = new Set(['large', 'small', 'medium', 'fresh', 'extra', 'virgin', 'all', 'purpose', 'chopped', 'minced', 'diced', 'sliced', 'ground', 'clove', 'cloves', 'leaf', 'leaves', 'sprig', 'sprigs']);
-  const tokens = normalizeForGrounding(name).split(' ').filter(Boolean).map(singular).filter((token) => !descriptors.has(token));
+  const tokens = normalizeForGrounding(name).split(' ').filter(Boolean).filter((token) => !descriptors.has(token) && !descriptors.has(singular(token))).map(singular);
   if (!tokens.length) return false;
   const hits = tokens.filter((token) => sourceTokens.has(token));
   return hits.length === tokens.length || (sourceTokens.has(tokens[tokens.length - 1]) && hits.length >= Math.ceil(tokens.length / 2));
@@ -59,8 +59,8 @@ export function groundParsedRecipe(recipe: ParsedRecipe, sourceText: string): Pa
 }
 
 function looksLikeIngredient(line: string): boolean {
-  return /^(?:[-*•]\s*)?(?:\d|[¼½¾⅓⅔⅛⅜⅝⅞]|one\b|two\b|three\b)/i.test(line)
-    || /\b(?:cup|tbsp|tsp|oz|lb|gram|kg|ml|liter|pinch|dash|clove|can|stick|bunch|sprig|slice)\b/i.test(line);
+  return /^(?:[-*•]\s*)?(?:\d|[¼½¾⅓⅔⅛⅜⅝⅞]|(?:one|two|three)\s)/i.test(line)
+    || /^(?:[-*•]\s*)?(?:a|an)\s+(?:cup|tbsp|tsp|oz|lb|gram|kg|ml|liter|pinch|dash|clove|can|stick|bunch|sprig|slice)\b/i.test(line);
 }
 
 export function suitableTitleFromText(text: string): string | null {
@@ -73,7 +73,7 @@ export function suitableTitleFromText(text: string): string | null {
 }
 
 function isJunkTitle(title: string): boolean {
-  return !title.trim() || /^recipe from\b/i.test(title) || /^qualities?$/i.test(title.trim());
+  return !title.trim() || /^recipe from\b/i.test(title);
 }
 
 export function parsedRecipeToDraft(
