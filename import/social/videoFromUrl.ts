@@ -32,7 +32,11 @@ export type VideoDeps = {
 };
 const safeDetail = (error: unknown) => {
   const message = error instanceof Error ? error.message : String(error);
-  return message.replace(/https?:\/\/[^\s)]+/gi, '').replace(/\?[^\s)]+/g, '').trim() || undefined;
+  return message
+    .replace(/https?:\/\/[^\s)]+/gi, '')
+    .replace(/\?[^\s)]+/g, '')
+    .replace(/\b\S+\.\S+\/\S+/g, '')
+    .trim() || undefined;
 };
 const ALLOWED = [
   'cdninstagram.com',
