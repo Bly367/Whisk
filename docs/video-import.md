@@ -8,13 +8,14 @@
 
 Whisk accepts **shared video files** from Instagram Reels, TikTok, YouTube Shorts, and other social media, transcribes the audio **on-device** using Whisper, and feeds the transcript into the existing caption→recipe parser.
 
-This solves the iOS friction where copying captions from Instagram/TikTok is difficult or impossible in-app.
+This solves the iOS friction where copying captions from Instagram/TikTok is difficult or impossible in-app. Share auto-import runs a bounded fallback chain and marks automatic saves for review with undo.
 
 ## Key Design Decisions
 
-### What We Do NOT Do
+### Brian chose (2026-09-28)
 
-- **❌ Do not download videos from URLs** — IG/TikTok in-app Share usually sends URL only. Downloading from CDN URLs violates ToS, is fragile (auth tokens, rate limits), and is not local-first.
+Automatic caption → linked recipe (if any) → audio → remaining-links fallback. Public videos are downloaded only to cache for local transcription and then deleted. IG/TikTok terms and page structure may change without notice; Whisk never spoofs crawler UAs.
+
 - **❌ Do not use cloud transcription APIs** — Privacy, cost, and offline-first principles require on-device processing.
 
 ### What We DO
@@ -26,27 +27,38 @@ This solves the iOS friction where copying captions from Instagram/TikTok is dif
 
 ## User Flow
 
-### Happy Path: Save → Share → Transcribe → Import
+### Happy Path: Save → Share → Automatic Import
 
 1. User sees an Instagram Reel or TikTok recipe video.
 2. User taps **Save** (Instagram: "Save to Collection" or Photos; TikTok: "Save Video").
 3. From Photos app (or Files), user taps **Share** → **Whisk**.
-4. Whisk receives the video file, shows "Video ready — transcribe to recipe".
-5. User taps **Transcribe Video** button.
-6. Whisk:
-   - Extracts audio from video (16kHz mono WAV/M4A)
+4. Whisk receives the video file and starts automatically.
+5. Whisk:
+   - Reads a public English WebVTT subtitle track when the shared URL provides one
+   - Extracts audio from video as 16kHz mono 16-bit PCM WAV when captions are unavailable
    - Transcribes audio with Whisper (offline, on-device)
-   - Fills the caption field with transcript
-7. User reviews/edits transcript, taps **Continue**.
-8. Recipe parses and goes to preview screen as usual.
+   - Parses the transcript and saves a review-marked recipe
+6. User reviews the saved recipe and can undo the automatic save.
 
 ### Fallback: URL-Only Share (No Video File)
 
 When user shares from inside Instagram/TikTok app (not from Photos):
+
 - IG/TikTok sends **URL only** (no video file).
-- Whisk shows: _"This [social source] link needs the post caption to create a recipe. Paste the full caption text below, or save the Reel to Photos and share the video file for automatic transcription."_
+- Whisk tries the public caption, linked recipe pages, and audio when available; if those fail it offers retry, choose video, or manual creation.
+
+### Reachability by share input
+
+| Shared input | Automatic path | Fallback |
+| --- | --- | --- |
+| Website URL | Website extraction → save | Retry or manual |
+| Social URL + caption | Caption → linked recipe → save | Audio when available |
+| Social URL only | Public caption → linked recipe → audio | Save the video or create manually |
+| Local video file | Audio → transcript → save | Choose another video or create manually |
 
 This is **UX honesty** — we tell users why we need the caption or video file.
+
+Audio drafts are auto-saved only when at least three cooking steps are found and at least two steps contain a cooking verb with an object, a quantity, a time, or a temperature. This keeps conversational chatter from becoming a saved recipe.
 
 ## Technical Architecture
 
@@ -63,11 +75,7 @@ This is **UX honesty** — we tell users why we need the caption or video file.
     "NSExtensionActivationSupportsMovieWithMaxCount": 1,
     "NSExtensionActivationSupportsImageWithMaxCount": 1
   },
-  "androidIntentFilters": [
-    "text/*",
-    "video/*",
-    "image/*"
-  ]
+  "androidIntentFilters": ["text/*", "video/*", "image/*"]
 }
 ```
 
@@ -80,23 +88,9 @@ export type ParsedShareIntent = {
   url?: string;
   text?: string;
   caption?: string;
-  videoPath?: string;   // Local file path to video
-  imagePath?: string;   // Local file path to image (OCR path)
-  mimeType?: string;    // MIME type of file
-};
-```
-
-### Pending Share Payload
-
-**`import/pendingSharePayload.ts`** — Ephemeral storage for video/image paths (too large for URL params):
-
-```typescript
-export type SharePayload = {
-  url?: string;
-  caption?: string;
-  videoPath?: string;
-  imagePath?: string;
-  mimeType?: string;
+  videoPath?: string; // Local file path to video
+  imagePath?: string; // Local file path to image (OCR path)
+  mimeType?: string; // MIME type of file
 };
 ```
 
@@ -113,26 +107,30 @@ export async function transcribeVideo(
     onProgress?: (stage: 'extracting' | 'transcribing', progress: number) => void;
   },
 ): Promise<
-  { ok: true; transcript: string; metadata: WhisperTranscriptResult } 
+  | { ok: true; transcript: string; metadata: WhisperTranscriptResult }
   | { ok: false; error: TranscribeVideoError }
 >;
 ```
 
 **Pipeline steps:**
 
-1. **Audio extraction** (`import/transcribe/audioExtract.ts`):
+1. **Subtitle track** (`import/autoImport.ts`):
+   - Validates the public HTTPS URL and TikTok CDN allowlist
+   - Reads bounded WebVTT text before downloading video
+
+2. **Audio extraction** (`import/transcribe/audioExtract.ts`):
    - Decodes the first audio track to a streamed 16kHz mono 16-bit PCM WAV
    - Uses the local iOS Expo module in `modules/whisk-audio/`
    - Returns audio file path + duration
 
-2. **Whisper transcription** (`import/transcribe/whisper.ts`):
+3. **Whisper transcription** (`import/transcribe/whisper.ts`):
    - Transcribes audio with `whisper.rn` native module
    - Model: `tiny.en` (default, ~40MB) or `base.en` (~140MB)
    - Downloads model on first use (lazy init with progress callback)
    - Model cached in app documents (persistent, offline-ready)
    - Returns transcript text + segments + language + duration
 
-3. **Cleanup**:
+4. **Cleanup**:
    - Deletes extracted audio file after transcription
 
 ### Share Screen UI
@@ -194,6 +192,7 @@ The app already has EAS build profiles configured in `eas.json`. The relevant pr
 ### First-Time Setup (After Rebuild)
 
 On first video transcribe:
+
 1. Whisper model downloads (~40MB for `ggml-tiny.en.bin`, ~140MB for `ggml-base.en.bin`)
 2. Progress shown to user ("Downloading speech model...")
 3. Model cached in app documents directory (`FileSystem.documentDirectory`)
@@ -202,6 +201,7 @@ On first video transcribe:
 ### Model Files
 
 Models are downloaded from HuggingFace on first use:
+
 - **tiny.en** (default): `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin`
 - **base.en**: `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin`
 
@@ -226,6 +226,7 @@ The app defaults to `tiny.en` for faster transcription and smaller download size
 ### Unit Tests
 
 **`__tests__/shareIntent.test.ts`**:
+
 - ✅ Parse video file share with URL
 - ✅ Parse video file share without URL
 - ✅ Parse image file share
@@ -233,6 +234,7 @@ The app defaults to `tiny.en` for faster transcription and smaller download size
 - ✅ Ignore non-video/image files
 
 **`__tests__/transcribe.test.ts`**:
+
 - ✅ Transcribe video and return text
 - ✅ Report progress during transcription
 - ✅ Parse recipe from video transcript fixture

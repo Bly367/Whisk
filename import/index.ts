@@ -19,7 +19,6 @@ export {
   createWebsiteAdapter,
   WEBSITE_ADAPTER_ID,
 } from '@/import/adapters/websiteAdapter';
-export { shareSheetAdapter, SHARE_SHEET_ADAPTER_ID } from '@/import/adapters/shareSheetAdapter';
 export { ocrAdapter, OCR_ADAPTER_ID } from '@/import/adapters/ocrAdapter';
 
 export {
@@ -33,13 +32,15 @@ export { useImportSessionStore } from '@/import/sessionStore';
 export { canonicalizeUrl, detectSource, extractUrl, isSocialSource } from '@/import/parse/url';
 export { extractRecipeJsonLd, extractPageMetadata } from '@/import/parse/jsonLd';
 export { draftFromPastedText } from '@/import/parse/pasteText';
+export { draftFromTranscript } from '@/import/parse/transcript';
 export { parseIngredientLine } from '@/import/parse/ingredients';
+export { scoreDraft } from '@/import/score';
+export { runAutoImport } from '@/import/autoImport';
 
 /** OS share intent handling */
 export { parseShareIntent } from '@/import/shareIntent';
 export type { ParsedShareIntent } from '@/import/shareIntent';
 export { useShareIntentHandler } from '@/import/shareIntentHandler';
-export { setPendingSharePayload, consumePendingSharePayload } from '@/import/pendingSharePayload';
 
 /** Phase 2 compatibility packs (Paprika / JSON / Markdown) — see `@/import/compat`. */
 export {

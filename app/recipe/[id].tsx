@@ -12,6 +12,7 @@ import type { UnitSystem } from '@/features/recipes/scale';
 import { isUnitSystemAvailable } from '@/features/recipes/scale';
 import { useUnitPreferenceStore } from '@/features/recipes/unitPreferenceStore';
 import { useTheme } from '@/theme/ThemeProvider';
+import { useAutoImportStore } from '@/import/autoImportStore';
 
 const UNIT_OPTIONS: { value: UnitSystem; label: string }[] = [
   { value: 'original', label: 'As written' },
@@ -29,6 +30,7 @@ export default function RecipeDetailScreen() {
   const tags = useMemo(() => getRepositories().tags.list(), []);
   const system = useUnitPreferenceStore((s) => s.system);
   const setSystem = useUnitPreferenceStore((s) => s.setSystem);
+  const autoImport = useAutoImportStore((s) => (id && s.last?.recipeId === id ? s.last : null));
 
   const baseServings = recipe?.servings && recipe.servings > 0 ? recipe.servings : 1;
   const [servings, setServings] = useState(baseServings);
@@ -83,20 +85,26 @@ export default function RecipeDetailScreen() {
           accessible={false}
         />
         <Text variant="title1">{recipe.title}</Text>
-        
+
         <View style={styles.metaPills}>
           {total != null ? (
             <View style={[styles.metaPill, { backgroundColor: colors.brand.yolkSoft }]}>
-              <Text variant="callout" style={{ fontSize: 14 }}>🕐 {total} min</Text>
+              <Text variant="callout" style={{ fontSize: 14 }}>
+                🕐 {total} min
+              </Text>
             </View>
           ) : null}
           {recipe.servings != null && recipe.servings > 0 ? (
             <View style={[styles.metaPill, { backgroundColor: colors.brand.yolkSoft }]}>
-              <Text variant="callout" style={{ fontSize: 14 }}>👥 {recipe.servings} servings</Text>
+              <Text variant="callout" style={{ fontSize: 14 }}>
+                👥 {recipe.servings} servings
+              </Text>
             </View>
           ) : null}
           <View style={[styles.metaPill, { backgroundColor: colors.brand.yolkSoft }]}>
-            <Text variant="callout" style={{ fontSize: 14 }}>⭐ Easy</Text>
+            <Text variant="callout" style={{ fontSize: 14 }}>
+              ⭐ Easy
+            </Text>
           </View>
         </View>
 
@@ -105,7 +113,36 @@ export default function RecipeDetailScreen() {
             Draft — still saving locally
           </Text>
         ) : null}
-        
+
+        {autoImport ? (
+          <View
+            style={[
+              styles.autoImportBanner,
+              {
+                borderColor: autoImport.lowConfidence ? colors.warning : colors.border,
+                backgroundColor: colors.brand.yolkSoft,
+              },
+            ]}
+          >
+            <Text variant="callout">
+              Imported automatically from {autoImport.source}. Check it.
+            </Text>
+            {autoImport.hints?.includes('ig_save_reel') ? (
+              <Text variant="caption" tone="secondary">
+                Save the reel, then share it from Photos to import from its audio
+              </Text>
+            ) : null}
+            <Button
+              label="Undo"
+              onPress={() => {
+                getRepositories().recipes.softDelete(recipe.id);
+                useAutoImportStore.getState().clear();
+                router.replace('/(tabs)/recipes');
+              }}
+            />
+          </View>
+        ) : null}
+
         {tagNames.length ? (
           <Text variant="caption" tone="secondary">
             {tagNames.join(' · ')}
@@ -126,7 +163,9 @@ export default function RecipeDetailScreen() {
             },
           ]}
         >
-          <Text variant="title2" style={{ color: colors.textOnYolk }}>👨‍🍳 Start cooking</Text>
+          <Text variant="title2" style={{ color: colors.textOnYolk }}>
+            👨‍🍳 Start cooking
+          </Text>
         </Pressable>
 
         <ServingStepper servings={servings} onChange={setServings} baseServings={recipe.servings} />
@@ -226,6 +265,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 12,
     elevation: 6,
+  },
+  autoImportBanner: {
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.control,
+    borderWidth: 1,
   },
   unitBlock: {
     gap: spacing.sm,

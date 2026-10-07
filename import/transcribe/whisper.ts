@@ -71,7 +71,8 @@ async function ensureModelDownloaded(
     modelPath,
     {},
     (downloadProgress) => {
-      const progress = downloadProgress.totalBytesWritten / downloadProgress.totalBytesExpectedToWrite;
+      const progress =
+        downloadProgress.totalBytesWritten / downloadProgress.totalBytesExpectedToWrite;
       onProgress?.(progress);
     },
   );
@@ -91,6 +92,7 @@ async function ensureModelDownloaded(
 async function getWhisperContext(
   modelSize: 'tiny' | 'base',
   onProgress?: (progress: number) => void,
+  onModelProgress?: (progress: number) => void,
 ): Promise<WhisperContext> {
   // Return cached context if same model
   if (cachedContext && cachedModelSize === modelSize) {
@@ -105,7 +107,7 @@ async function getWhisperContext(
   }
 
   // Download model if needed
-  const modelPath = await ensureModelDownloaded(modelSize, onProgress);
+  const modelPath = await ensureModelDownloaded(modelSize, onModelProgress ?? onProgress);
 
   // Initialize Whisper context
   const context = await initWhisper({
@@ -122,8 +124,8 @@ async function getWhisperContext(
 /**
  * Transcribe audio file using on-device Whisper model.
  * Downloads model on first use (lazy initialization with progress callback).
- * 
- * @param audioPath - Local file path to audio file (WAV or M4A, 16kHz mono preferred)
+ *
+ * @param audioPath - Local file path to audio file (16kHz mono WAV)
  * @param options - Transcription options
  * @returns Transcript text and metadata, or error
  */
@@ -132,37 +134,47 @@ export async function transcribeAudio(
   options?: {
     language?: 'en' | 'auto';
     modelSize?: 'tiny' | 'base';
-    onProgress?: (progress: number) => void;
+    onProgress?: (stage: 'downloading_model' | 'transcribing', progress: number) => void;
   },
-): Promise<
-  { ok: true; result: WhisperTranscriptResult } | { ok: false; error: WhisperError }
-> {
+): Promise<{ ok: true; result: WhisperTranscriptResult } | { ok: false; error: WhisperError }> {
   const modelSize = options?.modelSize || 'tiny';
   const startTime = Date.now();
 
   try {
     // Get or initialize Whisper context (may download model on first use)
-    const context = await getWhisperContext(modelSize, (downloadProgress) => {
-      // Map download progress to 0-50% of total progress
-      options?.onProgress?.(downloadProgress * 0.5);
+    const context = await getWhisperContext(modelSize, undefined, (downloadProgress) => {
+      options?.onProgress?.('downloading_model', downloadProgress);
     });
 
     // Transcribe audio
-    const { promise } = context.transcribe(audioPath, {
+    options?.onProgress?.('transcribing', 0);
+    const transcribeOptions: Parameters<WhisperContext['transcribe']>[1] & {
+      onProgress?: (progress: number) => void;
+    } = {
       language: options?.language === 'auto' ? undefined : 'en',
-    });
+      onProgress: (progress: number) => options?.onProgress?.('transcribing', progress / 100),
+    };
+    const { promise } = context.transcribe(audioPath, transcribeOptions);
 
-    const { result } = await promise;
+    const transcription = (await promise) as {
+      result: string;
+      segments?: { t0: number; t1: number; text: string }[];
+    };
 
     // Map transcription completion to 50-100% progress
-    options?.onProgress?.(1.0);
+    options?.onProgress?.('transcribing', 1.0);
 
     const durationMs = Date.now() - startTime;
 
     return {
       ok: true,
       result: {
-        text: result,
+        text: transcription.result,
+        segments: transcription.segments?.map((segment) => ({
+          start: segment.t0 / 100,
+          end: segment.t1 / 100,
+          text: segment.text,
+        })),
         language: 'en',
         durationMs,
       },
@@ -200,11 +212,11 @@ export async function checkWhisperModelStatus(
   try {
     const modelPath = getModelPath(modelSize);
     const fileInfo = await FileSystem.getInfoAsync(modelPath);
-    
+
     if (fileInfo.exists) {
       return { ready: true, progress: 1.0 };
     }
-    
+
     return { ready: false, progress: null };
   } catch {
     return { ready: false, progress: null };

@@ -1,9 +1,9 @@
-import { useRouter } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
-import { useShareIntent } from 'expo-share-intent';
+import { useShareIntentContext } from 'expo-share-intent';
 
 import { parseShareIntent } from '@/import/shareIntent';
-import { setPendingSharePayload } from '@/import/pendingSharePayload';
+import { useSharePayloadStore } from '@/import/sharePayloadStore';
 
 /**
  * Hook to handle incoming share intents and navigate to import screen.
@@ -11,11 +11,9 @@ import { setPendingSharePayload } from '@/import/pendingSharePayload';
  */
 export function useShareIntentHandler() {
   const router = useRouter();
-  const { hasShareIntent, shareIntent, resetShareIntent } = useShareIntent({
-    debug: __DEV__,
-    resetOnBackground: true,
-  });
-  
+  const pathname = usePathname();
+  const { hasShareIntent, shareIntent, resetShareIntent } = useShareIntentContext();
+
   // Track if we're currently navigating to prevent double-push from rapid share events
   const isNavigating = useRef(false);
 
@@ -40,18 +38,18 @@ export function useShareIntentHandler() {
       if (parsed) {
         // Mark as navigating to prevent double-push
         isNavigating.current = true;
-        
+
         // Store parsed data in memory instead of query params
         // This prevents long captions from being truncated/encoded poorly
         // and handles video/image file paths that can't go in URLs
-        setPendingSharePayload(parsed);
+        useSharePayloadStore.getState().setPayload(parsed);
 
         // Navigate to share import screen without query params
-        router.push('/import/share');
-        
+        if (pathname !== '/import/share') router.navigate('/import/share');
+
         // Reset the share intent after navigation
         resetShareIntent();
-        
+
         // Clear navigating flag after a short delay
         setTimeout(() => {
           isNavigating.current = false;
@@ -61,7 +59,7 @@ export function useShareIntentHandler() {
         resetShareIntent();
       }
     }
-  }, [hasShareIntent, shareIntent, resetShareIntent, router]);
+  }, [hasShareIntent, shareIntent, resetShareIntent, router, pathname]);
 
   return { hasShareIntent, shareIntent };
 }

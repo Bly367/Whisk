@@ -51,7 +51,7 @@ export default function ImportPreviewScreen() {
         <Text variant="title2">Nothing to review</Text>
         <Text variant="body" tone="secondary">
           Start from Add and import a link, share, or paste text first. Whisk never saves without
-          this preview.
+          this review.
         </Text>
         <Button
           label="Back to Add"
@@ -106,8 +106,8 @@ export default function ImportPreviewScreen() {
   return (
     <Screen testID="screen-import-preview" showSyncStatus>
       <Text variant="body" tone="secondary">
-        Check everything below. Low-confidence fields are marked for review. Nothing is saved until
-        you confirm.
+        Check everything below. Low-confidence fields are marked for review. Manual imports are
+        saved only after you confirm.
       </Text>
 
       {draft.warnings.length > 0 ? (

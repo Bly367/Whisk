@@ -26,13 +26,6 @@ const SOURCES = [
     limited: true,
   },
   {
-    id: 'social',
-    label: 'Import from social',
-    hint: 'Share sheet or saved post',
-    href: '/import/share' as const,
-    limited: true,
-  },
-  {
     id: 'scan',
     label: 'Scan a photo',
     hint: 'Cookbook page or screenshot',
@@ -114,7 +107,7 @@ export default function AddScreen() {
     <Screen testID="screen-add" showSyncStatus={false}>
       <PlaceholderHero
         title="Add a recipe"
-        body="Bring one in from a link, a share, a photo, or scratch. You’ll review it before it’s saved."
+        body="Bring one in from a link, a share, a photo, or scratch. Links, photos and manual recipes open for review first; shares save automatically and can be undone."
       />
 
       <LimitNotice usage={usage} entitlement={entitlement} unlockCopy={unlockCopy} />
@@ -137,7 +130,9 @@ export default function AddScreen() {
             ]}
           >
             <View style={[styles.numberBadge, { backgroundColor: colors.brand.yolk }]}>
-              <Text variant="headline" style={{ color: colors.textOnYolk }}>{index + 1}</Text>
+              <Text variant="headline" style={{ color: colors.textOnYolk }}>
+                {index + 1}
+              </Text>
             </View>
             <View style={styles.sourceContent}>
               <Text variant="title2">{source.label}</Text>

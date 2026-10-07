@@ -7,30 +7,27 @@ import { draftFromPastedText } from '@/import/parse/pasteText';
 import { canonicalizeUrl, detectSource, isSocialSource } from '@/import/parse/url';
 import type { ImportAdapter, ImportAdapterInput, ImportAdapterResult } from '@/import/types';
 import { DEFAULT_FALLBACKS } from '@/import/types';
+import { fetchText } from '@/import/net/fetchText';
 
 export const WEBSITE_ADAPTER_ID = 'website-jsonld';
 
 async function fetchHtml(url: string): Promise<string> {
-  const response = await fetch(url, {
-    headers: { Accept: 'text/html,application/xhtml+xml' },
-  });
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
-  }
-  const contentType = response.headers.get('content-type') ?? '';
+  const response = await fetchText(url);
+  if (response.status < 200 || response.status >= 300) throw new Error(`HTTP ${response.status}`);
+  const contentType = response.contentType ?? '';
   if (
+    contentType &&
     !contentType.includes('text/html') &&
-    !contentType.includes('application/xhtml+xml') &&
-    contentType.length > 0
+    !contentType.includes('application/xhtml+xml')
   ) {
     throw Object.assign(new Error('not-html'), { code: 'unsupported' as const });
   }
-  return response.text();
+  return response.text;
 }
 
 /**
  * Website importer: fetch HTML and extract schema.org Recipe JSON-LD.
- * Social hosts are rejected here so the share-sheet adapter owns that path.
+ * Social hosts are rejected here; share auto-import (import/autoImport.ts) owns them.
  */
 export function createWebsiteAdapter(
   fetchHtmlImpl: (url: string) => Promise<string> = fetchHtml,
@@ -74,7 +71,7 @@ export function createWebsiteAdapter(
           error: {
             code: 'unsupported',
             message:
-              'Social links need the share-sheet path or pasted caption text. Whisk will not invent a recipe from the URL alone.',
+              'Share Instagram/TikTok posts to Whisk to import them automatically. Whisk will not invent a recipe from the URL alone.',
             fallbacks: ['paste_text', 'scan', 'manual', 'try_again'],
           },
         };

@@ -28,4 +28,5 @@ module.exports = {
     '!**/*.d.ts',
   ],
   clearMocks: true,
+  setupFiles: ['<rootDir>/jest.setup.js'],
 };

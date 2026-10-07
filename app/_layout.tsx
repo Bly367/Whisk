@@ -1,17 +1,24 @@
-// Buffer polyfill for React Native (required by whisper.rn → safe-buffer)
 import { Buffer } from 'buffer';
-global.Buffer = Buffer;
-
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider as NavThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { useFonts, Nunito_700Bold, Nunito_600SemiBold, Nunito_400Regular } from '@expo-google-fonts/nunito';
+import {
+  useFonts,
+  Nunito_700Bold,
+  Nunito_600SemiBold,
+  Nunito_400Regular,
+} from '@expo-google-fonts/nunito';
 import 'react-native-reanimated';
 
 import { DatabaseProvider } from '@/data/DatabaseProvider';
 import { AppThemeProvider, useTheme } from '@/theme/ThemeProvider';
 import { useShareIntentHandler } from '@/import/shareIntentHandler';
+import { ShareIntentProvider } from 'expo-share-intent';
+import { sweepShareCache } from '@/import/social/videoFromUrl';
+
+// Buffer polyfill for React Native (required by whisper.rn → safe-buffer)
+global.Buffer = Buffer;
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -34,16 +41,22 @@ export default function RootLayout() {
     }
   }, [fontsLoaded]);
 
+  useEffect(() => {
+    void sweepShareCache();
+  }, []);
+
   if (!fontsLoaded) {
     return null;
   }
 
   return (
-    <AppThemeProvider>
-      <DatabaseProvider>
-        <RootNavigator />
-      </DatabaseProvider>
-    </AppThemeProvider>
+    <ShareIntentProvider options={{ debug: __DEV__, resetOnBackground: true }}>
+      <AppThemeProvider>
+        <DatabaseProvider>
+          <RootNavigator />
+        </DatabaseProvider>
+      </AppThemeProvider>
+    </ShareIntentProvider>
   );
 }
 

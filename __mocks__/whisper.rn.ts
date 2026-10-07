@@ -7,9 +7,9 @@ export interface WhisperContext {
   id: number;
   transcribe: (
     audioPath: string,
-    options?: { language?: string },
+    options?: { language?: string; onProgress?: (progress: number) => void },
   ) => {
-    promise: Promise<{ result: string }>;
+    promise: Promise<{ result: string; segments?: { t0: number; t1: number; text: string }[] }>;
     stop: () => void;
   };
   release: () => Promise<void>;
@@ -29,8 +29,9 @@ export async function initWhisper(_options: {
 
   return {
     id: contextId,
-    transcribe: (audioPath: string, _options?: { language?: string }) => {
+    transcribe: (audioPath: string, options?: { language?: string; onProgress?: (progress: number) => void }) => {
       lastTranscribedAudioPath = audioPath;
+      options?.onProgress?.(50);
       // Return fixture transcript for testing
       const fixtureTranscript = `
     Hey everyone! Today I'm making my famous chocolate chip cookies.
