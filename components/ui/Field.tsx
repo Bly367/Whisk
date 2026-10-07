@@ -13,6 +13,7 @@ export type FieldProps = {
   keyboardType?: 'default' | 'numeric' | 'url';
   testID?: string;
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
+  secureTextEntry?: boolean;
 };
 
 export function Field({
@@ -24,6 +25,7 @@ export function Field({
   keyboardType = 'default',
   testID,
   autoCapitalize = 'sentences',
+  secureTextEntry = false,
 }: FieldProps) {
   const { colors } = useTheme();
 
@@ -38,6 +40,7 @@ export function Field({
         multiline={multiline}
         keyboardType={keyboardType}
         autoCapitalize={autoCapitalize}
+        secureTextEntry={secureTextEntry}
         testID={testID}
         accessibilityLabel={label}
         style={[

@@ -1,16 +1,13 @@
 import { websiteAdapter } from '@/import/adapters/websiteAdapter';
 import { commitAutoImportDraft, ImportCommitError, type CommitImportOptions } from '@/import/commit';
-import { draftFromPastedText } from '@/import/parse/pasteText';
-import { draftFromTranscript } from '@/import/parse/transcript';
+import { parseRecipeText } from '@/import/parse/parseRecipeText';
 import { detectSource } from '@/import/parse/url';
 import { fetchSocialMeta, type SocialMeta } from '@/import/social/socialMeta';
 import { videoFromUrl } from '@/import/social/videoFromUrl';
 import { transcribeVideo } from '@/import/transcribe';
 import { AUTO_SAVE_MIN_INGREDIENTS, scoreDraft } from '@/import/score';
-import { createId, nowIso } from '@/data/util';
 import type { ImportDraft } from '@/import/types';
 import { useAutoImportStore } from '@/import/autoImportStore';
-import { cleanSocialCaption } from '@/import/social/cleanCaption';
 import { fetchText, type FetchTextResult } from '@/import/net/fetchText';
 import { isPublicHttpsUrl } from '@/import/net/publicUrl';
 
@@ -35,10 +32,7 @@ export type AutoStage =
 export type AutoImportDeps = {
   fetchSocialMeta?: typeof fetchSocialMeta;
   videoFromUrl?: typeof videoFromUrl;
-  transcribeVideo?: (
-    videoPath: string,
-    options?: Parameters<typeof transcribeVideo>[1],
-  ) => Promise<Awaited<ReturnType<typeof transcribeVideo>> | { ok: false; error: { code: string; message: string; details?: { code?: string; message?: string } } }>;
+  transcribeVideo?: typeof transcribeVideo;
   websiteImport?: (url: string) => Promise<{ ok: true; draft: ImportDraft } | { ok: false }>;
   commitImportDraft?: (draft: ImportDraft, options?: CommitImportOptions & { allowIngredientsOnly?: boolean }) => { id: string };
   fetchText?: typeof fetchText;
@@ -125,7 +119,7 @@ async function runAutoImportUnsafe(
         diagnostics.push({ stage: 'fetching_caption', code: 'subtitle:no_track', detail: meta.subtitleSummary });
       const shared = payload.sharedText?.replace(/https?:\/\/\S+/gi, '').trim();
       const caption = [meta.caption, shared].filter(Boolean).join('\n\n');
-      const parsed = caption ? safePastedDraft(caption, meta) : null;
+      const parsed = caption ? await safePastedDraft(caption, meta) : null;
       if (parsed && captionCandidate(parsed)) candidates.push({ draft: parsed, source: 'caption' });
       const passingCaption = candidates.find(
         (item) => item.source === 'caption' && captionCandidate(item.draft) && scoreDraft(item.draft).passes,
@@ -149,7 +143,7 @@ async function runAutoImportUnsafe(
     onStage('reading_transcript');
     const transcript = await readSubtitle(meta, deps, diagnostics);
     if (transcript) {
-      const subtitleDraft = safeTranscriptDraft(transcript, meta);
+      const subtitleDraft = await safeTranscriptDraft(transcript, meta);
       const cap = candidates.find((item) => item.source === 'caption');
       if (cap && subtitleDraft && scoreDraft(cap.draft).ingredients >= 3 && scoreDraft(cap.draft).steps < 2 && scoreDraft(subtitleDraft).steps >= 2)
         return save({ ...cap.draft, instructions: subtitleDraft.instructions, adapterId: 'share-auto-merge' }, 'caption+audio', meta.source, onStage, deps, diagnostics, false, hintsFor(meta, audioReason));
@@ -193,9 +187,10 @@ async function runAutoImportUnsafe(
               progress,
             ),
         });
-        if (result.ok)
-          audioDraft = safeTranscriptDraft(result.transcript, meta, result.metadata.segments);
-        else {
+        if (result.ok) {
+          audioDraft = await safeTranscriptDraft(result.transcript, meta, result.metadata.segments);
+          if (!audioDraft) diagnostics.push({ stage: 'transcribing', code: 'transcribe:no_draft' });
+        } else {
           audioFailed = true;
           diagnostics.push({ stage: 'transcribing', code: `transcribe:${result.error.code}:${result.error.details?.code ?? ''}` });
         }
@@ -292,42 +287,16 @@ async function safeWebsiteImport(
     return null;
   }
 }
-function safePastedDraft(text: string, meta: SocialMeta): ImportDraft | null {
+async function safePastedDraft(text: string, meta: SocialMeta): Promise<ImportDraft | null> {
   try {
     const social = ['instagram', 'tiktok', 'facebook', 'youtube', 'pinterest'].includes(meta.source);
-    const cleaned = social ? cleanSocialCaption(text, meta.source) : null;
-    if (cleaned) {
-      return {
-        id: createId(),
-        sourceKind: 'share_sheet',
-        sourceUrl: meta.canonicalUrl,
-        sourceName: meta.source,
-        imageUri: null,
-        title: cleaned.title,
-        notes: cleaned.notes || null,
-        servings: null,
-        prepMinutes: null,
-        cookMinutes: null,
-        ingredients: cleaned.ingredients.map((ingredient, position) => ({ ...ingredient, position })),
-        instructions: cleaned.steps,
-        confidence: {
-          title: cleaned.title.startsWith('Recipe from ') ? 'low' : 'medium',
-          ingredients: cleaned.ingredients.length ? 'medium' : 'unknown',
-          instructions: cleaned.steps.length ? 'medium' : 'unknown',
-        },
-        warnings: [{ code: 'low_confidence', message: 'Automatically drafted from shared social content. Review before serving.' }],
-        sourceEvidence: cleaned.text.slice(0, 4000),
-        adapterId: 'share-auto',
-        createdAt: nowIso(),
-      };
-    }
-    const draft = draftFromPastedText({
-      text,
+    return await parseRecipeText(text, {
+      sourceKind: 'share_sheet',
       sourceUrl: meta.canonicalUrl,
       sourceName: meta.source,
       adapterId: 'share-auto',
+      heuristicKind: social ? 'social' : 'paste',
     });
-    return draft;
   } catch {
     return null;
   }
@@ -380,17 +349,20 @@ async function readSubtitle(meta: SocialMeta, deps: AutoImportDeps, diagnostics:
     return null;
   }
 }
-function safeTranscriptDraft(
+async function safeTranscriptDraft(
   text: string,
   meta: SocialMeta | null,
   segments?: { start: number; end: number; text: string }[],
-): ImportDraft | null {
+): Promise<ImportDraft | null> {
   try {
-    return draftFromTranscript({
-      text,
+    return await parseRecipeText(text, {
+      sourceKind: 'share_sheet',
       segments,
       sourceUrl: meta?.canonicalUrl ?? null,
       sourceName: meta?.source ?? 'Photos',
+      adapterId: 'transcript',
+      sharedText: meta?.caption ?? null,
+      heuristicKind: 'transcript',
     });
   } catch {
     return null;
