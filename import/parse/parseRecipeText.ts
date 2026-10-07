@@ -23,11 +23,14 @@ export type ParseRecipeTextOptions = {
   segments?: { start: number; end: number; text: string }[];
   heuristicKind?: 'paste' | 'transcript' | 'social';
   foundation?: typeof parseRecipeWithFoundationModels;
-  openAI?: (sourceText: string, options: { apiKey: string }) => Promise<OpenAIParseResult>;
+  openAI?: (sourceText: string, options: { apiKey: string; timeoutMs?: number }) => Promise<OpenAIParseResult>;
   readApiKey?: typeof readOpenAIKey;
   heuristic?: (sourceText: string) => ParsedRecipe | null;
   foundationTimeoutMs?: number;
+  budget?: ParseRecipeBudget;
 };
+
+export type ParseRecipeBudget = { remaining: number; deadline: number };
 
 export const FOUNDATION_TIMEOUT_MS = 12_000;
 
@@ -93,11 +96,17 @@ export async function parseRecipeText(
 ): Promise<ImportDraft | null> {
   const text = sourceText.trim();
   if (!text) return null;
+  const budget = options.budget;
+  if (budget && (budget.remaining <= 0 || Date.now() >= budget.deadline))
+    return toDraft(heuristicRecipe(text, options), text, options);
+  // This is shared per auto-import: at most two LLM parser attempts and ~30s added latency.
+  if (budget) budget.remaining -= 1;
+  const remainingMs = budget ? Math.max(0, budget.deadline - Date.now()) : Infinity;
 
   const foundation = options.foundation ?? parseRecipeWithFoundationModels;
   let fallbackSteps: ParsedRecipe | null = null;
   try {
-    const foundationResult = await withTimeout(foundation(text), options.foundationTimeoutMs ?? FOUNDATION_TIMEOUT_MS);
+    const foundationResult = await withTimeout(foundation(text), Math.min(options.foundationTimeoutMs ?? FOUNDATION_TIMEOUT_MS, remainingMs));
     if (foundationResult?.ok) {
       const grounded = groundParsedRecipe(foundationResult.recipe, options.heuristicKind === 'transcript' && options.sharedText ? `${text}\n${options.sharedText}` : text);
       if (grounded?.ingredients.length) return toDraft(grounded, text, options);
@@ -110,7 +119,7 @@ export async function parseRecipeText(
   if (apiKey) {
     const openAI = options.openAI ?? parseRecipeWithOpenAI;
     try {
-      const result = await openAI(text, { apiKey });
+      const result = await openAI(text, { apiKey, timeoutMs: Math.min(15_000, remainingMs) });
       if (result.ok) {
         const grounded = groundParsedRecipe(result.recipe, options.heuristicKind === 'transcript' && options.sharedText ? `${text}\n${options.sharedText}` : text);
         if (grounded?.ingredients.length) return toDraft(grounded, text, options);

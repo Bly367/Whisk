@@ -1,6 +1,6 @@
 import { websiteAdapter } from '@/import/adapters/websiteAdapter';
 import { commitAutoImportDraft, ImportCommitError, type CommitImportOptions } from '@/import/commit';
-import { parseRecipeText } from '@/import/parse/parseRecipeText';
+import { parseRecipeText, type ParseRecipeBudget } from '@/import/parse/parseRecipeText';
 import { detectSource } from '@/import/parse/url';
 import { fetchSocialMeta, type SocialMeta } from '@/import/social/socialMeta';
 import { videoFromUrl } from '@/import/social/videoFromUrl';
@@ -38,6 +38,8 @@ export type AutoImportDeps = {
   fetchText?: typeof fetchText;
 };
 export type ImportDiagnostic = { stage: AutoStage; code: string; detail?: string };
+export const MAX_LLM_PARSES_PER_IMPORT = 2;
+export const LLM_BUDGET_MS = 30_000;
 export type AutoImportResult =
   | {
       ok: true;
@@ -73,8 +75,10 @@ export async function runAutoImport(
   onStage: (stage: AutoStage, progress?: number) => void = () => {},
 ): Promise<AutoImportResult> {
   const diagnostics: ImportDiagnostic[] = [];
+  // LLM-backed parsing across caption/subtitle/whisper gets at most ~30 seconds per import.
+  const parseBudget: ParseRecipeBudget = { remaining: MAX_LLM_PARSES_PER_IMPORT, deadline: Date.now() + LLM_BUDGET_MS };
   try {
-    return await runAutoImportUnsafe(payload, deps, onStage, diagnostics);
+    return await runAutoImportUnsafe(payload, deps, onStage, diagnostics, parseBudget);
   } catch (error) {
     diagnostics.push({ stage: 'failed', code: `internal:${error instanceof Error ? error.name : 'Error'}` });
     onStage('failed');
@@ -87,6 +91,7 @@ async function runAutoImportUnsafe(
   deps: AutoImportDeps,
   onStage: (stage: AutoStage, progress?: number) => void,
   diagnostics: ImportDiagnostic[],
+  parseBudget: ParseRecipeBudget,
 ): Promise<AutoImportResult> {
   onStage('receiving');
   const isLocal = Boolean(payload.videoPath);
@@ -119,7 +124,7 @@ async function runAutoImportUnsafe(
         diagnostics.push({ stage: 'fetching_caption', code: 'subtitle:no_track', detail: meta.subtitleSummary });
       const shared = payload.sharedText?.replace(/https?:\/\/\S+/gi, '').trim();
       const caption = [meta.caption, shared].filter(Boolean).join('\n\n');
-      const parsed = caption ? await safePastedDraft(caption, meta) : null;
+      const parsed = caption ? await safePastedDraft(caption, meta, parseBudget) : null;
       if (parsed && captionCandidate(parsed)) candidates.push({ draft: parsed, source: 'caption' });
       const passingCaption = candidates.find(
         (item) => item.source === 'caption' && captionCandidate(item.draft) && scoreDraft(item.draft).passes,
@@ -143,7 +148,7 @@ async function runAutoImportUnsafe(
     onStage('reading_transcript');
     const transcript = await readSubtitle(meta, deps, diagnostics);
     if (transcript) {
-      const subtitleDraft = await safeTranscriptDraft(transcript, meta);
+      const subtitleDraft = await safeTranscriptDraft(transcript, meta, undefined, parseBudget);
       const cap = candidates.find((item) => item.source === 'caption');
       if (cap && subtitleDraft && scoreDraft(cap.draft).ingredients >= 3 && scoreDraft(cap.draft).steps < 2 && scoreDraft(subtitleDraft).steps >= 2)
         return save({ ...cap.draft, instructions: subtitleDraft.instructions, adapterId: 'share-auto-merge' }, 'caption+audio', meta.source, onStage, deps, diagnostics, false, hintsFor(meta, audioReason));
@@ -188,7 +193,7 @@ async function runAutoImportUnsafe(
             ),
         });
         if (result.ok) {
-          audioDraft = await safeTranscriptDraft(result.transcript, meta, result.metadata.segments);
+          audioDraft = await safeTranscriptDraft(result.transcript, meta, result.metadata.segments, parseBudget);
           if (!audioDraft) diagnostics.push({ stage: 'transcribing', code: 'transcribe:no_draft' });
         } else {
           audioFailed = true;
@@ -287,7 +292,7 @@ async function safeWebsiteImport(
     return null;
   }
 }
-async function safePastedDraft(text: string, meta: SocialMeta): Promise<ImportDraft | null> {
+async function safePastedDraft(text: string, meta: SocialMeta, budget: ParseRecipeBudget): Promise<ImportDraft | null> {
   try {
     const social = ['instagram', 'tiktok', 'facebook', 'youtube', 'pinterest'].includes(meta.source);
     return await parseRecipeText(text, {
@@ -296,6 +301,7 @@ async function safePastedDraft(text: string, meta: SocialMeta): Promise<ImportDr
       sourceName: meta.source,
       adapterId: 'share-auto',
       heuristicKind: social ? 'social' : 'paste',
+      budget,
     });
   } catch {
     return null;
@@ -353,6 +359,7 @@ async function safeTranscriptDraft(
   text: string,
   meta: SocialMeta | null,
   segments?: { start: number; end: number; text: string }[],
+  budget?: ParseRecipeBudget,
 ): Promise<ImportDraft | null> {
   try {
     return await parseRecipeText(text, {
@@ -363,6 +370,7 @@ async function safeTranscriptDraft(
       adapterId: 'transcript',
       sharedText: meta?.caption ?? null,
       heuristicKind: 'transcript',
+      budget,
     });
   } catch {
     return null;
