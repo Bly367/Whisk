@@ -20,6 +20,10 @@ import {
   type GroceryRealtimeEvent,
 } from '@/data/sync/groceryRealtime';
 
+afterEach(() => {
+  jest.useRealTimers();
+});
+
 describe('P2-W3 household invite / join', () => {
   beforeEach(() => {
     useSyncStatusStore.getState().resetToLocalOk();
@@ -201,8 +205,6 @@ describe('P2-W3 membership authz boundaries', () => {
     });
     expect(visible).toHaveLength(3);
     expect(visible.map((l) => l.id)).toEqual([list3.id, list2.id, list1.id]);
-
-    jest.useRealTimers();
   });
 
   it('denies non-members with HouseholdAuthzError and never returns foreign rows', () => {
@@ -670,16 +672,6 @@ describe('P2-W3 review blockers (invite attach, tenancy, delete clocks, reorder 
     const repos = createRepositories(db);
     const collab = createHouseholdCollaboration(repos);
 
-    const home = collab.createHousehold({
-      name: 'My home',
-      ownerUserId: 'owner-a',
-      ownerDisplayName: 'A',
-    });
-    const existingList = collab.listSharedGroceryLists({ householdId: home.id, userId: 'owner-a' })[0]!;
-    jest.advanceTimersByTime(100);
-    repos.grocery.addItem(existingList.id, { name: 'Existing item' });
-
-    jest.advanceTimersByTime(100);
     const localList = repos.grocery.create({
       name: 'Local cart',
       items: [{ name: 'Local item' }],
@@ -687,11 +679,23 @@ describe('P2-W3 review blockers (invite attach, tenancy, delete clocks, reorder 
     expect(localList.householdId).toBeNull();
 
     jest.advanceTimersByTime(100);
+    const home = repos.households.create({
+      name: 'My home',
+      ownerUserId: 'owner-a',
+      ownerDisplayName: 'A',
+    });
+
+    jest.advanceTimersByTime(100);
+    repos.grocery.create({
+      name: 'Household shared',
+      householdId: home.id,
+      items: [{ name: 'Existing item' }],
+    });
+
+    jest.advanceTimersByTime(100);
     const ensured = collab.ensureSharedGroceryList(home.id);
     expect(ensured.id).toBe(localList.id);
     expect(ensured.items.map((i) => i.name)).toEqual(['Local item']);
-
-    jest.useRealTimers();
   });
 
   it('applyEvent ignores events when list householdId does not match event householdId', () => {
