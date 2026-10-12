@@ -74,6 +74,13 @@ describe('lib dates', () => {
     expect(daysBetween('2026-10-26', '2026-11-01')).toBe(6);
     expect(daysBetween('2027-03-08', '2027-03-15')).toBe(7);
   });
+
+  it('maps Sunday to the previous Monday for week start', () => {
+    // Sunday Nov 1, 2026 -> previous Monday Oct 26
+    expect(startOfWeekMonday(new Date(2026, 10, 1))).toBe('2026-10-26');
+    // Sunday Oct 18, 2026 -> previous Monday Oct 12
+    expect(startOfWeekMonday(new Date(2026, 9, 18))).toBe('2026-10-12');
+  });
 });
 
 describe('planHelpers + mealPlans persistence', () => {
