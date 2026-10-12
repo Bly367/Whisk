@@ -16,7 +16,7 @@ import {
 } from '@/features/shop/merge';
 import { replaceGroceryListFromPreview, undoReplaceGroceryList } from '@/features/shop/replaceList';
 import { unmergeGroceryItem } from '@/features/shop/unmerge';
-import { startOfWeekMonday } from '@/features/shop/week';
+import { startOfWeekMonday } from '@/lib/dates';
 
 describe('grocery merge', () => {
   it('merges unrounded fractional quantities with non-volume units', () => {
