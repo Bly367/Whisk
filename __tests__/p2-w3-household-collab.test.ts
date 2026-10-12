@@ -648,6 +648,30 @@ describe('P2-W3 review blockers (invite attach, tenancy, delete clocks, reorder 
     expect(shared[0]!.householdId).toBe(home.id);
   });
 
+  it('ensureSharedGroceryList returns the just-attached local list, not an older household list', () => {
+    const db = createTestDbClient();
+    const repos = createRepositories(db);
+    const collab = createHouseholdCollaboration(repos);
+
+    const home = collab.createHousehold({
+      name: 'My home',
+      ownerUserId: 'owner-a',
+      ownerDisplayName: 'A',
+    });
+    const existingList = collab.listSharedGroceryLists({ householdId: home.id, userId: 'owner-a' })[0]!;
+    repos.grocery.addItem(existingList.id, { name: 'Existing item' });
+
+    const localList = repos.grocery.create({
+      name: 'Local cart',
+      items: [{ name: 'Local item' }],
+    });
+    expect(localList.householdId).toBeNull();
+
+    const ensured = collab.ensureSharedGroceryList(home.id);
+    expect(ensured.id).toBe(localList.id);
+    expect(ensured.items.map((i) => i.name)).toEqual(['Local item']);
+  });
+
   it('applyEvent ignores events when list householdId does not match event householdId', () => {
     const db = createTestDbClient();
     const repos = createRepositories(db);
