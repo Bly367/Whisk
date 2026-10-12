@@ -1,15 +1,11 @@
 import {
-  addDays,
   formatWeekRange,
-  startOfWeek,
-  shiftWeek,
-  toDateOnly,
   weekDays,
 } from '@/components/plan/weekUtils';
 import { entriesForDaySlot } from '@/components/plan/planHelpers';
 import { createRepositories } from '@/data/repositories';
 import { createTestDbClient } from '@/data/testing/createTestDb';
-import { daysBetween, parseDateOnly, startOfWeekMonday } from '@/lib/dates';
+import { addDays, daysBetween, parseDateOnly, startOfWeekMonday, toDateOnly } from '@/lib/dates';
 
 describe('weekUtils', () => {
   it('runs under a time zone with daylight saving time', () => {
@@ -21,7 +17,7 @@ describe('weekUtils', () => {
   it('starts the week on Monday', () => {
     // Thursday Sep 17, 2026
     const thursday = new Date(2026, 8, 17);
-    expect(startOfWeek(thursday)).toBe('2026-09-14');
+    expect(startOfWeekMonday(thursday)).toBe('2026-09-14');
     expect(addDays('2026-09-14', 6)).toBe('2026-09-20');
     expect(formatWeekRange('2026-09-14')).toContain('14');
   });
@@ -61,8 +57,8 @@ describe('weekUtils', () => {
   });
 
   it('shifts weeks and days across DST boundaries by calendar date', () => {
-    expect(shiftWeek('2026-10-26', 1)).toBe('2026-11-02');
-    expect(shiftWeek('2027-03-15', -1)).toBe('2027-03-08');
+    expect(addDays('2026-10-26', 1 * 7)).toBe('2026-11-02');
+    expect(addDays('2027-03-15', -1 * 7)).toBe('2027-03-08');
     expect(addDays('2027-03-15', -1)).toBe('2027-03-14');
   });
 });
