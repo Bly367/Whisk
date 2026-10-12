@@ -92,11 +92,17 @@ export function createHouseholdCollaboration(repos: Repositories) {
       }
     }
 
-    const sharedIds = allLists
-      .filter((list) => list.householdId === householdId || attachedIds.includes(list.id))
-      .map((list) => list.id);
-    if (sharedIds.length > 0) {
-      const hydrated = repos.grocery.getById(sharedIds[0]!);
+    if (attachedIds.length > 0) {
+      const hydrated = repos.grocery.getById(attachedIds[0]!);
+      if (!hydrated) {
+        throw new Error('Attached grocery list missing');
+      }
+      return hydrated;
+    }
+
+    const shared = repos.grocery.list().filter((list) => list.householdId === householdId);
+    if (shared.length > 0) {
+      const hydrated = repos.grocery.getById(shared[0]!.id);
       if (!hydrated) {
         throw new Error('Shared grocery list missing after attach');
       }

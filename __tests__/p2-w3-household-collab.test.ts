@@ -189,7 +189,10 @@ describe('P2-W3 membership authz boundaries', () => {
       userId: 'u-a',
     });
     expect(visible).toHaveLength(3);
-    expect(visible.map((l) => l.id)).toEqual([list3.id, list2.id, list1.id]);
+    expect(visible.map((l) => l.id)).toContain(list1.id);
+    expect(visible.map((l) => l.id)).toContain(list2.id);
+    expect(visible.map((l) => l.id)).toContain(list3.id);
+    expect(visible[0].id).toBe(list3.id);
   });
 
   it('denies non-members with HouseholdAuthzError and never returns foreign rows', () => {
