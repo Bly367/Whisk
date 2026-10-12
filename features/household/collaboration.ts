@@ -95,7 +95,7 @@ export function createHouseholdCollaboration(repos: Repositories) {
     if (attachedIds.length > 0) {
       const hydrated = repos.grocery.getById(attachedIds[0]!);
       if (!hydrated) {
-        throw new Error('Attached grocery list missing');
+        throw new Error('Shared grocery list missing after attach');
       }
       return hydrated;
     }

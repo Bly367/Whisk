@@ -167,6 +167,10 @@ describe('P2-W3 membership authz boundaries', () => {
   });
 
   it('listSharedGroceryLists returns lists ordered by updated_at DESC', () => {
+    jest.useFakeTimers();
+    const baseTime = new Date('2026-10-12T12:00:00.000Z');
+    jest.setSystemTime(baseTime);
+
     const db = createTestDbClient();
     const repos = createRepositories(db);
     const collab = createHouseholdCollaboration(repos);
@@ -178,10 +182,17 @@ describe('P2-W3 membership authz boundaries', () => {
     });
 
     const list1 = collab.listSharedGroceryLists({ householdId: home.id, userId: 'u-a' })[0]!;
+    jest.advanceTimersByTime(100);
     repos.grocery.addItem(list1.id, { name: 'Old item' });
+
+    jest.advanceTimersByTime(100);
     const list2 = repos.grocery.create({ name: 'Middle list', householdId: home.id, items: [] });
+    jest.advanceTimersByTime(100);
     repos.grocery.addItem(list2.id, { name: 'Middle item' });
+
+    jest.advanceTimersByTime(100);
     const list3 = repos.grocery.create({ name: 'Newest list', householdId: home.id, items: [] });
+    jest.advanceTimersByTime(100);
     repos.grocery.addItem(list3.id, { name: 'New item' });
 
     const visible = collab.listSharedGroceryLists({
@@ -189,10 +200,9 @@ describe('P2-W3 membership authz boundaries', () => {
       userId: 'u-a',
     });
     expect(visible).toHaveLength(3);
-    expect(visible.map((l) => l.id)).toContain(list1.id);
-    expect(visible.map((l) => l.id)).toContain(list2.id);
-    expect(visible.map((l) => l.id)).toContain(list3.id);
-    expect(visible[0].id).toBe(list3.id);
+    expect(visible.map((l) => l.id)).toEqual([list3.id, list2.id, list1.id]);
+
+    jest.useRealTimers();
   });
 
   it('denies non-members with HouseholdAuthzError and never returns foreign rows', () => {
@@ -652,6 +662,10 @@ describe('P2-W3 review blockers (invite attach, tenancy, delete clocks, reorder 
   });
 
   it('ensureSharedGroceryList returns the just-attached local list, not an older household list', () => {
+    jest.useFakeTimers();
+    const baseTime = new Date('2026-10-12T12:00:00.000Z');
+    jest.setSystemTime(baseTime);
+
     const db = createTestDbClient();
     const repos = createRepositories(db);
     const collab = createHouseholdCollaboration(repos);
@@ -662,17 +676,22 @@ describe('P2-W3 review blockers (invite attach, tenancy, delete clocks, reorder 
       ownerDisplayName: 'A',
     });
     const existingList = collab.listSharedGroceryLists({ householdId: home.id, userId: 'owner-a' })[0]!;
+    jest.advanceTimersByTime(100);
     repos.grocery.addItem(existingList.id, { name: 'Existing item' });
 
+    jest.advanceTimersByTime(100);
     const localList = repos.grocery.create({
       name: 'Local cart',
       items: [{ name: 'Local item' }],
     });
     expect(localList.householdId).toBeNull();
 
+    jest.advanceTimersByTime(100);
     const ensured = collab.ensureSharedGroceryList(home.id);
     expect(ensured.id).toBe(localList.id);
     expect(ensured.items.map((i) => i.name)).toEqual(['Local item']);
+
+    jest.useRealTimers();
   });
 
   it('applyEvent ignores events when list householdId does not match event householdId', () => {
