@@ -7,7 +7,7 @@ import {
   type GrocerySourceLine,
   type MergedGroceryDraft,
 } from '@/features/shop/merge';
-import { formatWeekLabel, startOfWeekMonday } from '@/features/shop/week';
+import { formatWeekLabel, startOfWeekMonday } from '@/lib/dates';
 
 export type GroceryGeneratePreview = {
   mealPlanId: string;

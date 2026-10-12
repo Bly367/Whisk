@@ -83,10 +83,21 @@ export function createHouseholdCollaboration(repos: Repositories) {
       throw new HouseholdAuthzError();
     }
 
-    for (const list of repos.grocery.list()) {
+    const allLists = repos.grocery.list();
+    const attachedIds: string[] = [];
+    for (const list of allLists) {
       if (list.householdId == null) {
         repos.grocery.setTenantFields(list.id, { householdId });
+        attachedIds.push(list.id);
       }
+    }
+
+    if (attachedIds.length > 0) {
+      const hydrated = repos.grocery.getById(attachedIds[0]!);
+      if (!hydrated) {
+        throw new Error('Shared grocery list missing after attach');
+      }
+      return hydrated;
     }
 
     const shared = repos.grocery.list().filter((list) => list.householdId === householdId);
@@ -165,11 +176,11 @@ export function createHouseholdCollaboration(repos: Repositories) {
 
     listSharedGroceryLists(input: { householdId: string; userId: string }): GroceryListWithItems[] {
       assertActiveMember(input.householdId, input.userId);
-      return repos.grocery
+      const sharedListIds = repos.grocery
         .list()
         .filter((list) => list.householdId === input.householdId)
-        .map((list) => repos.grocery.getById(list.id))
-        .filter((list): list is GroceryListWithItems => list != null);
+        .map((list) => list.id);
+      return repos.grocery.getByIds(sharedListIds);
     },
 
     getSharedGroceryList(input: { listId: string; userId: string }): GroceryListWithItems {
