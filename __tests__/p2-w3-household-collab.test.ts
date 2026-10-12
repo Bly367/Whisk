@@ -166,6 +166,32 @@ describe('P2-W3 membership authz boundaries', () => {
     expect(visible.find((l) => l.id === listA2.id)?.items.map((i) => i.name)).toEqual(['Oranges']);
   });
 
+  it('listSharedGroceryLists returns lists ordered by updated_at DESC', () => {
+    const db = createTestDbClient();
+    const repos = createRepositories(db);
+    const collab = createHouseholdCollaboration(repos);
+
+    const home = collab.createHousehold({
+      name: 'Home',
+      ownerUserId: 'u-a',
+      ownerDisplayName: 'A',
+    });
+
+    const list1 = collab.listSharedGroceryLists({ householdId: home.id, userId: 'u-a' })[0]!;
+    repos.grocery.addItem(list1.id, { name: 'Old item' });
+    const list2 = repos.grocery.create({ name: 'Middle list', householdId: home.id, items: [] });
+    repos.grocery.addItem(list2.id, { name: 'Middle item' });
+    const list3 = repos.grocery.create({ name: 'Newest list', householdId: home.id, items: [] });
+    repos.grocery.addItem(list3.id, { name: 'New item' });
+
+    const visible = collab.listSharedGroceryLists({
+      householdId: home.id,
+      userId: 'u-a',
+    });
+    expect(visible).toHaveLength(3);
+    expect(visible.map((l) => l.id)).toEqual([list3.id, list2.id, list1.id]);
+  });
+
   it('denies non-members with HouseholdAuthzError and never returns foreign rows', () => {
     const db = createTestDbClient();
     const repos = createRepositories(db);
