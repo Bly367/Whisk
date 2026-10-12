@@ -116,6 +116,33 @@ export function createGroceryRepository(db: DbClient) {
       return row ? hydrate(db, mapGroceryList(row)) : null;
     },
 
+    getByIds(ids: string[]): GroceryListWithItems[] {
+      if (ids.length === 0) return [];
+      const placeholders = ids.map(() => '?').join(',');
+      const listRows = db.all<ListRow>(
+        `SELECT * FROM grocery_lists WHERE id IN (${placeholders}) AND deleted_at IS NULL`,
+        ids,
+      );
+      const itemRows = db.all<ItemRow>(
+        `SELECT * FROM grocery_items WHERE list_id IN (${placeholders}) AND deleted_at IS NULL
+         ORDER BY is_completed ASC, aisle COLLATE NOCASE ASC, position ASC, name COLLATE NOCASE ASC`,
+        ids,
+      );
+      const itemsByListId = new Map<string, ItemRow[]>();
+      itemRows.forEach((item) => {
+        const arr = itemsByListId.get(item.list_id);
+        if (arr) {
+          arr.push(item);
+        } else {
+          itemsByListId.set(item.list_id, [item]);
+        }
+      });
+      return listRows.map((listRow) => {
+        const list = mapGroceryList(listRow);
+        return { ...list, items: (itemsByListId.get(list.id) ?? []).map(mapGroceryItem) };
+      });
+    },
+
     list(): GroceryList[] {
       return db
         .all<ListRow>(
