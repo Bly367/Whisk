@@ -132,6 +132,40 @@ describe('P2-W3 membership authz boundaries', () => {
     expect(visible[0].items.map((i) => i.name)).toEqual(['Milk']);
   });
 
+  it('listSharedGroceryLists returns all household lists with items, excluding foreign lists', () => {
+    const db = createTestDbClient();
+    const repos = createRepositories(db);
+    const collab = createHouseholdCollaboration(repos);
+
+    const homeA = collab.createHousehold({
+      name: 'A',
+      ownerUserId: 'u-a',
+      ownerDisplayName: 'A',
+    });
+    const homeB = collab.createHousehold({
+      name: 'B',
+      ownerUserId: 'u-b',
+      ownerDisplayName: 'B',
+    });
+
+    const listA1 = collab.listSharedGroceryLists({ householdId: homeA.id, userId: 'u-a' })[0]!;
+    repos.grocery.addItem(listA1.id, { name: 'Apples' });
+    const listA2 = repos.grocery.create({ name: 'Weekend', householdId: homeA.id, items: [] });
+    repos.grocery.addItem(listA2.id, { name: 'Oranges' });
+    const listB = collab.listSharedGroceryLists({ householdId: homeB.id, userId: 'u-b' })[0]!;
+    repos.grocery.addItem(listB.id, { name: 'Foreign item' });
+
+    const visible = collab.listSharedGroceryLists({
+      householdId: homeA.id,
+      userId: 'u-a',
+    });
+    expect(visible).toHaveLength(2);
+    expect(visible.map((l) => l.id).sort()).toEqual([listA1.id, listA2.id].sort());
+    expect(visible.some((l) => l.id === listB.id)).toBe(false);
+    expect(visible.find((l) => l.id === listA1.id)?.items.map((i) => i.name)).toEqual(['Apples']);
+    expect(visible.find((l) => l.id === listA2.id)?.items.map((i) => i.name)).toEqual(['Oranges']);
+  });
+
   it('denies non-members with HouseholdAuthzError and never returns foreign rows', () => {
     const db = createTestDbClient();
     const repos = createRepositories(db);
