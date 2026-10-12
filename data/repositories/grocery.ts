@@ -120,7 +120,8 @@ export function createGroceryRepository(db: DbClient) {
       if (ids.length === 0) return [];
       const placeholders = ids.map(() => '?').join(',');
       const listRows = db.all<ListRow>(
-        `SELECT * FROM grocery_lists WHERE id IN (${placeholders}) AND deleted_at IS NULL`,
+        `SELECT * FROM grocery_lists WHERE id IN (${placeholders}) AND deleted_at IS NULL
+         ORDER BY updated_at DESC`,
         ids,
       );
       const itemRows = db.all<ItemRow>(
