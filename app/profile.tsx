@@ -217,6 +217,20 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.section}>
+        <Text variant="headline">Recipe parsing</Text>
+        <Text variant="body" tone="secondary">
+          Whisk tries the on-device parser first. You can optionally add your own OpenAI key for
+          a second parser when the on-device model is unavailable.
+        </Text>
+        <Button
+          label="Configure OpenAI parser"
+          variant="secondary"
+          onPress={() => router.push('/settings/openai')}
+          testID="profile-openai-parser"
+        />
+      </View>
+
+      <View style={styles.section}>
         <Text variant="headline">Portability</Text>
         <Text variant="body" tone="secondary">
           Export recipes and tags as JSON anytime. Saved recipes stay viewable and exportable after
