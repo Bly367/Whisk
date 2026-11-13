@@ -462,3 +462,10 @@ it('formats diagnostics only in development and renders them as caption text', (
     /<Text testID="share-import-diagnostics" variant="caption" tone="secondary">/,
   );
 });
+
+it('renders the failure code in every build, not only in development', () => {
+  const shareSource = fs.readFileSync(path.join(__dirname, '..', 'app', 'import', 'share.tsx'), 'utf8');
+  expect(shareSource).toMatch(/setFailureCode\(result\.code \?\? null\)/);
+  expect(shareSource).toMatch(/\{failureCode \? \(\s*<Text testID="share-import-failure-code"/);
+  expect(shareSource).not.toMatch(/__DEV__[^\n]*failureCode/);
+});

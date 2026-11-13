@@ -1,5 +1,6 @@
 import type { ShareIntent } from 'expo-share-intent';
 
+import type { AutoImportPayload } from '@/import/autoImport';
 import { extractUrl } from '@/import/parse/url';
 
 export type ParsedShareIntent = {
@@ -130,4 +131,13 @@ export function parseShareIntent(shareIntent: ShareIntent | null): ParsedShareIn
   }
 
   return null;
+}
+
+export function toAutoImportPayload(parsed: ParsedShareIntent): AutoImportPayload {
+  return {
+    url: parsed.url,
+    sharedText: parsed.sharedText ?? parsed.caption,
+    videoPath: parsed.videoPath,
+    sourceName: parsed.url,
+  };
 }

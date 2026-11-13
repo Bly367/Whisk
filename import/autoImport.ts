@@ -56,7 +56,10 @@ export type AutoImportResult =
       actions: ['try_again', 'choose_video', 'manual'];
       hints?: string[];
       diagnostics: ImportDiagnostic[];
+      /** Short step summary safe to show in release builds, e.g. `ig: share=url page=login_wall …`. */
+      code?: string;
     };
+type ImportTrace = { prefix: string; parts: string[] };
 
 const failed = (diagnostics: ImportDiagnostic[], hints?: string[]): AutoImportResult => ({
   ok: false,
@@ -75,14 +78,35 @@ export async function runAutoImport(
   onStage: (stage: AutoStage, progress?: number) => void = () => {},
 ): Promise<AutoImportResult> {
   const diagnostics: ImportDiagnostic[] = [];
+  const trace: ImportTrace = { prefix: 'share', parts: [] };
   // LLM-backed parsing across caption/subtitle/whisper gets at most ~30 seconds per import.
   const parseBudget: ParseRecipeBudget = { remaining: MAX_LLM_PARSES_PER_IMPORT, deadline: undefined };
+  let result: AutoImportResult;
   try {
-    return await runAutoImportUnsafe(payload, deps, onStage, diagnostics, parseBudget);
+    result = await runAutoImportUnsafe(payload, deps, onStage, diagnostics, parseBudget, trace);
   } catch (error) {
     diagnostics.push({ stage: 'failed', code: `internal:${error instanceof Error ? error.name : 'Error'}` });
+    trace.parts.push('error=internal');
     onStage('failed');
-    return failed(diagnostics);
+    result = failed(diagnostics);
+  }
+  if (result.ok) return result;
+  const commit = diagnostics.find((item) => item.stage === 'saving')?.code.replace(/^commit:/, '');
+  if (commit) trace.parts.push(`commit=${commit}`);
+  return { ...result, code: traceCode(trace) };
+}
+
+function traceCode({ prefix, parts }: ImportTrace): string {
+  const safe = parts.filter((part) => /^[a-z]+=[a-z0-9_+.-]{1,40}$/i.test(part));
+  return `${prefix}: ${safe.join(' ')}`.trim();
+}
+
+function traceSource(url: string): string {
+  try {
+    const source = detectSource(url);
+    return source === 'website' ? 'web' : source;
+  } catch {
+    return 'web';
   }
 }
 
@@ -92,11 +116,18 @@ async function runAutoImportUnsafe(
   onStage: (stage: AutoStage, progress?: number) => void,
   diagnostics: ImportDiagnostic[],
   parseBudget: ParseRecipeBudget,
+  trace: ImportTrace,
 ): Promise<AutoImportResult> {
   onStage('receiving');
   // Instagram's share sheet sends the Reel URL alongside the video file; read the caption first.
   const isInstagram = isInstagramUrl(payload.url);
   const isLocal = Boolean(payload.videoPath) && !isInstagram;
+  const sharedWithoutUrls = payload.sharedText?.replace(/https?:\/\/\S+/gi, '').trim();
+  trace.prefix = isInstagram ? 'ig' : payload.url ? traceSource(payload.url) : payload.videoPath ? 'local' : 'text';
+  trace.parts.push(
+    `share=${[payload.url && 'url', sharedWithoutUrls && 'text', payload.videoPath && 'video'].filter(Boolean).join('+') || 'none'}`,
+  );
+  if (!payload.url && !payload.videoPath) trace.parts.push('url=none');
   const candidates: {
     draft: ImportDraft;
     source: 'caption' | 'audio' | 'web' | 'caption+audio';
@@ -123,14 +154,24 @@ async function runAutoImportUnsafe(
     } catch {
       meta = null;
       diagnostics.push({ stage: 'fetching_caption', code: 'meta:throw' });
+      trace.parts.push('page=throw');
     }
     if (meta) {
       if (meta.blocked) diagnostics.push({ stage: 'fetching_caption', code: `meta:blocked:${meta.blocked}` });
+      if (meta.trace) {
+        const { page, oembed, embed, caption: captionSource } = meta.trace;
+        trace.parts.push(`page=${page}`, `oembed=${oembed}`, `embed=${embed}`, `caption=${captionSource}`);
+        diagnostics.push({ stage: 'fetching_caption', code: `ig:page=${page}:oembed=${oembed}:embed=${embed}:caption=${captionSource}` });
+      }
       if (meta.source === 'tiktok' && meta.subtitleSummary !== undefined && !meta.transcriptUrl)
         diagnostics.push({ stage: 'fetching_caption', code: 'subtitle:no_track', detail: meta.subtitleSummary });
-      const shared = payload.sharedText?.replace(/https?:\/\/\S+/gi, '').trim();
-      const caption = [meta.caption, shared].filter(Boolean).join('\n\n');
+      const caption = [meta.caption, sharedWithoutUrls].filter(Boolean).join('\n\n');
       const parsed = caption ? await safePastedDraft(caption, meta, parseBudget) : null;
+      if (parsed) {
+        const score = scoreDraft(parsed);
+        const parser = parsed.adapterId.split(':')[1] ?? 'heuristic';
+        trace.parts.push(`parse=${captionCandidate(parsed) && score.passes ? 'pass' : 'fail'}_${score.ingredients}i${score.steps}s_${parser}`);
+      } else trace.parts.push('parse=none');
       if (parsed && captionCandidate(parsed)) candidates.push({ draft: parsed, source: 'caption' });
       const passingCaption = candidates.find(
         (item) => item.source === 'caption' && captionCandidate(item.draft) && scoreDraft(item.draft).passes,
@@ -145,6 +186,7 @@ async function runAutoImportUnsafe(
             return save(website.draft, 'web', meta.source, onStage, deps, diagnostics);
         }
       }
+      if (meta.linkedUrls.length) trace.parts.push('link=fail');
     }
   }
 
