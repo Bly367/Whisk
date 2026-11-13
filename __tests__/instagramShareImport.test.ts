@@ -207,7 +207,10 @@ describe('Instagram Reel share with an attached video', () => {
 
     const result = await runAutoImport({ url: reelUrl, videoPath: localVideo, sourceName: reelUrl }, options);
 
-    expect(pages.calls).toEqual([canonicalReelUrl]);
+    expect(pages.calls).toEqual([
+      canonicalReelUrl,
+      `https://www.instagram.com/api/v1/oembed/?url=${encodeURIComponent('https://www.instagram.com/reel/FIXTURE123/')}`,
+    ]);
     expect(transcribeVideo).not.toHaveBeenCalled();
     expect(options.videoFromUrl).not.toHaveBeenCalled();
     expect(options.commitImportDraft).not.toHaveBeenCalled();
