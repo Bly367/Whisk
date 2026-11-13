@@ -1,4 +1,5 @@
 import { runAutoImport } from '@/import/autoImport';
+import type { ImportDraft } from '@/import/types';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fetchSocialMeta } from '@/import/social/socialMeta';
@@ -126,6 +127,90 @@ it('saves a thin audio draft with the transcript and low confidence', async () =
   );
   expect(result).toEqual(expect.objectContaining({ ok: true, source: 'audio', lowConfidence: true }));
   if (result.ok) expect(result.draft.notes).toMatch(/^Transcript:/);
+});
+
+it('never transcribes an Instagram share that has a video file but a failing caption', async () => {
+  const transcribeVideo = jest.fn();
+  const result = await runAutoImport(
+    { url: 'https://instagram.com/reel/1', videoPath: '/cache/reel.mp4' },
+    {
+      fetchSocialMeta: async () => ({
+        source: 'instagram',
+        canonicalUrl: 'https://instagram.com/reel/1',
+        caption: 'comment RECIPE',
+        linkedUrls: [],
+      }),
+      transcribeVideo,
+      commitImportDraft: jest.fn(() => ({ id: 'nope' })),
+    },
+  );
+  expect(transcribeVideo).not.toHaveBeenCalled();
+  expect(result).toEqual(expect.objectContaining({ ok: false, hints: ['ig_save_reel'] }));
+  expect(result.diagnostics).toEqual(
+    expect.arrayContaining([expect.objectContaining({ code: 'instagram_audio_disabled' })]),
+  );
+});
+
+it('follows a recipe link from an Instagram caption before transcribing', async () => {
+  const transcribeVideo = jest.fn();
+  const websiteImport = jest.fn(async () => ({
+    ok: true as const,
+    draft: {
+      title: 'Linked recipe',
+      ingredients: [
+        { name: 'flour', quantity: '1', unit: 'cup' },
+        { name: 'milk', quantity: '1', unit: 'cup' },
+        { name: 'egg', quantity: '1', unit: '' },
+      ],
+      instructions: [{ text: 'Mix' }, { text: 'Bake' }],
+      adapterId: 'web',
+    } as ImportDraft,
+  }));
+  const result = await runAutoImport(
+    { url: 'https://instagram.com/reel/1', videoPath: '/cache/reel.mp4' },
+    {
+      fetchSocialMeta: async () => ({
+        source: 'instagram',
+        canonicalUrl: 'https://instagram.com/reel/1',
+        caption: 'Full recipe at https://recipes.test/a',
+        linkedUrls: ['https://recipes.test/a'],
+      }),
+      websiteImport,
+      transcribeVideo,
+      commitImportDraft: jest.fn(() => ({ id: 'linked' })),
+    },
+  );
+  expect(websiteImport).toHaveBeenCalledWith('https://recipes.test/a');
+  expect(transcribeVideo).not.toHaveBeenCalled();
+  expect(result).toEqual(expect.objectContaining({ ok: true, source: 'web' }));
+});
+
+it('still transcribes a video file shared without an Instagram URL', async () => {
+  const transcribeVideo = jest.fn(async () => ({
+    ok: true as const,
+    transcript: 'Sear the chicken. Simmer the orzo. Serve.',
+    metadata: { text: 'Sear the chicken. Simmer the orzo. Serve.', durationMs: 1, segments: [] },
+  }));
+  await runAutoImport(
+    { videoPath: '/cache/video.mp4', sourceName: 'Photos' },
+    { transcribeVideo, commitImportDraft: jest.fn(() => ({ id: 'photos' })) },
+  );
+  expect(transcribeVideo).toHaveBeenCalledWith('/cache/video.mp4', expect.anything());
+});
+
+it('still transcribes a TikTok share that includes a local video file', async () => {
+  const transcribeVideo = jest.fn(async () => ({
+    ok: true as const,
+    transcript: 'Sear the chicken. Simmer the orzo. Serve.',
+    metadata: { text: 'Sear the chicken. Simmer the orzo. Serve.', durationMs: 1, segments: [] },
+  }));
+  const fetchMeta = jest.fn();
+  await runAutoImport(
+    { url: 'https://www.tiktok.com/@cook/video/1', videoPath: '/cache/video.mp4' },
+    { fetchSocialMeta: fetchMeta, transcribeVideo, commitImportDraft: jest.fn(() => ({ id: 'tiktok' })) },
+  );
+  expect(fetchMeta).not.toHaveBeenCalled();
+  expect(transcribeVideo).toHaveBeenCalledWith('/cache/video.mp4', expect.anything());
 });
 
 it('reads TikTok ASR subtitles before downloading video', async () => {

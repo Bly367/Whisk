@@ -95,14 +95,19 @@ async function runAutoImportUnsafe(
 ): Promise<AutoImportResult> {
   onStage('receiving');
   // Instagram's share sheet sends the Reel URL alongside the video file; read the caption first.
-  const isLocal = Boolean(payload.videoPath) && !isInstagramUrl(payload.url);
+  const isInstagram = isInstagramUrl(payload.url);
+  const isLocal = Boolean(payload.videoPath) && !isInstagram;
   const candidates: {
     draft: ImportDraft;
     source: 'caption' | 'audio' | 'web' | 'caption+audio';
   }[] = [];
   const tried = new Set<string>();
   let meta: SocialMeta | null = null;
-  let audioReason = payload.videoPath ? 'local_video' : 'no_video_url';
+  let audioReason = isInstagram
+    ? 'instagram_audio_disabled'
+    : payload.videoPath
+      ? 'local_video'
+      : 'no_video_url';
 
   if (!isLocal && payload.url && detectSource(payload.url) === 'website') {
     const website = await safeWebsiteImport(payload.url, deps, onStage);
@@ -143,9 +148,13 @@ async function runAutoImportUnsafe(
     }
   }
 
+  if (isInstagram) {
+    diagnostics.push({ stage: 'fetching_caption', code: 'instagram_audio_disabled' });
+  }
+
   let cleanup: (() => Promise<void>) | undefined;
   let audioDraft: ImportDraft | null = null;
-  if (!isLocal && meta?.transcriptUrl) {
+  if (!isInstagram && !isLocal && meta?.transcriptUrl) {
     onStage('reading_transcript');
     const transcript = await readSubtitle(meta, deps, diagnostics);
     if (transcript) {
@@ -159,9 +168,9 @@ async function runAutoImportUnsafe(
     }
   }
   let audioFailed = false;
-  if (!payload.videoPath && meta && !meta.videoUrl)
+  if (!isInstagram && !payload.videoPath && meta && !meta.videoUrl)
     diagnostics.push({ stage: 'downloading_video', code: 'video:no_video_url' });
-  if (payload.videoPath || meta?.videoUrl) {
+  if (!isInstagram && (payload.videoPath || meta?.videoUrl)) {
     let videoPath = payload.videoPath;
     if (!videoPath && meta) {
       onStage('downloading_video');
@@ -263,8 +272,9 @@ async function runAutoImportUnsafe(
       hintsFor(meta, audioReason),
     );
   const caption = candidates.find((item) => item.source === 'caption');
-  if (caption && audioFailed && qualifiedCaptionOnly(caption.draft)) {
-    const note = "Steps weren't in the caption. Add them, or save the video and share it from Photos to transcribe it.";
+  if (caption && qualifiedCaptionOnly(caption.draft) && (audioFailed || isInstagram)) {
+    const note =
+      "Steps weren't in the caption. Add them, or save the video to Photos and share it from Photos to Whisk to transcribe it.";
     return save({ ...caption.draft, notes: [caption.draft.notes, note].filter(Boolean).join('\n') }, 'caption', meta?.source ?? 'shared post', onStage, deps, diagnostics, true, hintsFor(meta, audioReason), { allowIngredientsOnly: true });
   }
   if (caption) diagnostics.push({ stage: 'failed', code: 'caption:not_saveable', detail: `${scoreDraft(caption.draft).ingredients} ingredients, ${scoreDraft(caption.draft).steps} steps` });
@@ -387,7 +397,8 @@ async function safeTranscriptDraft(
   }
 }
 function hintsFor(meta: SocialMeta | null, reason: string): string[] | undefined {
-  return meta?.source === 'instagram' && (reason === 'no_video_url' || reason === 'login_wall')
+  return meta?.source === 'instagram' &&
+    (reason === 'no_video_url' || reason === 'login_wall' || reason === 'instagram_audio_disabled')
     ? ['ig_save_reel']
     : undefined;
 }

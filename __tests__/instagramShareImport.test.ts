@@ -14,11 +14,15 @@ const transcript =
   'Then add the garlic and the orzo and toast it for one minute. ' +
   'Pour in the chicken broth and simmer for 12 minutes. Finish with lemon juice and serve.';
 
-const instagramPages = (pages: { reel: string; embed?: string }) => {
+const instagramPages = (pages: { reel: string; embed?: string; oembed?: string }) => {
   const calls: string[] = [];
   const fetchText = async (url: string) => {
     calls.push(url);
-    const text = url.includes('/embed/captioned/') ? (pages.embed ?? '') : pages.reel;
+    const text = url.includes('/api/v1/oembed/')
+      ? (pages.oembed ?? '')
+      : url.includes('/embed/captioned/')
+        ? (pages.embed ?? '')
+        : pages.reel;
     return { status: 200, finalUrl: url, text };
   };
   return { calls, fetchSocialMeta: (url: string) => fetchSocialMeta(url, { fetchText }) };
@@ -41,6 +45,32 @@ const deps = (overrides: AutoImportDeps): AutoImportDeps => ({
 });
 
 describe('Instagram Reel share with an attached video', () => {
+  it('saves from oEmbed when the reel page has no caption meta', async () => {
+    const recipeCaption =
+      'Crunchwrap Supreme\n\nIngredients:\n1 lb beef\n1 tortilla\n\nInstructions:\nCook beef. Fold and serve.';
+    const canonical = 'https://instagram.com/reel/DfUyjFYBRnX/';
+    const transcribeVideo = jest.fn();
+    const fetchText = async (url: string) => {
+      if (url.includes('/api/v1/oembed/')) {
+        return { status: 200, finalUrl: url, text: JSON.stringify({ title: recipeCaption, author_name: 'tacobell' }) };
+      }
+      return { status: 200, finalUrl: canonical, text: '<html></html>' };
+    };
+    const stages: string[] = [];
+    const result = await runAutoImport(
+      { url: 'https://www.instagram.com/reel/DfUyjFYBRnX/', videoPath: localVideo },
+      deps({
+        fetchSocialMeta: (url) => fetchSocialMeta(url, { fetchText }),
+        transcribeVideo,
+      }),
+      (stage) => stages.push(stage),
+    );
+    expect(result).toEqual(expect.objectContaining({ ok: true, source: 'caption' }));
+    expect(transcribeVideo).not.toHaveBeenCalled();
+    expect(stages).not.toContain('transcribing');
+    if (result.ok) expect(result.draft.title).toMatch(/crunchwrap supreme/i);
+  });
+
   it('saves a passing Reel caption without transcribing the attached video', async () => {
     const pages = instagramPages({ reel: fixture('ig-reel-recipe-caption.html') });
     const fetchMeta = jest.fn(pages.fetchSocialMeta);
@@ -68,47 +98,57 @@ describe('Instagram Reel share with an attached video', () => {
     expect(stages).toEqual(['receiving', 'fetching_caption', 'saving', 'saved']);
   });
 
-  it('transcribes the local video and merges it with an ingredients-only caption', async () => {
+  it('saves an ingredients-only caption without transcribing and explains how to import from Photos', async () => {
     const pages = instagramPages({ reel: fixture('ig-reel-ingredients-only.html') });
     const transcribeVideo = transcribed();
     const options = deps({ fetchSocialMeta: pages.fetchSocialMeta, transcribeVideo });
 
     const result = await runAutoImport({ url: reelUrl, videoPath: localVideo, sourceName: reelUrl }, options);
 
-    expect(transcribeVideo).toHaveBeenCalledWith(localVideo, expect.anything());
+    expect(transcribeVideo).not.toHaveBeenCalled();
     expect(options.videoFromUrl).not.toHaveBeenCalled();
-    expect(result).toEqual(expect.objectContaining({ ok: true, source: 'caption+audio' }));
+    expect(result).toEqual(expect.objectContaining({ ok: true, source: 'caption', lowConfidence: true }));
     if (result.ok) {
       expect(result.draft.title).toBe('Lemon Garlic Chicken Orzo');
       expect(result.draft.ingredients.map((item) => item.name)).toEqual(
         expect.arrayContaining(['chicken thighs', 'orzo', 'chicken broth']),
       );
-      expect(result.draft.instructions.length).toBeGreaterThanOrEqual(2);
-      expect(result.draft.instructions.map((step) => step.text).join(' ')).toMatch(/simmer/i);
+      expect(result.draft.instructions.length).toBe(0);
+      expect(result.draft.notes).toMatch(/share it from Photos to Whisk to transcribe/i);
       expect(result.draft.sourceName).toBe('instagram');
     }
+    expect(result.diagnostics).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: 'instagram_audio_disabled' })]),
+    );
   });
 
-  it('transcribes the local video when the Reel caption is missing behind a login wall', async () => {
-    const pages = instagramPages({ reel: fixture('ig-login-wall.html'), embed: '<html></html>' });
+  it('fails with a Photos hint when the Reel caption is missing behind a login wall', async () => {
+    const pages = instagramPages({ reel: fixture('ig-login-wall.html'), oembed: '{}', embed: '<html></html>' });
     const transcribeVideo = transcribed();
     const options = deps({ fetchSocialMeta: pages.fetchSocialMeta, transcribeVideo });
 
     const result = await runAutoImport({ url: reelUrl, videoPath: localVideo, sourceName: reelUrl }, options);
 
-    expect(pages.calls).toEqual([canonicalReelUrl, `${canonicalReelUrl}embed/captioned/`]);
-    expect(transcribeVideo).toHaveBeenCalledWith(localVideo, expect.anything());
+    expect(pages.calls).toEqual([
+      canonicalReelUrl,
+      `https://www.instagram.com/api/v1/oembed/?url=${encodeURIComponent(canonicalReelUrl)}`,
+      `${canonicalReelUrl}embed/captioned/`,
+    ]);
+    expect(transcribeVideo).not.toHaveBeenCalled();
     expect(options.videoFromUrl).not.toHaveBeenCalled();
-    expect(result).toEqual(expect.objectContaining({ ok: true, source: 'audio', lowConfidence: true }));
+    expect(result).toEqual(expect.objectContaining({ ok: false, hints: ['ig_save_reel'] }));
     expect(result.diagnostics).toEqual(
-      expect.arrayContaining([expect.objectContaining({ code: 'meta:blocked:login_wall' })]),
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'meta:blocked:login_wall' }),
+        expect.objectContaining({ code: 'instagram_audio_disabled' }),
+      ]),
     );
     expect(result.diagnostics).not.toEqual(
       expect.arrayContaining([expect.objectContaining({ code: 'video:no_video_url' })]),
     );
   });
 
-  it('transcribes the local video when the caption has no recipe and fails without a CDN download', async () => {
+  it('fails with a Photos hint when the caption has no recipe and never transcribes', async () => {
     const pages = instagramPages({ reel: fixture('ig-empty-caption.html') });
     const transcribeVideo = jest.fn(async () => ({
       ok: false as const,
@@ -119,12 +159,15 @@ describe('Instagram Reel share with an attached video', () => {
     const result = await runAutoImport({ url: reelUrl, videoPath: localVideo, sourceName: reelUrl }, options);
 
     expect(pages.calls).toEqual([canonicalReelUrl]);
-    expect(transcribeVideo).toHaveBeenCalledWith(localVideo, expect.anything());
+    expect(transcribeVideo).not.toHaveBeenCalled();
     expect(options.videoFromUrl).not.toHaveBeenCalled();
     expect(options.commitImportDraft).not.toHaveBeenCalled();
-    expect(result).toEqual(expect.objectContaining({ ok: false, reason: "Couldn't find a recipe in this post" }));
-    // The video was already shared, so "save the Reel and share it from Photos" would not help.
-    expect(result.hints).toBeUndefined();
+    expect(result).toEqual(
+      expect.objectContaining({ ok: false, reason: "Couldn't find a recipe in this post", hints: ['ig_save_reel'] }),
+    );
+    expect(result.diagnostics).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: 'instagram_audio_disabled' })]),
+    );
   });
 
   it('treats a bare instagram.com Reel URL the same way', async () => {

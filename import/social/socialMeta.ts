@@ -116,12 +116,30 @@ export async function fetchSocialMeta(
       /\/accounts\/login/i.test(page.finalUrl) ||
       /<form[^>]+\/accounts\/login/i.test(html))
   ) {
-    try {
-      const embed = await get(`${url.replace(/\/$/, '')}/embed/captioned/`);
-      const embeddedCaption = meta(embed.text, 'og:description') || meta(embed.text, 'description');
-      if (embeddedCaption) caption = embeddedCaption;
-    } catch {
-      /* fall through */
+    const loginWall =
+      /\/accounts\/login/i.test(page.finalUrl) ||
+      /<form[^>]+\/accounts\/login/i.test(html);
+    if (!caption || loginWall) {
+      try {
+        const oembed = await get(
+          `https://www.instagram.com/api/v1/oembed/?url=${encodeURIComponent(url)}`,
+        );
+        const data = JSON.parse(oembed.text);
+        if (typeof data.title === 'string' && data.title.trim()) caption = data.title;
+        if (!author && typeof data.author_name === 'string' && data.author_name.trim())
+          author = data.author_name;
+      } catch {
+        /* fall through */
+      }
+    }
+    if (!caption) {
+      try {
+        const embed = await get(`${url.replace(/\/$/, '')}/embed/captioned/`);
+        const embeddedCaption = meta(embed.text, 'og:description') || meta(embed.text, 'description');
+        if (embeddedCaption) caption = embeddedCaption;
+      } catch {
+        /* fall through */
+      }
     }
     if (!caption) return { source, canonicalUrl: url, linkedUrls: [], blocked: 'login_wall' };
   }

@@ -301,19 +301,21 @@ it('records native transcription error codes and a successful no-draft diagnosti
     },
   ];
   for (const error of errors) {
+    const transcribeVideo = jest.fn(async () => ({ ok: false as const, error }));
     const result = await runAutoImport(
-      { url: 'https://instagram.com/reel/1' },
+      { url: 'https://www.tiktok.com/@cook/video/1' },
       {
         fetchSocialMeta: async () => ({
-          source: 'instagram',
-          canonicalUrl: 'https://instagram.com/reel/1',
+          source: 'tiktok',
+          canonicalUrl: 'https://www.tiktok.com/@cook/video/1',
           linkedUrls: [],
-          videoUrl: 'https://cdninstagram.com/a.mp4',
+          videoUrl: 'https://v16.tiktokcdn.com/a.mp4',
         }),
         videoFromUrl: async () => ({ ok: true as const, uri: '/a', cleanup: async () => {} }),
-        transcribeVideo: async () => ({ ok: false as const, error }),
+        transcribeVideo,
       },
     );
+    expect(transcribeVideo).toHaveBeenCalled();
     expect(result.diagnostics).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ code: `transcribe:${error.code}:${error.details?.code}` }),
@@ -321,23 +323,25 @@ it('records native transcription error codes and a successful no-draft diagnosti
     );
   }
 
+  const transcribeVideo = jest.fn(async () => ({
+    ok: true as const,
+    transcript: '',
+    metadata: { text: '', durationMs: 1, segments: [] },
+  }));
   const noDraft = await runAutoImport(
-    { url: 'https://instagram.com/reel/1' },
+    { url: 'https://www.tiktok.com/@cook/video/1' },
     {
       fetchSocialMeta: async () => ({
-        source: 'instagram',
-        canonicalUrl: 'https://instagram.com/reel/1',
+        source: 'tiktok',
+        canonicalUrl: 'https://www.tiktok.com/@cook/video/1',
         linkedUrls: [],
-        videoUrl: 'https://cdninstagram.com/a.mp4',
+        videoUrl: 'https://v16.tiktokcdn.com/a.mp4',
       }),
       videoFromUrl: async () => ({ ok: true as const, uri: '/a', cleanup: async () => {} }),
-      transcribeVideo: async () => ({
-        ok: true as const,
-        transcript: '',
-        metadata: { text: '', durationMs: 1, segments: [] },
-      }),
+      transcribeVideo,
     },
   );
+  expect(transcribeVideo).toHaveBeenCalled();
   expect(noDraft).toEqual(expect.objectContaining({ ok: false }));
   expect(noDraft.diagnostics).toEqual(
     expect.arrayContaining([
@@ -346,8 +350,32 @@ it('records native transcription error codes and a successful no-draft diagnosti
   );
 });
 
-it('still fails for a too-thin ingredients-only caption after a download failure', async () => {
+it('skips Instagram CDN video download and transcription', async () => {
+  const videoFromUrl = jest.fn();
+  const transcribeVideo = jest.fn();
+  const result = await runAutoImport(
+    { url: 'https://instagram.com/reel/1' },
+    {
+      fetchSocialMeta: async () => ({
+        source: 'instagram',
+        canonicalUrl: 'https://instagram.com/reel/1',
+        linkedUrls: [],
+        videoUrl: 'https://cdninstagram.com/a.mp4',
+      }),
+      videoFromUrl,
+      transcribeVideo,
+    },
+  );
+  expect(videoFromUrl).not.toHaveBeenCalled();
+  expect(transcribeVideo).not.toHaveBeenCalled();
+  expect(result.diagnostics).toEqual(
+    expect.arrayContaining([expect.objectContaining({ code: 'instagram_audio_disabled' })]),
+  );
+});
+
+it('still fails for a too-thin ingredients-only Instagram caption without trying audio', async () => {
   const commit = jest.fn(() => ({ id: 'unexpected' }));
+  const videoFromUrl = jest.fn();
   const result = await runAutoImport(
     { url: 'https://instagram.com/reel/1' },
     {
@@ -358,7 +386,7 @@ it('still fails for a too-thin ingredients-only caption after a download failure
         linkedUrls: [],
         videoUrl: 'https://cdninstagram.com/a.mp4',
       }),
-      videoFromUrl: async () => ({ ok: false as const, reason: 'http_403' as const }),
+      videoFromUrl,
       commitImportDraft: commit,
     },
   );
@@ -368,9 +396,10 @@ it('still fails for a too-thin ingredients-only caption after a download failure
   expect(result.diagnostics).toEqual(
     expect.arrayContaining([
       expect.objectContaining({ code: 'caption:not_saveable' }),
-      expect.objectContaining({ code: 'video:http_403' }),
+      expect.objectContaining({ code: 'instagram_audio_disabled' }),
     ]),
   );
+  expect(videoFromUrl).not.toHaveBeenCalled();
   expect(commit).not.toHaveBeenCalled();
 });
 
