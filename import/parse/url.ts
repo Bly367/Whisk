@@ -36,6 +36,11 @@ export function canonicalizeUrl(input: string): string {
   url.hash = '';
   TRACKING_PARAMS.forEach((param) => url.searchParams.delete(param));
   url.hostname = url.hostname.toLowerCase().replace(/^www\./, '');
+  if (['instagr.am', 'm.instagram.com'].includes(url.hostname)) url.hostname = 'instagram.com';
+  if (url.hostname === 'instagram.com') {
+    const post = url.pathname.match(/^\/(?:[\w.]+\/)?(reels?|p|tv)\/([\w-]+)\/?$/i);
+    if (post) url.pathname = `/${post[1].toLowerCase() === 'reels' ? 'reel' : post[1].toLowerCase()}/${post[2]}/`;
+  }
 
   if (
     url.hostname === 'instagram.com' ||

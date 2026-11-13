@@ -1,4 +1,4 @@
-import { draftFromPastedText } from '@/import/parse/pasteText';
+import { parseRecipeText } from '@/import/parse/parseRecipeText';
 import type { ImportAdapter, ImportAdapterInput, ImportAdapterResult } from '@/import/types';
 
 export const OCR_ADAPTER_ID = 'ocr-photo';
@@ -112,11 +112,12 @@ export const ocrAdapter: ImportAdapter = {
         };
       }
 
-      const draft = draftFromPastedText({
-        text: result.text,
-        titleHint: null,
-        sourceUrl: null,
+      const draft = await parseRecipeText(result.text, {
+        sourceKind: 'ocr',
         adapterId: OCR_ADAPTER_ID,
+        sourceUrl: null,
+        sourceName: 'Photo',
+        heuristicKind: 'paste',
       });
 
       if (!draft) {

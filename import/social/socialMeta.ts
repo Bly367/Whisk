@@ -15,7 +15,10 @@ export type SocialMeta = {
   videoHeaders?: Record<string, string>;
   linkedUrls: string[];
   blocked?: 'login_wall' | 'http_error';
+  trace?: InstagramTrace;
 };
+/** Fixed-vocabulary step outcomes; never holds URLs or caption text. */
+export type InstagramTrace = { page: string; oembed: string; embed: string; caption: 'oembed' | 'page' | 'embed' | 'none' };
 export type SocialMetaDeps = {
   fetchText?: (url: string, options?: FetchTextOptions) => Promise<FetchTextResult>;
 };
@@ -81,20 +84,69 @@ function rehydration(html: string): any {
   }
 }
 
+function isGenericInstagramText(text: string): boolean {
+  return /^(?:instagram|login • instagram|create an account or log in to instagram\b.*|.{1,80} on instagram)$/is.test(text.trim());
+}
+function isTruncatedCaption(text: string): boolean {
+  return /(?:\.\.\.|…)\s*(?:more)?\s*\.?$/i.test(text.trim());
+}
+function embedCaption(html: string): { caption: string; via: 'div' | 'json' | 'meta' } | null {
+  const div = html.match(/<div class="Caption">([\s\S]*?)(?:<div class="CaptionComments"|<\/div>)/i)?.[1];
+  if (div) {
+    const text = decode(
+      div
+        .replace(/<a class="CaptionUsername"[\s\S]*?<\/a>/i, '')
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<[^>]+>/g, ''),
+    ).trim();
+    if (text) return { caption: text, via: 'div' };
+  }
+  const at = html.indexOf('edge_media_to_caption');
+  if (at >= 0) {
+    let window = html.slice(at, at + 20_000);
+    // Embed pages nest the media JSON inside a JS string, adding one level of escaping.
+    if (html.slice(at - 2, at) === '\\"') window = window.replace(/\\(["\\/])/g, '$1');
+    const raw = window.match(/^edge_media_to_caption":\{"edges":\[\{"node":\{"text":"((?:[^"\\]|\\.)*)"/)?.[1];
+    if (raw) {
+      try {
+        const text = String(JSON.parse(`"${raw}"`)).trim();
+        if (text) return { caption: text, via: 'json' };
+      } catch {
+        /* fall through to meta */
+      }
+    }
+  }
+  const metaCaption = meta(html, 'og:description') || meta(html, 'description');
+  return metaCaption ? { caption: metaCaption, via: 'meta' } : null;
+}
+
+function instagramOEmbedParamUrl(canonicalReelUrl: string): string {
+  const reel = new URL(canonicalReelUrl);
+  reel.hostname = 'www.instagram.com';
+  if (!reel.pathname.endsWith('/')) reel.pathname += '/';
+  return reel.toString();
+}
+
 export async function fetchSocialMeta(
   inputUrl: string,
   deps: SocialMetaDeps = {},
 ): Promise<SocialMeta> {
   const get = deps.fetchText ?? fetchText;
-  let url = canonicalizeUrl(inputUrl);
+  const requested = canonicalizeUrl(inputUrl);
+  let url = requested;
   const source = detectSource(url);
   let page: FetchTextResult;
+  let pageFailed = false;
   try {
     page = await get(url);
   } catch {
-    return { source, canonicalUrl: url, linkedUrls: [], blocked: 'http_error' };
+    if (source !== 'instagram')
+      return { source, canonicalUrl: url, linkedUrls: [], blocked: 'http_error' };
+    page = { status: 0, finalUrl: url, text: '' };
+    pageFailed = true;
   }
-  url = canonicalizeUrl(page.finalUrl || url);
+  const landed = canonicalizeUrl(page.finalUrl || url);
+  if (!(source === 'instagram' && /\/accounts\/login/i.test(landed))) url = landed;
   const html = page.text;
   let caption = meta(html, 'og:description') || meta(html, 'og:title') || meta(html, 'description');
   if (source === 'instagram' && caption)
@@ -110,20 +162,74 @@ export async function fetchSocialMeta(
   let subtitleSummary: string | undefined;
   let author: string | undefined;
   let videoHeaders: Record<string, string> | undefined;
-  if (
-    source === 'instagram' &&
-    (!caption ||
-      /\/accounts\/login/i.test(page.finalUrl) ||
-      /<form[^>]+\/accounts\/login/i.test(html))
-  ) {
+  let trace: InstagramTrace | undefined;
+  if (source === 'instagram') {
+    const loginWall =
+      /\/accounts\/login/i.test(landed) || /<form[^>]+\/accounts\/login/i.test(html);
+    const pageCaption = loginWall || isGenericInstagramText(caption) ? '' : caption;
+    trace = {
+      page: pageFailed
+        ? 'error'
+        : loginWall
+          ? 'login_wall'
+          : page.status < 200 || page.status >= 300
+            ? `http_${page.status}`
+            : !pageCaption
+              ? 'no_meta'
+              : isTruncatedCaption(pageCaption)
+                ? 'truncated'
+                : 'ok',
+      oembed: 'skip',
+      embed: 'skip',
+      caption: 'none',
+    };
+    caption = '';
+    // The page meta is often missing or truncated; oEmbed carries the full caption with newlines.
     try {
-      const embed = await get(`${url.replace(/\/$/, '')}/embed/captioned/`);
-      const embeddedCaption = meta(embed.text, 'og:description') || meta(embed.text, 'description');
-      if (embeddedCaption) caption = embeddedCaption;
+      const oembed = await get(
+        `https://www.instagram.com/api/v1/oembed/?url=${encodeURIComponent(instagramOEmbedParamUrl(url))}`,
+        { headers: { Accept: 'application/json' } },
+      );
+      let data: { title?: unknown; author_name?: unknown } | null = null;
+      try {
+        data = JSON.parse(oembed.text);
+      } catch {
+        data = null;
+      }
+      if (oembed.status < 200 || oembed.status >= 300) trace.oembed = `http_${oembed.status}`;
+      else if (!data) trace.oembed = 'not_json';
+      else if (typeof data.title !== 'string' || !data.title.trim()) trace.oembed = 'no_title';
+      else {
+        trace.oembed = 'ok';
+        caption = data.title;
+        trace.caption = 'oembed';
+        if (typeof data.author_name === 'string' && data.author_name.trim()) author = data.author_name;
+      }
     } catch {
-      /* fall through */
+      trace.oembed = 'error';
     }
-    if (!caption) return { source, canonicalUrl: url, linkedUrls: [], blocked: 'login_wall' };
+    if (!caption && pageCaption && !isTruncatedCaption(pageCaption)) {
+      caption = pageCaption;
+      trace.caption = 'page';
+    }
+    if (!caption) {
+      try {
+        const embed = await get(`${url.replace(/\/$/, '')}/embed/captioned/`);
+        const found = embedCaption(embed.text);
+        if (found) {
+          caption = found.caption;
+          trace.embed = `ok_${found.via}`;
+          trace.caption = 'embed';
+        } else trace.embed = embed.status < 200 || embed.status >= 300 ? `http_${embed.status}` : 'no_caption';
+      } catch {
+        trace.embed = 'error';
+      }
+    }
+    if (!caption && pageCaption) {
+      caption = pageCaption;
+      trace.caption = 'page';
+    }
+    if (!caption) return { source, canonicalUrl: url, linkedUrls: [], blocked: 'login_wall', trace };
   }
   if (source === 'tiktok') {
     const item =
@@ -175,5 +281,6 @@ export async function fetchSocialMeta(
     ...(source === 'tiktok' ? { setCookieSeen: Boolean(page.setCookie) } : {}),
     videoHeaders,
     linkedUrls: links(caption ?? '', author),
+    ...(trace ? { trace } : {}),
   };
 }

@@ -134,6 +134,15 @@ function RootNavigator() {
             headerTintColor: colors.textPrimary,
           }}
         />
+        <Stack.Screen
+          name="settings/openai"
+          options={{
+            title: 'Recipe parsing',
+            headerShadowVisible: false,
+            headerStyle: { backgroundColor: colors.canvas },
+            headerTintColor: colors.textPrimary,
+          }}
+        />
       </Stack>
     </NavThemeProvider>
   );
