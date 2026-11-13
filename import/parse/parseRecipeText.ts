@@ -91,9 +91,11 @@ function preferScoredDraft(primary: ImportDraft | null, secondary: ImportDraft |
   if (!secondary) return primary;
   // Social captions are only saved with quantified ingredients, so a richer names-only LLM draft must not win.
   if (preferQuantified) {
-    const primaryQuantified = quantifiedCount(primary) >= 2;
-    const secondaryQuantified = quantifiedCount(secondary) >= 2;
-    if (primaryQuantified !== secondaryQuantified) return primaryQuantified ? primary : secondary;
+    const primaryQuantified = quantifiedCount(primary);
+    const secondaryQuantified = quantifiedCount(secondary);
+    if (primaryQuantified !== secondaryQuantified) {
+      return primaryQuantified > secondaryQuantified ? primary : secondary;
+    }
   }
   const primaryScore = scoreDraft(primary);
   const secondaryScore = scoreDraft(secondary);
@@ -137,6 +139,9 @@ export async function parseRecipeText(
   // This is shared per auto-import: at most two LLM parser attempts and ~30s added latency.
   if (budget) { budget.remaining -= 1; budget.deadline ??= Date.now() + 30_000; }
   const remainingMs = budget?.deadline ? Math.max(0, budget.deadline - Date.now()) : Infinity;
+  const preferQuantified =
+    options.heuristicKind === 'social'
+    || (options.heuristicKind === 'transcript' && Boolean(options.sharedText?.trim()));
 
   const foundation = options.foundation ?? parseRecipeWithFoundationModels;
   const buildHeuristicDraft = () =>
@@ -147,7 +152,7 @@ export async function parseRecipeText(
     if (foundationResult?.ok) {
       const grounded = groundParsedRecipe(foundationResult.recipe, options.heuristicKind === 'transcript' && options.sharedText ? `${text}\n${options.sharedText}` : text);
       const llmDraft = grounded ? toDraft(grounded, text, options) : null;
-      const picked = preferScoredDraft(llmDraft, buildHeuristicDraft(), options.heuristicKind === 'social');
+      const picked = preferScoredDraft(llmDraft, buildHeuristicDraft(), preferQuantified);
       if (picked) return picked;
       if (grounded) fallbackSteps = grounded;
     }
@@ -164,7 +169,7 @@ export async function parseRecipeText(
       if (result.ok) {
         const grounded = groundParsedRecipe(result.recipe, options.heuristicKind === 'transcript' && options.sharedText ? `${text}\n${options.sharedText}` : text);
         const llmDraft = grounded ? toDraft(grounded, text, options) : null;
-        const picked = preferScoredDraft(llmDraft, buildHeuristicDraft(), options.heuristicKind === 'social');
+        const picked = preferScoredDraft(llmDraft, buildHeuristicDraft(), preferQuantified);
         if (picked) return picked;
         if (grounded) fallbackSteps = grounded;
       }
