@@ -81,20 +81,31 @@ function rehydration(html: string): any {
   }
 }
 
+function instagramOEmbedParamUrl(canonicalReelUrl: string): string {
+  const reel = new URL(canonicalReelUrl);
+  reel.hostname = 'www.instagram.com';
+  if (!reel.pathname.endsWith('/')) reel.pathname += '/';
+  return reel.toString();
+}
+
 export async function fetchSocialMeta(
   inputUrl: string,
   deps: SocialMetaDeps = {},
 ): Promise<SocialMeta> {
   const get = deps.fetchText ?? fetchText;
-  let url = canonicalizeUrl(inputUrl);
+  const requested = canonicalizeUrl(inputUrl);
+  let url = requested;
   const source = detectSource(url);
   let page: FetchTextResult;
   try {
     page = await get(url);
   } catch {
-    return { source, canonicalUrl: url, linkedUrls: [], blocked: 'http_error' };
+    if (source !== 'instagram')
+      return { source, canonicalUrl: url, linkedUrls: [], blocked: 'http_error' };
+    page = { status: 0, finalUrl: url, text: '' };
   }
-  url = canonicalizeUrl(page.finalUrl || url);
+  const landed = canonicalizeUrl(page.finalUrl || url);
+  if (!(source === 'instagram' && /\/accounts\/login/i.test(landed))) url = landed;
   const html = page.text;
   let caption = meta(html, 'og:description') || meta(html, 'og:title') || meta(html, 'description');
   if (source === 'instagram' && caption)
@@ -113,16 +124,16 @@ export async function fetchSocialMeta(
   if (
     source === 'instagram' &&
     (!caption ||
-      /\/accounts\/login/i.test(page.finalUrl) ||
+      /\/accounts\/login/i.test(landed) ||
       /<form[^>]+\/accounts\/login/i.test(html))
   ) {
     const loginWall =
-      /\/accounts\/login/i.test(page.finalUrl) ||
+      /\/accounts\/login/i.test(landed) ||
       /<form[^>]+\/accounts\/login/i.test(html);
     if (!caption || loginWall) {
       try {
         const oembed = await get(
-          `https://www.instagram.com/api/v1/oembed/?url=${encodeURIComponent(url)}`,
+          `https://www.instagram.com/api/v1/oembed/?url=${encodeURIComponent(instagramOEmbedParamUrl(url))}`,
         );
         const data = JSON.parse(oembed.text);
         if (typeof data.title === 'string' && data.title.trim()) caption = data.title;

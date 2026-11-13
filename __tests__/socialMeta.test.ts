@@ -105,11 +105,51 @@ it('fills an Instagram caption from the public oEmbed endpoint when page meta is
     },
   });
   expect(oembedUrl).toBe(
-    `https://www.instagram.com/api/v1/oembed/?url=${encodeURIComponent(canonical)}`,
+    `https://www.instagram.com/api/v1/oembed/?url=${encodeURIComponent('https://www.instagram.com/reel/DfUyjFYBRnX/')}`,
   );
   expect(meta.caption).toBe(recipeCaption);
   expect(meta.author).toBe('tacobell');
   expect(meta.linkedUrls).toEqual(['https://recipes.test/crunchwrap']);
+  expect(meta.blocked).toBeUndefined();
+});
+
+it('keeps the reel URL for oEmbed when the page fetch lands on the login screen', async () => {
+  const recipeCaption = fixture('ig-crunchwrap-oembed-caption.txt');
+  const canonical = 'https://instagram.com/reel/DfUyjFYBRnX/';
+  let oembedParam = '';
+  const meta = await fetchSocialMeta('https://www.instagram.com/reel/DfUyjFYBRnX/?srtk=MTE1aHFwbHk1aWs5cg==', {
+    fetchText: async (url) => {
+      if (url.includes('/api/v1/oembed/')) {
+        oembedParam = url;
+        return { status: 200, finalUrl: url, text: JSON.stringify({ title: recipeCaption, author_name: 'arsenioeats' }) };
+      }
+      if (url.includes('/embed/captioned/')) return { status: 200, finalUrl: url, text: '<html></html>' };
+      return {
+        status: 200,
+        finalUrl: 'https://www.instagram.com/accounts/login/?next=%2Freel%2FDfUyjFYBRnX%2F',
+        text: '<html></html>',
+      };
+    },
+  });
+  expect(oembedParam).toBe(
+    `https://www.instagram.com/api/v1/oembed/?url=${encodeURIComponent('https://www.instagram.com/reel/DfUyjFYBRnX/')}`,
+  );
+  expect(meta.canonicalUrl).toBe(canonical);
+  expect(meta.caption).toBe(recipeCaption);
+  expect(meta.blocked).toBeUndefined();
+});
+
+it('still fills a caption from oEmbed when the reel page fetch throws', async () => {
+  const recipeCaption = fixture('ig-crunchwrap-oembed-caption.txt');
+  const meta = await fetchSocialMeta('https://www.instagram.com/reel/DfUyjFYBRnX/', {
+    fetchText: async (url) => {
+      if (url.includes('/api/v1/oembed/')) {
+        return { status: 200, finalUrl: url, text: JSON.stringify({ title: recipeCaption }) };
+      }
+      throw new Error('network');
+    },
+  });
+  expect(meta.caption).toBe(recipeCaption);
   expect(meta.blocked).toBeUndefined();
 });
 

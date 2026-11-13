@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { runAutoImport, type AutoImportDeps } from '@/import/autoImport';
+import * as parseRecipeModule from '@/import/parse/parseRecipeText';
 import { fetchSocialMeta } from '@/import/social/socialMeta';
 import type { ImportDraft } from '@/import/types';
 
@@ -45,6 +46,54 @@ const deps = (overrides: AutoImportDeps): AutoImportDeps => ({
 });
 
 describe('Instagram Reel share with an attached video', () => {
+  it('saves from the caption heuristic when Foundation returns a weak draft', async () => {
+    const recipeCaption = fixture('ig-crunchwrap-oembed-caption.txt');
+    const canonical = 'https://instagram.com/reel/DfUyjFYBRnX/';
+    const originalParse = parseRecipeModule.parseRecipeText;
+    const parseSpy = jest.spyOn(parseRecipeModule, 'parseRecipeText').mockImplementation((text, options) =>
+      originalParse(text, {
+        ...options,
+        heuristicKind: 'social',
+        sourceName: 'instagram',
+        foundation: async () => ({
+          ok: true as const,
+          recipe: {
+            title: 'Crunchwrap Supreme',
+            ingredients: [{ name: 'ground beef' }, { name: 'tortillas' }, { name: 'Assembly' }],
+            steps: [],
+            parser: 'foundation' as const,
+          },
+        }),
+        readApiKey: async () => null,
+      }),
+    );
+    const transcribeVideo = jest.fn();
+    const fetchText = async (url: string) => {
+      if (url.includes('/api/v1/oembed/')) {
+        return { status: 200, finalUrl: url, text: JSON.stringify({ title: recipeCaption, author_name: 'arsenioeats' }) };
+      }
+      return { status: 200, finalUrl: canonical, text: '<html></html>' };
+    };
+    try {
+      const result = await runAutoImport(
+        { url: 'https://www.instagram.com/reel/DfUyjFYBRnX/', videoPath: localVideo },
+        deps({
+          fetchSocialMeta: (url) => fetchSocialMeta(url, { fetchText }),
+          transcribeVideo,
+        }),
+      );
+      expect(result).toEqual(expect.objectContaining({ ok: true, source: 'caption', lowConfidence: false }));
+      expect(transcribeVideo).not.toHaveBeenCalled();
+      if (result.ok) {
+        expect(result.draft.adapterId).toMatch(/^share-auto/);
+        expect(result.draft.ingredients.length).toBeGreaterThanOrEqual(10);
+        expect(result.draft.instructions.length).toBeGreaterThanOrEqual(3);
+      }
+    } finally {
+      parseSpy.mockRestore();
+    }
+  });
+
   it('saves from oEmbed when the reel page has no caption meta', async () => {
     const recipeCaption =
       'Crunchwrap Supreme\n\nIngredients:\n1 lb beef\n1 tortilla\n\nInstructions:\nCook beef. Fold and serve.';
@@ -131,7 +180,7 @@ describe('Instagram Reel share with an attached video', () => {
 
     expect(pages.calls).toEqual([
       canonicalReelUrl,
-      `https://www.instagram.com/api/v1/oembed/?url=${encodeURIComponent(canonicalReelUrl)}`,
+      `https://www.instagram.com/api/v1/oembed/?url=${encodeURIComponent('https://www.instagram.com/reel/FIXTURE123/')}`,
       `${canonicalReelUrl}embed/captioned/`,
     ]);
     expect(transcribeVideo).not.toHaveBeenCalled();
