@@ -4,7 +4,7 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { addDays, startOfWeek } from '@/components/plan/weekUtils';
+import { addDays, startOfWeekMonday } from '@/lib/dates';
 import { createRecipeAutosave } from '@/data/autosave';
 import { createOfflineReader } from '@/data/offline';
 import { createRepositories } from '@/data/repositories';
@@ -58,7 +58,7 @@ describe('MVP core loop (integration)', () => {
     expect(offline.getRecipe(published.id)?.title).toBe('Weeknight Chili');
 
     // Plan
-    const monday = startOfWeek(new Date('2026-09-17T12:00:00'));
+    const monday = startOfWeekMonday(new Date('2026-09-17T12:00:00'));
     const plan = repos.mealPlans.getOrCreateForWeek(monday);
     repos.mealPlans.addEntry({
       mealPlanId: plan.id,

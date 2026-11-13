@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-import { shiftWeek as shiftWeekDate, startOfWeek } from '@/components/plan/weekUtils';
+import { addDays, startOfWeekMonday } from '@/lib/dates';
 import type { MealSlot } from '@/data/contracts';
 
 /**
@@ -15,11 +15,11 @@ export type PlanUiState = {
 };
 
 export const usePlanUiStore = create<PlanUiState>((set, get) => ({
-  weekStart: startOfWeek(),
+  weekStart: startOfWeekMonday(),
   setWeekStart: (weekStart) => set({ weekStart }),
-  goToCurrentWeek: () => set({ weekStart: startOfWeek() }),
+  goToCurrentWeek: () => set({ weekStart: startOfWeekMonday() }),
   shiftWeek: (deltaWeeks) => {
-    set({ weekStart: shiftWeekDate(get().weekStart, deltaWeeks) });
+    set({ weekStart: addDays(get().weekStart, deltaWeeks * 7) });
   },
 }));
 

@@ -1,17 +1,6 @@
 /** Monday-based week helpers for meal plans (`YYYY-MM-DD`). */
 
-import { addDays, parseDateOnly, startOfWeekMonday, toDateOnly } from '@/lib/dates';
-
-export { addDays, parseDateOnly, toDateOnly } from '@/lib/dates';
-
-/** Week starts on Monday (ISO-style). */
-export function startOfWeek(date: Date = new Date()): string {
-  return startOfWeekMonday(date);
-}
-
-export function shiftWeek(weekStart: string, weeks: number): string {
-  return addDays(weekStart, weeks * 7);
-}
+import { addDays, parseDateOnly, toDateOnly } from '@/lib/dates';
 
 export type WeekDay = {
   date: string;
