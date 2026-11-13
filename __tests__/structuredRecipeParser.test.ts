@@ -66,7 +66,7 @@ it('selects Foundation first, then OpenAI, then the heuristic fallback', async (
   });
   expect(first?.adapterId).toBe('foundation');
   expect(openAI).not.toHaveBeenCalled();
-  expect(heuristic).not.toHaveBeenCalled();
+  expect(heuristic).toHaveBeenCalled();
 
   const secondOpenAI = jest.fn(async () => ({ ok: true as const, recipe: recipe('openai') }));
   const second = await parseRecipeText('1 cup flour. Mix the flour.', {

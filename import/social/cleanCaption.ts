@@ -11,10 +11,11 @@ export type CleanCaptionResult = {
 };
 
 const SECTION = /^(?:ingredients?|instructions?|directions?|method|steps?|how to make)\s*:??$/i;
-const QUANTITY = /^(?:\d+(?:\s+\d+\/\d+|\s*(?:to|[–-])\s*\d+|\/\d+|\.\d+)?|[¼½¾⅓⅔⅛⅜⅝⅞]|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|a|an)\s/i;
+const ATTACHED_METRIC = /^\d+(?:\.\d+)?(?:g|kg|ml|l)\b/i;
+const QUANTITY = /^(?:\d+(?:\s+\d+\/\d+|\s*(?:to|[–-])\s*\d+|\/\d+|\.\d+)?(?:g|kg|ml|l)\b|(?:\d+(?:\s+\d+\/\d+|\s*(?:to|[–-])\s*\d+|\/\d+|\.\d+)?|[¼½¾⅓⅔⅛⅜⅝⅞]|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|a|an)\s)/i;
 const MEASUREMENT = /\b(?:cups?|tbsp|tablespoons?|tsp|teaspoons?|oz|ounces?|lb|lbs?|pounds?|g|kg|ml|l|cloves?|cans?|sticks?|bunch(?:es)?|sprigs?|slices?|fillets?|stalks?|rind)\b/i;
 const STEP = /^(?:(?:then|next|finally)\s+)?(?:add|air fry|bake|boil|bring|chop|combine|cook|crack|dice|drizzle|finish|flip|fold|heat|make|marinate|melt|mix|pat|place|pour|preheat|reduce|remove|roast|season|serve|simmer|slice|stir|toss|whisk|blend|let|sear|sprinkle|top|garnish|transfer|cover|brown|knead|roll|shape)\b/i;
-const LEADING_SOCIAL_ADJECTIVE = /^(?:small|medium|large|fresh|unsalted|dried|low[- ]sodium|grated|chopped|diced|minced|sliced|cubed)\s+/i;
+const LEADING_SOCIAL_ADJECTIVE = /^(?:fresh|unsalted|dried|low[- ]sodium|grated|chopped|diced|minced|sliced|cubed)\s+/i;
 const NUMBER_WORDS: Record<string, string> = { one: '1', two: '2', three: '3', four: '4', five: '5', six: '6', seven: '7', eight: '8', nine: '9', ten: '10', eleven: '11', twelve: '12' };
 
 function decodeEntities(value: string): string {
@@ -48,7 +49,7 @@ function isCookingStep(line: string): boolean {
 
 function isMeasuredIngredientLine(line: string): boolean {
   const value = line.replace(/^[-*•]\s*/, '').trim();
-  return QUANTITY.test(value) && MEASUREMENT.test(value);
+  return (QUANTITY.test(value) || ATTACHED_METRIC.test(value)) && (MEASUREMENT.test(value) || ATTACHED_METRIC.test(value));
 }
 
 function sectionName(line: string): string | null {
@@ -74,7 +75,7 @@ function titleFrom(line: string, sourceName: string): string {
 
 function isIngredientLike(line: string): boolean {
   const value = line.replace(/^[-*•]\s*/, '').trim();
-  const quantity = QUANTITY.test(value);
+  const quantity = QUANTITY.test(value) || ATTACHED_METRIC.test(value);
   if (quantity && /^(?:a|an)\s/i.test(value) && !MEASUREMENT.test(value.replace(/^(?:a|an)\s+/i, ''))) return false;
   return quantity || MEASUREMENT.test(value) || /^(?:(?:chopped|sliced|diced|minced|fresh|grated)\s+)?(?:oil|salt|pepper|sesame|kimchi|basil|parsley|lemon|juice|scallion|green onions?)\b/i.test(value);
 }
@@ -100,6 +101,7 @@ function socialIngredientLine(line: string): IngredientInput[] {
     const juice = normalized.match(/^juice\s+of\s+(\d+\/\d+)\s+(.+)$/i);
     if (juice) normalized = `${juice[1]} ${juice[2]}`;
     normalized = normalized
+      .replace(/^(\d+(?:\.\d+)?)(g|kg|ml|l)\b/i, '$1 $2')
       .replace(/^(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b/i, (word) => NUMBER_WORDS[word.toLowerCase()] ?? word)
       .replace(/^half\s+a\s+(?=\S)/i, '0.5 ')
       .replace(/^half\s+(?=(?:cups?|tbsp|tablespoons?|tsp|teaspoons?|oz|ounces?|lb|lbs?|pounds?|g|kg|ml|l|cloves?|cans?|sticks?|bunch(?:es)?|sprigs?|slices?|fillets?|stalks?)\b)/i, '0.5 ')
@@ -127,7 +129,7 @@ function socialIngredientLine(line: string): IngredientInput[] {
       leading.push(match[0].trim());
       parsed.name = parsed.name.slice(match[0].length).trim();
     }
-    if (leading.length) parsed.note = [parsed.note, leading.filter((word) => !/^(?:small|medium|large|fresh|unsalted|dried|low[- ]sodium)$/i.test(word)).join(' ')].filter(Boolean).join('; ') || null;
+    if (leading.length) parsed.note = [parsed.note, leading.filter((word) => !/^(?:fresh|unsalted|dried|low[- ]sodium)$/i.test(word)).join(' ')].filter(Boolean).join('; ') || null;
     if (/^lemon$/i.test(parsed.name) && /juice/i.test(part)) parsed.name = 'lemon juice';
     return parsed;
   });
@@ -139,15 +141,19 @@ export function cleanSocialCaption(input: string, sourceName: string): CleanCapt
   const withoutPrefix = decodeEntities(input).replace(/^\s*[\d.,]+\s*[KMB]?\s+likes?,\s*[\d.,]+\s*[KMB]?\s+comments?\s*-\s*[^:]+:\s*/i, '');
   const lines: string[] = [];
   for (const raw of withoutPrefix.split(/\r?\n/)) {
-    const line = cleanPunctuation(raw.replace(/[\u{1F1E6}-\u{1F1FF}]/gu, ''));
-    if (!line || /^[\p{P}\p{S}\s.]+$/u.test(line) || /^(?:#[-\w]+\s*)+$/i.test(line)) continue;
-    const chunks = line.split(/(?<=[.!?])\s+/);
-    const kept: string[] = [];
-    for (const chunk of chunks) {
-      if (isCta(chunk)) notes.push(chunk.trim());
-      else kept.push(chunk.trim());
+    const cleaned = cleanPunctuation(raw.replace(/[\u{1F1E6}-\u{1F1FF}]/gu, ''))
+      .replace(/^(?:\p{Extended_Pictographic}|[▪▫·])(?:\ufe0f|\u200d\p{Extended_Pictographic})*\s+/u, '');
+    if (!cleaned || /^[\p{P}\p{S}\s.]+$/u.test(cleaned) || /^(?:#[-\w]+\s*)+$/i.test(cleaned)) continue;
+    const segments = /^1[.)]\s/.test(cleaned) ? cleaned.split(/(?<=[.!?])\s+(?=\d+[.)]\s)/) : [cleaned];
+    for (const line of segments) {
+      const chunks = line.split(/(?<=[.!?])\s+/);
+      const kept: string[] = [];
+      for (const chunk of chunks) {
+        if (isCta(chunk)) notes.push(chunk.trim());
+        else kept.push(chunk.trim());
+      }
+      if (kept.length) lines.push(kept.join(' ').replace(/\*$/, '').trim());
     }
-    if (kept.length) lines.push(kept.join(' ').replace(/\*$/, '').trim());
   }
   const firstLine = lines[0] ?? '';
   const titleLine = firstLine && !sectionName(firstLine) && !isNumberedStep(firstLine) && !isMeasuredIngredientLine(firstLine)

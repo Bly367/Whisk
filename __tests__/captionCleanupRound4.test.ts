@@ -58,7 +58,7 @@ describe('caption cleanup round four', () => {
     expect(result.draft.ingredients).toEqual(expect.arrayContaining([
       expect.objectContaining({ name: 'garlic', quantity: expect.stringMatching(/^6[–-]8$/), unit: 'cloves' }),
       expect.objectContaining({ name: 'celery' }),
-      expect.objectContaining({ name: 'carrots' }),
+      expect.objectContaining({ name: 'medium carrots' }),
       expect.objectContaining({ name: expect.stringMatching(/^Calabrian chilies/) }),
     ]));
     expect(result.draft.instructions.map((step) => step.text)).toEqual([

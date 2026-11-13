@@ -77,9 +77,80 @@ it('decodes metadata entities, removes a trailing quote, and drops private capti
 
 it('marks an Instagram login wall blocked when the embed has no caption', async () => {
   const meta = await fetchSocialMeta('https://instagram.com/reel/abc/', {
-    fetchText: async (url) => ({ status: 200, finalUrl: url, text: fixture('ig-login-wall.html') }),
+    fetchText: async (url) => {
+      if (url.includes('/api/v1/oembed/')) return { status: 200, finalUrl: url, text: '{}' };
+      if (url.includes('/embed/captioned/')) return { status: 200, finalUrl: url, text: '<html></html>' };
+      return { status: 200, finalUrl: url, text: fixture('ig-login-wall.html') };
+    },
   });
   expect(meta.blocked).toBe('login_wall');
+});
+
+it('fills an Instagram caption from the public oEmbed endpoint when page meta is missing', async () => {
+  const recipeCaption =
+    'Crunchwrap Supreme\n\nIngredients:\n1 lb beef\n1 tortilla\n\nInstructions:\nCook beef. Fold and serve.\nhttps://recipes.test/crunchwrap';
+  const canonical = 'https://instagram.com/reel/DfUyjFYBRnX/';
+  let oembedUrl = '';
+  const meta = await fetchSocialMeta('https://www.instagram.com/reel/DfUyjFYBRnX/', {
+    fetchText: async (url) => {
+      if (url.includes('/api/v1/oembed/')) {
+        oembedUrl = url;
+        return {
+          status: 200,
+          finalUrl: url,
+          text: JSON.stringify({ title: recipeCaption, author_name: 'tacobell' }),
+        };
+      }
+      return { status: 200, finalUrl: canonical, text: '<html><head></head><body></body></html>' };
+    },
+  });
+  expect(oembedUrl).toBe(
+    `https://www.instagram.com/api/v1/oembed/?url=${encodeURIComponent('https://www.instagram.com/reel/DfUyjFYBRnX/')}`,
+  );
+  expect(meta.caption).toBe(recipeCaption);
+  expect(meta.author).toBe('tacobell');
+  expect(meta.linkedUrls).toEqual(['https://recipes.test/crunchwrap']);
+  expect(meta.blocked).toBeUndefined();
+});
+
+it('keeps the reel URL for oEmbed when the page fetch lands on the login screen', async () => {
+  const recipeCaption = fixture('ig-crunchwrap-oembed-caption.txt');
+  const canonical = 'https://instagram.com/reel/DfUyjFYBRnX/';
+  let oembedParam = '';
+  const meta = await fetchSocialMeta('https://www.instagram.com/reel/DfUyjFYBRnX/?srtk=MTE1aHFwbHk1aWs5cg==', {
+    fetchText: async (url) => {
+      if (url.includes('/api/v1/oembed/')) {
+        oembedParam = url;
+        return { status: 200, finalUrl: url, text: JSON.stringify({ title: recipeCaption, author_name: 'arsenioeats' }) };
+      }
+      if (url.includes('/embed/captioned/')) return { status: 200, finalUrl: url, text: '<html></html>' };
+      return {
+        status: 200,
+        finalUrl: 'https://www.instagram.com/accounts/login/?next=%2Freel%2FDfUyjFYBRnX%2F',
+        text: '<html></html>',
+      };
+    },
+  });
+  expect(oembedParam).toBe(
+    `https://www.instagram.com/api/v1/oembed/?url=${encodeURIComponent('https://www.instagram.com/reel/DfUyjFYBRnX/')}`,
+  );
+  expect(meta.canonicalUrl).toBe(canonical);
+  expect(meta.caption).toBe(recipeCaption);
+  expect(meta.blocked).toBeUndefined();
+});
+
+it('still fills a caption from oEmbed when the reel page fetch throws', async () => {
+  const recipeCaption = fixture('ig-crunchwrap-oembed-caption.txt');
+  const meta = await fetchSocialMeta('https://www.instagram.com/reel/DfUyjFYBRnX/', {
+    fetchText: async (url) => {
+      if (url.includes('/api/v1/oembed/')) {
+        return { status: 200, finalUrl: url, text: JSON.stringify({ title: recipeCaption }) };
+      }
+      throw new Error('network');
+    },
+  });
+  expect(meta.caption).toBe(recipeCaption);
+  expect(meta.blocked).toBeUndefined();
 });
 
 it('uses TikTok contents lines and exposes the ASR subtitle track', async () => {

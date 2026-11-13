@@ -11,6 +11,7 @@ import {
   suitableTitleFromText,
   type ParsedRecipe,
 } from '@/import/parse/structured';
+import { scoreDraft } from '@/import/score';
 import type { ImportDraft, ImportSourceKind } from '@/import/types';
 
 export type ParseRecipeTextOptions = {
@@ -73,6 +74,38 @@ function heuristicRecipe(sourceText: string, options: ParseRecipeTextOptions, so
   return draft ? parsedRecipeFromDraft(draft) : null;
 }
 
+function withSocialHeuristicMetadata(
+  draft: ImportDraft | null,
+  options: ParseRecipeTextOptions,
+  socialCleaned?: ReturnType<typeof cleanSocialCaption>,
+): ImportDraft | null {
+  if (draft && options.heuristicKind === 'social' && socialCleaned) {
+    draft.notes = socialCleaned.notes || null;
+    draft.sourceEvidence = socialCleaned.text.slice(0, 4000);
+  }
+  return draft;
+}
+
+function preferScoredDraft(primary: ImportDraft | null, secondary: ImportDraft | null, preferQuantified = false): ImportDraft | null {
+  if (!primary) return secondary;
+  if (!secondary) return primary;
+  // Social captions are only saved with quantified ingredients, so a richer names-only LLM draft must not win.
+  if (preferQuantified) {
+    const primaryQuantified = quantifiedCount(primary) >= 2;
+    const secondaryQuantified = quantifiedCount(secondary) >= 2;
+    if (primaryQuantified !== secondaryQuantified) return primaryQuantified ? primary : secondary;
+  }
+  const primaryScore = scoreDraft(primary);
+  const secondaryScore = scoreDraft(secondary);
+  if (primaryScore.passes && !secondaryScore.passes) return primary;
+  if (secondaryScore.passes && !primaryScore.passes) return secondary;
+  return primaryScore.score >= secondaryScore.score ? primary : secondary;
+}
+
+function quantifiedCount(draft: ImportDraft): number {
+  return draft.ingredients.filter((item) => item.name.trim().length >= 2 && (item.quantity || item.unit)).length;
+}
+
 function toDraft(recipe: ParsedRecipe | null, sourceText: string, options: ParseRecipeTextOptions): ImportDraft | null {
   const groundingText = options.heuristicKind === 'transcript' && options.sharedText
     ? `${sourceText}\n${options.sharedText}` : sourceText;
@@ -106,12 +139,16 @@ export async function parseRecipeText(
   const remainingMs = budget?.deadline ? Math.max(0, budget.deadline - Date.now()) : Infinity;
 
   const foundation = options.foundation ?? parseRecipeWithFoundationModels;
+  const buildHeuristicDraft = () =>
+    withSocialHeuristicMetadata(toDraft(heuristicRecipe(text, options, socialCleaned), text, options), options, socialCleaned);
   let fallbackSteps: ParsedRecipe | null = null;
   try {
     const foundationResult = await withTimeout(foundation(text), Math.min(options.foundationTimeoutMs ?? FOUNDATION_TIMEOUT_MS, remainingMs));
     if (foundationResult?.ok) {
       const grounded = groundParsedRecipe(foundationResult.recipe, options.heuristicKind === 'transcript' && options.sharedText ? `${text}\n${options.sharedText}` : text);
-      if (grounded?.ingredients.length) return toDraft(grounded, text, options);
+      const llmDraft = grounded ? toDraft(grounded, text, options) : null;
+      const picked = preferScoredDraft(llmDraft, buildHeuristicDraft(), options.heuristicKind === 'social');
+      if (picked) return picked;
       if (grounded) fallbackSteps = grounded;
     }
   } catch { /* fall through to the next parser */ }
@@ -126,17 +163,14 @@ export async function parseRecipeText(
       const result = await openAI(text, { apiKey, timeoutMs: Math.min(15_000, openAiRemaining) });
       if (result.ok) {
         const grounded = groundParsedRecipe(result.recipe, options.heuristicKind === 'transcript' && options.sharedText ? `${text}\n${options.sharedText}` : text);
-        if (grounded?.ingredients.length) return toDraft(grounded, text, options);
+        const llmDraft = grounded ? toDraft(grounded, text, options) : null;
+        const picked = preferScoredDraft(llmDraft, buildHeuristicDraft(), options.heuristicKind === 'social');
+        if (picked) return picked;
         if (grounded) fallbackSteps = grounded;
       }
     } catch { /* heuristic remains available */ }
   }
 
-  const draft = toDraft(heuristicRecipe(text, options, socialCleaned), text, options);
-  if (draft && options.heuristicKind === 'social') {
-    const cleaned = socialCleaned!;
-    draft.notes = cleaned.notes || null;
-    draft.sourceEvidence = cleaned.text.slice(0, 4000);
-  }
+  const draft = buildHeuristicDraft();
   return draft ?? (fallbackSteps ? toDraft(fallbackSteps, text, options) : null);
 }
