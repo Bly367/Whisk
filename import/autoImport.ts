@@ -94,14 +94,15 @@ async function runAutoImportUnsafe(
   parseBudget: ParseRecipeBudget,
 ): Promise<AutoImportResult> {
   onStage('receiving');
-  const isLocal = Boolean(payload.videoPath);
+  // Instagram's share sheet sends the Reel URL alongside the video file; read the caption first.
+  const isLocal = Boolean(payload.videoPath) && !isInstagramUrl(payload.url);
   const candidates: {
     draft: ImportDraft;
     source: 'caption' | 'audio' | 'web' | 'caption+audio';
   }[] = [];
   const tried = new Set<string>();
   let meta: SocialMeta | null = null;
-  let audioReason = 'no_video_url';
+  let audioReason = payload.videoPath ? 'local_video' : 'no_video_url';
 
   if (!isLocal && payload.url && detectSource(payload.url) === 'website') {
     const website = await safeWebsiteImport(payload.url, deps, onStage);
@@ -158,7 +159,7 @@ async function runAutoImportUnsafe(
     }
   }
   let audioFailed = false;
-  if (!isLocal && meta && !meta.videoUrl)
+  if (!payload.videoPath && meta && !meta.videoUrl)
     diagnostics.push({ stage: 'downloading_video', code: 'video:no_video_url' });
   if (payload.videoPath || meta?.videoUrl) {
     let videoPath = payload.videoPath;
@@ -269,6 +270,14 @@ async function runAutoImportUnsafe(
   if (caption) diagnostics.push({ stage: 'failed', code: 'caption:not_saveable', detail: `${scoreDraft(caption.draft).ingredients} ingredients, ${scoreDraft(caption.draft).steps} steps` });
   onStage('failed');
   return failed(diagnostics, hintsFor(meta, audioReason));
+}
+function isInstagramUrl(url: string | undefined): boolean {
+  if (!url) return false;
+  try {
+    return detectSource(url) === 'instagram';
+  } catch {
+    return false;
+  }
 }
 function qualifiedCaptionOnly(draft: ImportDraft) {
   return draft.ingredients.filter((item) => item.name.trim() && (item.quantity || item.unit)).length >= 5 && !draft.title.startsWith('Recipe from') && scoreDraft(draft).steps === 0;

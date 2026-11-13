@@ -7,6 +7,7 @@ import type { ImportDraft } from '@/import/types';
 
 const fixture = (name: string) => fs.readFileSync(path.join(__dirname, 'fixtures/social', name), 'utf8');
 const reelUrl = 'https://www.instagram.com/reel/FIXTURE123/';
+const canonicalReelUrl = 'https://instagram.com/reel/FIXTURE123/';
 const localVideo = 'file:///private/var/mobile/Containers/Shared/AppGroup/shared/reel.mp4';
 const transcript =
   "Today we're making lemon garlic chicken orzo. First, sear the chicken in butter until golden. " +
@@ -95,7 +96,7 @@ describe('Instagram Reel share with an attached video', () => {
 
     const result = await runAutoImport({ url: reelUrl, videoPath: localVideo, sourceName: reelUrl }, options);
 
-    expect(pages.calls).toEqual([reelUrl, `${reelUrl}embed/captioned/`]);
+    expect(pages.calls).toEqual([canonicalReelUrl, `${canonicalReelUrl}embed/captioned/`]);
     expect(transcribeVideo).toHaveBeenCalledWith(localVideo, expect.anything());
     expect(options.videoFromUrl).not.toHaveBeenCalled();
     expect(result).toEqual(expect.objectContaining({ ok: true, source: 'audio', lowConfidence: true }));
@@ -117,7 +118,7 @@ describe('Instagram Reel share with an attached video', () => {
 
     const result = await runAutoImport({ url: reelUrl, videoPath: localVideo, sourceName: reelUrl }, options);
 
-    expect(pages.calls).toEqual([reelUrl]);
+    expect(pages.calls).toEqual([canonicalReelUrl]);
     expect(transcribeVideo).toHaveBeenCalledWith(localVideo, expect.anything());
     expect(options.videoFromUrl).not.toHaveBeenCalled();
     expect(options.commitImportDraft).not.toHaveBeenCalled();
