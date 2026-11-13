@@ -141,15 +141,19 @@ export function cleanSocialCaption(input: string, sourceName: string): CleanCapt
   const withoutPrefix = decodeEntities(input).replace(/^\s*[\d.,]+\s*[KMB]?\s+likes?,\s*[\d.,]+\s*[KMB]?\s+comments?\s*-\s*[^:]+:\s*/i, '');
   const lines: string[] = [];
   for (const raw of withoutPrefix.split(/\r?\n/)) {
-    const line = cleanPunctuation(raw.replace(/[\u{1F1E6}-\u{1F1FF}]/gu, ''));
-    if (!line || /^[\p{P}\p{S}\s.]+$/u.test(line) || /^(?:#[-\w]+\s*)+$/i.test(line)) continue;
-    const chunks = line.split(/(?<=[.!?])\s+/);
-    const kept: string[] = [];
-    for (const chunk of chunks) {
-      if (isCta(chunk)) notes.push(chunk.trim());
-      else kept.push(chunk.trim());
+    const cleaned = cleanPunctuation(raw.replace(/[\u{1F1E6}-\u{1F1FF}]/gu, ''))
+      .replace(/^(?:\p{Extended_Pictographic}|[▪▫·])(?:\ufe0f|\u200d\p{Extended_Pictographic})*\s+/u, '');
+    if (!cleaned || /^[\p{P}\p{S}\s.]+$/u.test(cleaned) || /^(?:#[-\w]+\s*)+$/i.test(cleaned)) continue;
+    const segments = /^1[.)]\s/.test(cleaned) ? cleaned.split(/(?<=[.!?])\s+(?=\d+[.)]\s)/) : [cleaned];
+    for (const line of segments) {
+      const chunks = line.split(/(?<=[.!?])\s+/);
+      const kept: string[] = [];
+      for (const chunk of chunks) {
+        if (isCta(chunk)) notes.push(chunk.trim());
+        else kept.push(chunk.trim());
+      }
+      if (kept.length) lines.push(kept.join(' ').replace(/\*$/, '').trim());
     }
-    if (kept.length) lines.push(kept.join(' ').replace(/\*$/, '').trim());
   }
   const firstLine = lines[0] ?? '';
   const titleLine = firstLine && !sectionName(firstLine) && !isNumberedStep(firstLine) && !isMeasuredIngredientLine(firstLine)
