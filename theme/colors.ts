@@ -51,6 +51,6 @@ export function getThemeColors(scheme: ColorSchemeName): ThemeColors {
     info: palette.semantic.info,
     tabInactive: palette.text.secondary,
     tabBar: palette.surface.card,
-    overlay: scheme === 'dark' ? 'rgba(0,0,0,0.55)' : 'rgba(36,31,24,0.4)',
+    overlay: scheme === 'dark' ? 'rgba(0,0,0,0.55)' : 'rgba(30,26,23,0.4)',
   };
 }

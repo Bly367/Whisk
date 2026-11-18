@@ -4,6 +4,10 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import {
+  Fraunces_600SemiBold,
+  Fraunces_700Bold,
+} from '@expo-google-fonts/fraunces';
+import {
   useFonts,
   Nunito_700Bold,
   Nunito_600SemiBold,
@@ -30,6 +34,8 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
+    Fraunces_600SemiBold,
+    Fraunces_700Bold,
     Nunito_700Bold,
     Nunito_600SemiBold,
     Nunito_400Regular,
