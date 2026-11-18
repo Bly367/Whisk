@@ -3,7 +3,7 @@ import {
   extractPageMetadata,
   extractRecipeJsonLd,
 } from '@/import/parse/jsonLd';
-import { draftFromPastedText } from '@/import/parse/pasteText';
+import { parseRecipeText } from '@/import/parse/parseRecipeText';
 import { canonicalizeUrl, detectSource, isSocialSource } from '@/import/parse/url';
 import type { ImportAdapter, ImportAdapterInput, ImportAdapterResult } from '@/import/types';
 import { DEFAULT_FALLBACKS } from '@/import/types';
@@ -121,11 +121,13 @@ export function createWebsiteAdapter(
 
       const metadata = extractPageMetadata(html);
       if (input.text?.trim()) {
-        const draft = draftFromPastedText({
-          text: input.text.trim(),
+        const draft = await parseRecipeText(input.text.trim(), {
+          sourceKind: 'website',
+          adapterId: WEBSITE_ADAPTER_ID,
           titleHint: metadata.title ?? null,
           sourceUrl: url,
-          adapterId: WEBSITE_ADAPTER_ID,
+          sourceName: WEBSITE_ADAPTER_ID,
+          heuristicKind: 'paste',
         });
         if (draft) return { ok: true, draft };
         return {

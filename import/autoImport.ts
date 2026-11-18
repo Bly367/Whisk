@@ -1,16 +1,13 @@
 import { websiteAdapter } from '@/import/adapters/websiteAdapter';
 import { commitAutoImportDraft, ImportCommitError, type CommitImportOptions } from '@/import/commit';
-import { draftFromPastedText } from '@/import/parse/pasteText';
-import { draftFromTranscript } from '@/import/parse/transcript';
+import { parseRecipeText, type ParseRecipeBudget } from '@/import/parse/parseRecipeText';
 import { detectSource } from '@/import/parse/url';
 import { fetchSocialMeta, type SocialMeta } from '@/import/social/socialMeta';
 import { videoFromUrl } from '@/import/social/videoFromUrl';
 import { transcribeVideo } from '@/import/transcribe';
 import { AUTO_SAVE_MIN_INGREDIENTS, scoreDraft } from '@/import/score';
-import { createId, nowIso } from '@/data/util';
 import type { ImportDraft } from '@/import/types';
 import { useAutoImportStore } from '@/import/autoImportStore';
-import { cleanSocialCaption } from '@/import/social/cleanCaption';
 import { fetchText, type FetchTextResult } from '@/import/net/fetchText';
 import { isPublicHttpsUrl } from '@/import/net/publicUrl';
 
@@ -41,6 +38,8 @@ export type AutoImportDeps = {
   fetchText?: typeof fetchText;
 };
 export type ImportDiagnostic = { stage: AutoStage; code: string; detail?: string };
+export const MAX_LLM_PARSES_PER_IMPORT = 2;
+export const LLM_BUDGET_MS = 30_000;
 export type AutoImportResult =
   | {
       ok: true;
@@ -57,7 +56,10 @@ export type AutoImportResult =
       actions: ['try_again', 'choose_video', 'manual'];
       hints?: string[];
       diagnostics: ImportDiagnostic[];
+      /** Short step summary safe to show in release builds, e.g. `ig: share=url page=login_wall …`. */
+      code?: string;
     };
+type ImportTrace = { prefix: string; parts: string[] };
 
 const failed = (diagnostics: ImportDiagnostic[], hints?: string[]): AutoImportResult => ({
   ok: false,
@@ -76,12 +78,35 @@ export async function runAutoImport(
   onStage: (stage: AutoStage, progress?: number) => void = () => {},
 ): Promise<AutoImportResult> {
   const diagnostics: ImportDiagnostic[] = [];
+  const trace: ImportTrace = { prefix: 'share', parts: [] };
+  // LLM-backed parsing across caption/subtitle/whisper gets at most ~30 seconds per import.
+  const parseBudget: ParseRecipeBudget = { remaining: MAX_LLM_PARSES_PER_IMPORT, deadline: undefined };
+  let result: AutoImportResult;
   try {
-    return await runAutoImportUnsafe(payload, deps, onStage, diagnostics);
+    result = await runAutoImportUnsafe(payload, deps, onStage, diagnostics, parseBudget, trace);
   } catch (error) {
     diagnostics.push({ stage: 'failed', code: `internal:${error instanceof Error ? error.name : 'Error'}` });
+    trace.parts.push('error=internal');
     onStage('failed');
-    return failed(diagnostics);
+    result = failed(diagnostics);
+  }
+  if (result.ok) return result;
+  const commit = diagnostics.find((item) => item.stage === 'saving')?.code.replace(/^commit:/, '');
+  if (commit) trace.parts.push(`commit=${commit}`);
+  return { ...result, code: traceCode(trace) };
+}
+
+function traceCode({ prefix, parts }: ImportTrace): string {
+  const safe = parts.filter((part) => /^[a-z]+=[a-z0-9_+.-]{1,40}$/i.test(part));
+  return `${prefix}: ${safe.join(' ')}`.trim();
+}
+
+function traceSource(url: string): string {
+  try {
+    const source = detectSource(url);
+    return source === 'website' ? 'web' : source;
+  } catch {
+    return 'web';
   }
 }
 
@@ -90,16 +115,30 @@ async function runAutoImportUnsafe(
   deps: AutoImportDeps,
   onStage: (stage: AutoStage, progress?: number) => void,
   diagnostics: ImportDiagnostic[],
+  parseBudget: ParseRecipeBudget,
+  trace: ImportTrace,
 ): Promise<AutoImportResult> {
   onStage('receiving');
-  const isLocal = Boolean(payload.videoPath);
+  // Instagram's share sheet sends the Reel URL alongside the video file; read the caption first.
+  const isInstagram = isInstagramUrl(payload.url);
+  const isLocal = Boolean(payload.videoPath) && !isInstagram;
+  const sharedWithoutUrls = payload.sharedText?.replace(/https?:\/\/\S+/gi, '').trim();
+  trace.prefix = isInstagram ? 'ig' : payload.url ? traceSource(payload.url) : payload.videoPath ? 'local' : 'text';
+  trace.parts.push(
+    `share=${[payload.url && 'url', sharedWithoutUrls && 'text', payload.videoPath && 'video'].filter(Boolean).join('+') || 'none'}`,
+  );
+  if (!payload.url && !payload.videoPath) trace.parts.push('url=none');
   const candidates: {
     draft: ImportDraft;
     source: 'caption' | 'audio' | 'web' | 'caption+audio';
   }[] = [];
   const tried = new Set<string>();
   let meta: SocialMeta | null = null;
-  let audioReason = 'no_video_url';
+  let audioReason = isInstagram
+    ? 'instagram_audio_disabled'
+    : payload.videoPath
+      ? 'local_video'
+      : 'no_video_url';
 
   if (!isLocal && payload.url && detectSource(payload.url) === 'website') {
     const website = await safeWebsiteImport(payload.url, deps, onStage);
@@ -115,14 +154,24 @@ async function runAutoImportUnsafe(
     } catch {
       meta = null;
       diagnostics.push({ stage: 'fetching_caption', code: 'meta:throw' });
+      trace.parts.push('page=throw');
     }
     if (meta) {
       if (meta.blocked) diagnostics.push({ stage: 'fetching_caption', code: `meta:blocked:${meta.blocked}` });
+      if (meta.trace) {
+        const { page, oembed, embed, caption: captionSource } = meta.trace;
+        trace.parts.push(`page=${page}`, `oembed=${oembed}`, `embed=${embed}`, `caption=${captionSource}`);
+        diagnostics.push({ stage: 'fetching_caption', code: `ig:page=${page}:oembed=${oembed}:embed=${embed}:caption=${captionSource}` });
+      }
       if (meta.source === 'tiktok' && meta.subtitleSummary !== undefined && !meta.transcriptUrl)
         diagnostics.push({ stage: 'fetching_caption', code: 'subtitle:no_track', detail: meta.subtitleSummary });
-      const shared = payload.sharedText?.replace(/https?:\/\/\S+/gi, '').trim();
-      const caption = [meta.caption, shared].filter(Boolean).join('\n\n');
-      const parsed = caption ? safePastedDraft(caption, meta) : null;
+      const caption = [meta.caption, sharedWithoutUrls].filter(Boolean).join('\n\n');
+      const parsed = caption ? await safePastedDraft(caption, meta, parseBudget) : null;
+      if (parsed) {
+        const score = scoreDraft(parsed);
+        const parser = parsed.adapterId.split(':')[1] ?? 'heuristic';
+        trace.parts.push(`parse=${captionCandidate(parsed) && score.passes ? 'pass' : 'fail'}_${score.ingredients}i${score.steps}s_${parser}`);
+      } else trace.parts.push('parse=none');
       if (parsed && captionCandidate(parsed)) candidates.push({ draft: parsed, source: 'caption' });
       const passingCaption = candidates.find(
         (item) => item.source === 'caption' && captionCandidate(item.draft) && scoreDraft(item.draft).passes,
@@ -137,16 +186,21 @@ async function runAutoImportUnsafe(
             return save(website.draft, 'web', meta.source, onStage, deps, diagnostics);
         }
       }
+      if (meta.linkedUrls.length) trace.parts.push('link=fail');
     }
+  }
+
+  if (isInstagram) {
+    diagnostics.push({ stage: 'fetching_caption', code: 'instagram_audio_disabled' });
   }
 
   let cleanup: (() => Promise<void>) | undefined;
   let audioDraft: ImportDraft | null = null;
-  if (!isLocal && meta?.transcriptUrl) {
+  if (!isInstagram && !isLocal && meta?.transcriptUrl) {
     onStage('reading_transcript');
     const transcript = await readSubtitle(meta, deps, diagnostics);
     if (transcript) {
-      const subtitleDraft = safeTranscriptDraft(transcript, meta);
+      const subtitleDraft = await safeTranscriptDraft(transcript, meta, undefined, parseBudget, payload.sharedText);
       const cap = candidates.find((item) => item.source === 'caption');
       if (cap && subtitleDraft && scoreDraft(cap.draft).ingredients >= 3 && scoreDraft(cap.draft).steps < 2 && scoreDraft(subtitleDraft).steps >= 2)
         return save({ ...cap.draft, instructions: subtitleDraft.instructions, adapterId: 'share-auto-merge' }, 'caption+audio', meta.source, onStage, deps, diagnostics, false, hintsFor(meta, audioReason));
@@ -156,9 +210,9 @@ async function runAutoImportUnsafe(
     }
   }
   let audioFailed = false;
-  if (!isLocal && meta && !meta.videoUrl)
+  if (!isInstagram && !payload.videoPath && meta && !meta.videoUrl)
     diagnostics.push({ stage: 'downloading_video', code: 'video:no_video_url' });
-  if (payload.videoPath || meta?.videoUrl) {
+  if (!isInstagram && (payload.videoPath || meta?.videoUrl)) {
     let videoPath = payload.videoPath;
     if (!videoPath && meta) {
       onStage('downloading_video');
@@ -191,7 +245,7 @@ async function runAutoImportUnsafe(
             ),
         });
         if (result.ok) {
-          audioDraft = safeTranscriptDraft(result.transcript, meta, result.metadata.segments);
+          audioDraft = await safeTranscriptDraft(result.transcript, meta, result.metadata.segments, parseBudget, payload.sharedText);
           if (!audioDraft) diagnostics.push({ stage: 'transcribing', code: 'transcribe:no_draft' });
         } else {
           audioFailed = true;
@@ -260,13 +314,22 @@ async function runAutoImportUnsafe(
       hintsFor(meta, audioReason),
     );
   const caption = candidates.find((item) => item.source === 'caption');
-  if (caption && audioFailed && qualifiedCaptionOnly(caption.draft)) {
-    const note = "Steps weren't in the caption. Add them, or save the video and share it from Photos to transcribe it.";
+  if (caption && qualifiedCaptionOnly(caption.draft) && (audioFailed || isInstagram)) {
+    const note =
+      "Steps weren't in the caption. Add them, or save the video to Photos and share it from Photos to Whisk to transcribe it.";
     return save({ ...caption.draft, notes: [caption.draft.notes, note].filter(Boolean).join('\n') }, 'caption', meta?.source ?? 'shared post', onStage, deps, diagnostics, true, hintsFor(meta, audioReason), { allowIngredientsOnly: true });
   }
   if (caption) diagnostics.push({ stage: 'failed', code: 'caption:not_saveable', detail: `${scoreDraft(caption.draft).ingredients} ingredients, ${scoreDraft(caption.draft).steps} steps` });
   onStage('failed');
   return failed(diagnostics, hintsFor(meta, audioReason));
+}
+function isInstagramUrl(url: string | undefined): boolean {
+  if (!url) return false;
+  try {
+    return detectSource(url) === 'instagram';
+  } catch {
+    return false;
+  }
 }
 function qualifiedCaptionOnly(draft: ImportDraft) {
   return draft.ingredients.filter((item) => item.name.trim() && (item.quantity || item.unit)).length >= 5 && !draft.title.startsWith('Recipe from') && scoreDraft(draft).steps === 0;
@@ -290,42 +353,17 @@ async function safeWebsiteImport(
     return null;
   }
 }
-function safePastedDraft(text: string, meta: SocialMeta): ImportDraft | null {
+async function safePastedDraft(text: string, meta: SocialMeta, budget: ParseRecipeBudget): Promise<ImportDraft | null> {
   try {
     const social = ['instagram', 'tiktok', 'facebook', 'youtube', 'pinterest'].includes(meta.source);
-    const cleaned = social ? cleanSocialCaption(text, meta.source) : null;
-    if (cleaned) {
-      return {
-        id: createId(),
-        sourceKind: 'share_sheet',
-        sourceUrl: meta.canonicalUrl,
-        sourceName: meta.source,
-        imageUri: null,
-        title: cleaned.title,
-        notes: cleaned.notes || null,
-        servings: null,
-        prepMinutes: null,
-        cookMinutes: null,
-        ingredients: cleaned.ingredients.map((ingredient, position) => ({ ...ingredient, position })),
-        instructions: cleaned.steps,
-        confidence: {
-          title: cleaned.title.startsWith('Recipe from ') ? 'low' : 'medium',
-          ingredients: cleaned.ingredients.length ? 'medium' : 'unknown',
-          instructions: cleaned.steps.length ? 'medium' : 'unknown',
-        },
-        warnings: [{ code: 'low_confidence', message: 'Automatically drafted from shared social content. Review before serving.' }],
-        sourceEvidence: cleaned.text.slice(0, 4000),
-        adapterId: 'share-auto',
-        createdAt: nowIso(),
-      };
-    }
-    const draft = draftFromPastedText({
-      text,
+    return await parseRecipeText(text, {
+      sourceKind: 'share_sheet',
       sourceUrl: meta.canonicalUrl,
       sourceName: meta.source,
       adapterId: 'share-auto',
+      heuristicKind: social ? 'social' : 'paste',
+      budget,
     });
-    return draft;
   } catch {
     return null;
   }
@@ -378,24 +416,31 @@ async function readSubtitle(meta: SocialMeta, deps: AutoImportDeps, diagnostics:
     return null;
   }
 }
-function safeTranscriptDraft(
+async function safeTranscriptDraft(
   text: string,
   meta: SocialMeta | null,
   segments?: { start: number; end: number; text: string }[],
-): ImportDraft | null {
+  budget?: ParseRecipeBudget,
+  payloadSharedText?: string,
+): Promise<ImportDraft | null> {
   try {
-    return draftFromTranscript({
-      text,
+    return await parseRecipeText(text, {
+      sourceKind: 'share_sheet',
       segments,
       sourceUrl: meta?.canonicalUrl ?? null,
       sourceName: meta?.source ?? 'Photos',
+      adapterId: 'transcript',
+      sharedText: meta?.caption ?? payloadSharedText?.replace(/https?:\/\/\S+/gi, '').trim() ?? null,
+      heuristicKind: 'transcript',
+      budget,
     });
   } catch {
     return null;
   }
 }
 function hintsFor(meta: SocialMeta | null, reason: string): string[] | undefined {
-  return meta?.source === 'instagram' && (reason === 'no_video_url' || reason === 'login_wall')
+  return meta?.source === 'instagram' &&
+    (reason === 'no_video_url' || reason === 'login_wall' || reason === 'instagram_audio_disabled')
     ? ['ig_save_reel']
     : undefined;
 }

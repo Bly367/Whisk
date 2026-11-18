@@ -25,6 +25,8 @@ export async function fetchText(
   try {
     const response = await fetch(url, {
       redirect: 'follow',
+      // expo/fetch on iOS defaults to the app-wide cookie jar; Node sends none.
+      credentials: 'omit',
       signal: controller.signal,
       headers: {
         'User-Agent': DEFAULT_UA,

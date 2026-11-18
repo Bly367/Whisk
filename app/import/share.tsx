@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { diagnosticsText, runAutoImport, type AutoStage, type AutoImportPayload } from '@/import/autoImport';
+import { toAutoImportPayload } from '@/import/shareIntent';
 import { useSharePayloadStore } from '@/import/sharePayloadStore';
 
 const stageCopy: Record<AutoStage, string> = {
@@ -30,12 +31,14 @@ export default function ImportShareScreen() {
   const [error, setError] = useState<string | null>(null);
   const [hint, setHint] = useState(false);
   const [diagnostics, setDiagnostics] = useState<string | null>(null);
+  const [failureCode, setFailureCode] = useState<string | null>(null);
   const running = useRef(false);
   const run = useCallback(async function runImport(next: AutoImportPayload) {
     if (running.current) return;
     running.current = true;
     try {
       setError(null);
+      setFailureCode(null);
       const result = await runAutoImport(next, {}, (nextStage) => setStage(nextStage));
       if (__DEV__) console.warn('[share-import]', JSON.stringify(result.diagnostics));
       if (result.ok) router.replace(`/recipe/${result.recipe.id}`);
@@ -43,22 +46,19 @@ export default function ImportShareScreen() {
         setError(result.reason);
         setHint(result.hints?.includes('ig_save_reel') ?? false);
         setDiagnostics(diagnosticsText(result.diagnostics));
+        setFailureCode(result.code ?? null);
       }
     } catch (error) {
       setStage('failed');
       setError(error instanceof Error ? error.message : "Couldn't find a recipe in this post");
       setHint(false);
       setDiagnostics(null);
+      setFailureCode('share: error=screen');
     } finally {
       running.current = false;
       const pending = takePayload();
       if (pending) {
-        const queued = {
-          url: pending.url,
-          sharedText: pending.sharedText ?? pending.caption,
-          videoPath: pending.videoPath,
-          sourceName: pending.url,
-        };
+        const queued = toAutoImportPayload(pending);
         setActivePayload(queued);
         void runImport(queued);
       }
@@ -68,12 +68,7 @@ export default function ImportShareScreen() {
     if (!payload || running.current) return;
     const pending = takePayload();
     if (!pending) return;
-    const next = {
-      url: pending.url,
-      sharedText: pending.sharedText ?? pending.caption,
-      videoPath: pending.videoPath,
-      sourceName: pending.url,
-    };
+    const next = toAutoImportPayload(pending);
     setActivePayload(next);
     void run(next);
   }, [payload, takePayload, run]);
@@ -98,7 +93,12 @@ export default function ImportShareScreen() {
             <Text variant="body" tone="secondary">
               {error}
             </Text>
-                {diagnostics ? <Text testID="share-import-diagnostics" variant="caption" tone="secondary">{diagnostics}</Text> : null}
+            {failureCode ? (
+              <Text testID="share-import-failure-code" variant="caption" tone="secondary" selectable>
+                {failureCode}
+              </Text>
+            ) : null}
+            {diagnostics ? <Text testID="share-import-diagnostics" variant="caption" tone="secondary">{diagnostics}</Text> : null}
             {hint ? (
               <Text variant="body" tone="secondary">
                 Save the reel, then share it from Photos to import from its audio

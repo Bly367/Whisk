@@ -7,6 +7,8 @@ Pod::Spec.new do |s|
   s.version        = package['version']
   s.summary        = 'Native PCM WAV audio extraction for Whisk'
   s.description    = s.summary
+  s.homepage       = 'https://github.com/Bly367/Whisk'
+  s.authors        = 'Whisk'
   s.platforms      = { :ios => '16.4' }
   s.swift_version  = '5.9'
   s.static_framework = true

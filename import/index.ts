@@ -33,6 +33,8 @@ export { canonicalizeUrl, detectSource, extractUrl, isSocialSource } from '@/imp
 export { extractRecipeJsonLd, extractPageMetadata } from '@/import/parse/jsonLd';
 export { draftFromPastedText } from '@/import/parse/pasteText';
 export { draftFromTranscript } from '@/import/parse/transcript';
+export { parseRecipeText } from '@/import/parse/parseRecipeText';
+export type { ParsedIngredient, ParsedRecipe } from '@/import/parse/structured';
 export { parseIngredientLine } from '@/import/parse/ingredients';
 export { scoreDraft } from '@/import/score';
 export { runAutoImport } from '@/import/autoImport';

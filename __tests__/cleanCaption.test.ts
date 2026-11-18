@@ -19,6 +19,16 @@ it('cleans bulgogi sections and assigns ingredient groups', () => {
   expect(cleaned.groups.get('brown sugar')).toBe('Sauce');
 });
 
+it('parses attached metric quantities and keeps tortilla size words', () => {
+  const cleaned = cleanSocialCaption(fixture('ig-crunchwrap-oembed-caption.txt'), 'Instagram');
+  expect(cleaned.ingredients.find((item) => item.name === 'ground beef')).toEqual(
+    expect.objectContaining({ quantity: '450', unit: 'g' }),
+  );
+  expect(cleaned.ingredients.some((item) => /large tortillas/i.test(item.name))).toBe(true);
+  expect(cleaned.ingredients.some((item) => /small tortillas/i.test(item.name))).toBe(true);
+  expect(cleaned.steps.length).toBeGreaterThanOrEqual(3);
+});
+
 it('keeps an ingredients-only tortellini caption recipe-ready without steps', () => {
   const cleaned = cleanSocialCaption(`Creamy, Spicy Tortellini and Sausage Soup ❤️‍🔥\n\nThis one’s comfort in a bowl.\n\nIngredients below, full recipe in my bio!\n\n1 tbsp unsalted butter\n1 tbsp olive oil\n1 lb Italian sausage (hot or mild)\n1 medium yellow onion, finely diced\n2 stalks celery, finely diced\n2 medium carrots, finely diced\n6–8 cloves garlic, minced, to taste\n1 tsp dried basil\n1 tsp dried oregano\n½ tsp dried thyme\n½ tsp dried rosemary\n1–2 tsp Calabrian chilies\n3 tbsp tomato paste\n3 tbsp all-purpose flour\n½ cup dry white wine\n28 oz crushed tomatoes\n4 cups low-sodium chicken broth\n1 Parmesan rind (optional)\n1 bay leaf\n½ cup heavy cream\n2 cups spinach\n10–12 oz cheese tortellini\n1 cup freshly grated Parmesan\nLemon zest\nFresh basil, for garnish\n#soup #recipes`, 'TikTok');
   expect(cleaned.ingredients.length).toBeGreaterThanOrEqual(24);
