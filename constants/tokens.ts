@@ -4,33 +4,35 @@
  */
 
 export const brand = {
-  yolk: '#F7B928',
-  yolkPressed: '#D89400',
-  yolkSoft: '#FFF1C2',
+  yolk: '#F0954A',
+  yolkPressed: '#D97E35',
+  yolkSoft: '#FCE3CF',
   /** Soft yolk wash for dark mode — keeps accent readable without glare. */
-  yolkSoftDark: '#3A3010',
-  yolkMuted: '#E5A820',
+  yolkSoftDark: '#3D2A1A',
+  /** Slightly darker orange for dark-mode accent surfaces. */
+  yolkMuted: '#C87838',
   chick: '#FFD968',
 } as const;
 
 export const lightPalette = {
   surface: {
-    canvas: '#FFFDF8',
+    canvas: '#F6E9DE',
     card: '#FFFFFF',
-    sunken: '#F6F2E9',
+    sunken: '#FBF1EA',
   },
   text: {
-    primary: '#241F18',
-    secondary: '#6B6257',
-    inverse: '#FFFDF8',
+    primary: '#1E1A17',
+    /** Doc #8A817A is 3.2:1 on canvas — darkened to meet WCAG AA body text (4.5:1). */
+    secondary: '#726962',
+    inverse: '#F6E9DE',
   },
   border: {
-    subtle: '#E8E0D4',
+    subtle: '#EDE3DA',
   },
   semantic: {
-    success: '#247A4B',
+    success: '#35804A',
     warning: '#A85F00',
-    error: '#B42318',
+    error: '#B8423E',
     info: '#3567A8',
   },
 } as const;
@@ -44,7 +46,7 @@ export const darkPalette = {
   text: {
     primary: '#F8F4EA',
     secondary: '#B5AA9A',
-    inverse: '#241F18',
+    inverse: '#1E1A17',
   },
   border: {
     subtle: '#3A342B',
@@ -67,8 +69,8 @@ export const spacing = {
 } as const;
 
 export const radius = {
-  control: 16,
-  card: 24,
+  control: 12,
+  card: 16,
   chip: 20,
   pill: 999,
 } as const;
@@ -85,19 +87,19 @@ export const typography = {
     fontSize: 32, 
     lineHeight: 38, 
     fontWeight: '700' as const,
-    fontFamily: 'Nunito_700Bold',
+    fontFamily: 'Fraunces_700Bold',
   },
   title1: { 
     fontSize: 28, 
     lineHeight: 34, 
     fontWeight: '700' as const,
-    fontFamily: 'Nunito_700Bold',
+    fontFamily: 'Fraunces_700Bold',
   },
   title2: { 
     fontSize: 22, 
     lineHeight: 28, 
     fontWeight: '600' as const,
-    fontFamily: 'Nunito_600SemiBold',
+    fontFamily: 'Fraunces_600SemiBold',
   },
   headline: { 
     fontSize: 17, 
